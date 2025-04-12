@@ -10,7 +10,7 @@ const DEFAULT_IMAGE_PARAMS = {
     height: 1024,
     seed: () => Math.floor(Math.random() * 100000), // Random seed per image
     nologo: true,
-    model: 'turbo' // Using Turbo model
+    model: 'flux' // Using Turbo model
 };
 const REFERRER_ID = "ColorVerseWebApp"; // For API usage tracking
 const PLACEHOLDER_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
@@ -225,6 +225,9 @@ class ImageLoadQueue {
                 errorIndicator.innerHTML = '<i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>';
                 imageElement.parentNode.classList.add('relative');
                 imageElement.parentNode.appendChild(errorIndicator);
+                
+                // Set a placeholder image
+                imageElement.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iIzk5OTk5OSI+SW1hZ2UgRXJyb3I8L3RleHQ+PC9zdmc+';
             };
             
             // Start loading
@@ -254,6 +257,12 @@ function setupLazyLoading() {
         return;
     }
     
+    // First look for any stuck loading indicators and hide them
+    document.querySelectorAll('.image-loading-indicator').forEach(indicator => {
+        indicator.style.display = 'none';
+    });
+    
+    // Create the IntersectionObserver to watch for images entering the viewport
     const imageObserver = new IntersectionObserver((entries, observer) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -261,6 +270,7 @@ function setupLazyLoading() {
                 const src = lazyImage.getAttribute('data-src');
                 
                 if (src) {
+                    console.log("Image intersecting viewport, loading:", src);
                     // Add to the staggered loading queue
                     imageLoadQueue.add(lazyImage, src);
                     
@@ -282,9 +292,13 @@ function setupLazyLoading() {
         if (wrapper) {
             wrapper.classList.add('relative');
             const loader = document.createElement('div');
-            loader.className = 'image-loading-indicator absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-50';
+            loader.className = 'image-loading-indicator absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-50 z-0';
             loader.innerHTML = '<div class="spinner"></div>';
-            wrapper.appendChild(loader);
+            wrapper.insertBefore(loader, wrapper.firstChild); // Insert loader before the image
+            
+            // Make sure the image has a higher z-index
+            img.style.position = 'relative';
+            img.style.zIndex = '10';
         }
         
         // Start observing
@@ -578,8 +592,11 @@ function renderHomepage(data) {
         html += `
             <a href="#category/${key}" class="category-card block rounded-xl shadow-md overflow-hidden hover:shadow-xl transition duration-300 group">
                 <div class="relative">
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${category.title}" class="w-full h-48 object-cover group-hover:opacity-90 transition-opacity">
-                    <div class="absolute top-3 right-3 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md">
+                    <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
+                        <div class="spinner"></div>
+                    </div>
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${category.title}" class="w-full h-48 object-cover group-hover:opacity-90 transition-opacity relative z-10">
+                    <div class="absolute top-3 right-3 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md z-20">
                         <i class="${getCategoryIcon(key)} text-primary-600"></i>
                     </div>
                 </div>
@@ -652,7 +669,10 @@ function renderHomepage(data) {
         html += `
             <a href="#category/${key}" class="category-card flex flex-col rounded-xl shadow-md overflow-hidden hover:shadow-xl transition duration-300 bg-white dark:bg-gray-800">
                 <div class="relative">
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${category.title}" class="w-full h-40 object-cover group-hover:opacity-90 transition-opacity">
+                    <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
+                        <div class="spinner"></div>
+                    </div>
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${category.title}" class="w-full h-40 object-cover group-hover:opacity-90 transition-opacity relative z-10">
                 </div>
                 <div class="p-4 flex-grow flex flex-col">
                     <div class="flex items-center mb-2">
@@ -737,7 +757,10 @@ function renderDailyPick(data) {
     return `
         <div class="flex flex-col md:flex-row">
             <div class="md:w-2/3 relative">
-                <img src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" alt="${item.title}" class="w-full h-auto object-contain rounded">
+                <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
+                    <div class="spinner"></div>
+                </div>
+                <img src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" alt="${item.title}" class="w-full h-auto object-contain rounded relative z-10">
             </div>
             <div class="md:w-1/3 p-4 flex flex-col justify-between">
                 <div>
@@ -781,7 +804,10 @@ function renderRecentAdditions(data) {
         html += `
             <a href="#item/${categoryKey}/${itemKey}" class="flex-shrink-0 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition duration-300">
                 <div class="relative">
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${item.title}" class="w-full h-48 object-cover">
+                    <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
+                        <div class="spinner"></div>
+                    </div>
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${item.title}" class="w-full h-48 object-cover relative z-10">
                 </div>
                 <div class="p-3">
                     <span class="text-xs font-medium text-primary-600 bg-primary-100 px-2 py-0.5 rounded-full">${categoryTitle}</span>
@@ -843,8 +869,11 @@ function renderCategory(categoryData, categoryKey) {
          html += `
             <a href="#item/${categoryKey}/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group">
                 <div class="relative">
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${item.title}" class="w-full h-32 object-cover group-hover:opacity-80 transition-opacity">
-                    <div class="absolute inset-0 bg-primary-600 bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
+                    <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
+                        <div class="spinner"></div>
+                    </div>
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${item.title}" class="w-full h-32 object-cover group-hover:opacity-80 transition-opacity relative z-10">
+                    <div class="absolute inset-0 bg-primary-600 bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center z-20">
                         <div class="bg-white p-2 rounded-full opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all duration-300">
                             <i class="fas fa-eye text-primary-600"></i>
                         </div>
@@ -901,7 +930,10 @@ function renderItem(itemData, categoryKey, itemKey) {
         <div class="bg-white p-4 shadow-lg rounded-lg flex flex-col lg:flex-row gap-6">
             <!-- Image Area -->
             <div class="flex-grow flex justify-center items-center lg:border-r lg:pr-6 relative">
-                <img src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" alt="Coloring page: ${itemData.title}" class="max-w-full max-h-[70vh] object-contain rounded shadow">
+                <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
+                    <div class="spinner"></div>
+                </div>
+                <img src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" alt="Coloring page: ${itemData.title}" class="max-w-full max-h-[70vh] object-contain rounded shadow relative z-10">
             </div>
 
             <!-- Controls & Info Area -->
@@ -966,7 +998,10 @@ function renderRelatedItems(category, categoryKey, currentItemKey) {
         html += `
             <a href="#item/${categoryKey}/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300">
                 <div class="relative">
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${item.title}" class="w-full h-32 object-cover">
+                    <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
+                        <div class="spinner"></div>
+                    </div>
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${item.title}" class="w-full h-32 object-cover relative z-10">
                 </div>
                 <div class="p-3">
                     <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">${item.title}</h4>
@@ -1039,6 +1074,12 @@ function handleRouteChange() {
     showLoading(true);
     const hash = window.location.hash || '#';
     mainContent.innerHTML = ''; // Clear previous content
+    
+    // Reset the image loading queue in a more efficient way
+    if (imageLoadQueue) {
+        // Just mark as not processing, which will reset on next add
+        imageLoadQueue.isProcessing = false;
+    }
 
     // Small delay to allow UI to show loading state
     setTimeout(() => {
@@ -1371,6 +1412,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(() => {
             setupLazyLoading();
         }, 300);
+        
+        // Simplified window load handler
+        window.addEventListener('load', () => {
+            console.log("Window fully loaded");
+            document.body.classList.remove('loading');
+        });
+        
+        // MutationObserver removed as it was causing performance issues
         
         console.log("Initialization complete");
     } catch (error) {
