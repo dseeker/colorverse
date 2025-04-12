@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ColorVerse - Free Coloring Pages & AI Art</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Ensure full height for sticky footer */
+        html, body { height: 100%; }
+        body { display: flex; flex-direction: column; }
+        #page-container { flex: 1 0 auto; }
+        footer { flex-shrink: 0; }
+
+        /* Theme transitions */
+        body {
+            transition: background-color 0.5s, color 0.5s;
+        }
+
+        /* Loading indicator */
+        #loading-indicator { display: none; }
+        body.loading #loading-indicator { display: block; }
+        body.loading #main-content { display: none; }
+        
+        /* Spinner animation */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #09f;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Image loading styles */
+        .image-loading-indicator {
+            z-index: 10;
+        }
+        
+        .image-loading-indicator .spinner {
+            width: 24px;
+            height: 24px;
+        }
+        
+        .image-error-indicator {
+            z-index: 10;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 5px;
+        }
+        
+        img.loading {
+            opacity: 0.5;
+        }
+        
+        img.error {
+            opacity: 0.3;
+        }
+
+        /* Painting/Art themed elements */
+        .paint-splash {
+            position: absolute;
+            opacity: 0.05;
+            z-index: -1;
+            transform: rotate(var(--rotation, 0deg));
+        }
+        
+        /* Theme styles */
+        .theme-light {
+            --bg-primary: #f9fafb;
+            --text-primary: #333;
+            --accent-primary: linear-gradient(135deg, #90cdf4, #3182ce);
+            --accent-secondary: linear-gradient(135deg, #fbd38d, #ed8936);
+        }
+        
+        .theme-dark {
+            --bg-primary: #1a202c;
+            --text-primary: #f7fafc;
+            --accent-primary: linear-gradient(135deg, #2a4365, #2b6cb0);
+            --accent-secondary: linear-gradient(135deg, #744210, #c05621);
+        }
+        
+        .theme-colorful {
+            --bg-primary: #f0f9ff;
+            --text-primary: #2d3748;
+            --accent-primary: linear-gradient(135deg, #f687b3, #7f9cf5, #4fd1c5);
+            --accent-secondary: linear-gradient(135deg, #faf089, #f6ad55, #fc8181);
+        }
+        
+        /* Additional theme-specific styles */
+        .theme-dark body {
+            background-color: #121826;
+            color: #e2e8f0;
+        }
+        
+        .theme-dark .carousel-button {
+            background-color: #4a5568;
+            color: white;
+        }
+        
+        .theme-dark .carousel-button:hover {
+            background-color: #2d3748;
+        }
+        
+        /* Section backgrounds */
+        .colorful-section {
+            border-radius: 1rem;
+            margin: 1rem 0;
+            padding: 1.5rem;
+        }
+        
+        /* Category card effects */
+        .category-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .category-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .category-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: var(--accent-secondary);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s;
+        }
+        
+        .category-card:hover::after {
+            transform: scaleX(1);
+        }
+        
+        /* Carousel */
+        .carousel {
+            scroll-behavior: smooth;
+            scrollbar-width: none;
+        }
+        .carousel::-webkit-scrollbar {
+            display: none;
+        }
+        
+        /* Accessibility enhancements */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+        
+        /* Accent panels */
+        .accent-panel {
+            background-image: var(--accent-primary);
+            border-radius: 1rem;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .accent-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffffff' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+            opacity: 0.1;
+        }
+    </style>
+    <script>
+        // Extend Tailwind config with our theme colors
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="theme-light bg-gray-100 text-gray-800 loading flex flex-col min-h-screen">
+
+<div id="page-container" class="flex-grow pt-16"> <!-- Add padding-top to accommodate fixed header -->
+    <header class="bg-gradient-to-r from-cyan-500 to-blue-500 text-white p-4 shadow-md fixed top-0 left-0 right-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center">
+                <div class="mr-3 hidden sm:block">
+                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="20" cy="20" r="18" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="2"/>
+                        <path d="M20 6C12.268 6 6 12.268 6 20C6 27.732 12.268 34 20 34C27.732 34 34 27.732 34 20C34 12.268 27.732 6 20 6ZM20 8C26.617 8 32 13.383 32 20C32 26.617 26.617 32 20 32C13.383 32 8 26.617 8 20C8 13.383 13.383 8 20 8Z" fill="#3182CE"/>
+                        <path d="M12 20C12 15.582 15.582 12 20 12V8C13.373 8 8 13.373 8 20H12Z" fill="#F56565"/>
+                        <path d="M20 12C24.418 12 28 15.582 28 20H32C32 13.373 26.627 8 20 8V12Z" fill="#48BB78"/>
+                        <path d="M28 20C28 24.418 24.418 28 20 28V32C26.627 32 32 26.627 32 20H28Z" fill="#ECC94B"/>
+                        <path d="M20 28C15.582 28 12 24.418 12 20H8C8 26.627 13.373 32 20 32V28Z" fill="#9F7AEA"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold">
+                        <a href="#" class="flex items-center">
+                            ColorVerse
+                            <span class="ml-2 text-xs bg-yellow-400 text-black px-2 py-0.5 rounded-full">Beta</span>
+                        </a>
+                    </h1>
+                    <p class="text-sm mt-1 opacity-90">Unlock Your Imagination: Endless Coloring Pages & AI-Generated Art</p>
+                </div>
+            </div>
+            <nav class="flex items-center">
+                <div class="flex items-center mr-4 bg-white bg-opacity-20 rounded-lg p-1">
+                    <button id="theme-light" class="p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-10 transition-colors" title="Light Mode">
+                        <i class="fas fa-sun"></i>
+                        <span class="sr-only">Light Mode</span>
+                    </button>
+                    <button id="theme-dark" class="p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-10 transition-colors" title="Dark Mode">
+                        <i class="fas fa-moon"></i>
+                        <span class="sr-only">Dark Mode</span>
+                    </button>
+                    <button id="theme-colorful" class="p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-10 transition-colors" title="Colorful Mode">
+                        <i class="fas fa-palette"></i>
+                        <span class="sr-only">Colorful Mode</span>
+                    </button>
+                </div>
+                <a href="#donate" class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center">
+                    <i class="fas fa-heart mr-2"></i> Donate
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 flex-grow" id="main-content">
+        <!-- Content will be dynamically generated here -->
+    </main>
+
+    <div id="loading-indicator" class="container mx-auto p-10 flex justify-center items-center flex-grow">
+        <div class="spinner"></div>
+        <p class="ml-4 text-gray-600">Loading Content...</p>
+    </div>
+</div>
+
+    <footer class="bg-gray-800 text-white p-4 mt-8">
+        <div class="container mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <div>
+                    <h3 class="text-lg font-bold mb-3">ColorVerse</h3>
+                    <p class="text-sm text-gray-300">Bringing creativity and imagination to life with AI-generated coloring pages for everyone.</p>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold mb-3">Quick Links</h3>
+                    <ul class="text-sm space-y-2">
+                        <li><a href="#" class="hover:text-primary-300 transition-colors">Home</a></li>
+                        <li><a href="#about" class="hover:text-primary-300 transition-colors">About</a></li>
+                        <li><a href="#contact" class="hover:text-primary-300 transition-colors">Contact</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold mb-3">Categories</h3>
+                    <ul class="text-sm space-y-2">
+                        <li><a href="#category/animals" class="hover:text-primary-300 transition-colors">Animals</a></li>
+                        <li><a href="#category/mandalas" class="hover:text-primary-300 transition-colors">Mandalas</a></li>
+                        <li><a href="#category/fantasy" class="hover:text-primary-300 transition-colors">Fantasy</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold mb-3">Connect</h3>
+                    <div class="flex space-x-3 text-xl">
+                        <a href="#" aria-label="Twitter" class="hover:text-primary-300 transition-colors"><i class="fab fa-twitter"></i></a>
+                        <a href="#" aria-label="Instagram" class="hover:text-primary-300 transition-colors"><i class="fab fa-instagram"></i></a>
+                        <a href="#" aria-label="Pinterest" class="hover:text-primary-300 transition-colors"><i class="fab fa-pinterest"></i></a>
+                        <a href="#" aria-label="Facebook" class="hover:text-primary-300 transition-colors"><i class="fab fa-facebook"></i></a>
+                    </div>
+                    <p class="text-sm mt-4">Subscribe for updates:</p>
+                    <div class="flex mt-2">
+                        <input type="email" placeholder="Your email" class="px-3 py-1 text-sm text-black rounded-l-lg w-full" aria-label="Email for newsletter">
+                        <button class="bg-primary-500 hover:bg-primary-600 px-3 py-1 rounded-r-lg transition-colors">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 pt-4 text-center">
+                <p>&copy; 2025 ColorVerse. All rights reserved.</p>
+                <p class="text-sm mt-2">
+                    <a href="#about" class="hover:underline mx-2">About</a> |
+                    <a href="#privacy" class="hover:underline mx-2">Privacy Policy</a> |
+                    <a href="#terms" class="hover:underline mx-2">Terms of Service</a> |
+                    <a href="#contact" class="hover:underline mx-2">Contact</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Add paint splashes for artistic effect -->
+    <div class="paint-splash top-20 left-5 w-64 h-64" style="--rotation: 15deg;">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <path fill="#FF6B6B" d="M47.7,-61.5C62.4,-53.4,75.3,-39.5,79.7,-23.5C84.1,-7.5,80,10.6,71.5,25.8C63,41,50.1,53.2,35.1,61.3C20.1,69.5,3,73.5,-12.4,70.6C-27.8,67.6,-41.6,57.6,-53.2,45.1C-64.9,32.5,-74.4,17.5,-76.2,1.1C-78,-15.4,-72,-33.2,-60.4,-43.3C-48.8,-53.5,-31.5,-56,-16.3,-61.1C-1.1,-66.2,12.9,-73.9,28.5,-72.7C44.1,-71.6,60.3,-61.7,47.7,-61.5Z" transform="translate(100 100)" />
+        </svg>
+    </div>
+    <div class="paint-splash bottom-40 right-10 w-96 h-96" style="--rotation: -25deg;">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <path fill="#64D1D0" d="M36.3,-48.8C51.1,-45.3,70,-39.9,76.1,-28.1C82.1,-16.4,75.5,1.7,68.3,17.5C61.1,33.3,53.3,46.8,41.6,57.3C29.9,67.8,14.9,75.3,0.9,74.1C-13.2,72.9,-26.4,63,-38.1,52.4C-49.8,41.8,-60,30.6,-63.5,17.7C-67,4.8,-63.8,-9.8,-58.2,-22.3C-52.6,-34.9,-44.7,-45.4,-34.2,-50.1C-23.7,-54.8,-11.9,-53.7,0.2,-54C12.2,-54.2,24.5,-55.6,36.3,-48.8Z" transform="translate(100 100)" />
+        </svg>
+    </div>
+
+    <!-- Load Site Data and App Logic -->
+    <script src="app.js"></script>
+    
+    <!-- Theme Switcher Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Theme switching functionality
+            const themeLight = document.getElementById('theme-light');
+            const themeDark = document.getElementById('theme-dark');
+            const themeColorful = document.getElementById('theme-colorful');
+            const body = document.body;
+            
+            // Apply saved theme or default to light
+            const savedTheme = localStorage.getItem('colorverse-theme') || 'light';
+            body.className = body.className.replace(/theme-\w+/, '').trim() + ' theme-' + savedTheme;
+            
+            // Add loading class to ensure proper loading state
+            if (!body.classList.contains('loading')) {
+                body.classList.add('loading');
+            }
+            
+            // Set up theme switching
+            themeLight.addEventListener('click', () => {
+                if (typeof applyTheme === 'function') {
+                    applyTheme('light');
+                } else {
+                    setTheme('light');
+                }
+            });
+            
+            themeDark.addEventListener('click', () => {
+                if (typeof applyTheme === 'function') {
+                    applyTheme('dark');
+                } else {
+                    setTheme('dark');
+                }
+            });
+            
+            themeColorful.addEventListener('click', () => {
+                if (typeof applyTheme === 'function') {
+                    applyTheme('colorful');
+                } else {
+                    setTheme('colorful');
+                }
+            });
+            
+            function setTheme(theme) {
+                body.className = body.className.replace(/theme-\w+/, '').trim() + ' theme-' + theme;
+                localStorage.setItem('colorverse-theme', theme);
+                
+                // No toast notification for theme changes
+                
+                // Announce theme change for screen readers
+                const announcement = document.createElement('div');
+                announcement.setAttribute('aria-live', 'polite');
+                announcement.classList.add('sr-only');
+                announcement.textContent = theme + ' theme applied';
+                document.body.appendChild(announcement);
+                
+                // Remove announcement after it's been read
+                setTimeout(() => {
+                    if (announcement.parentNode) {
+                        document.body.removeChild(announcement);
+                    }
+                }, 3000);
+            }
+        });
+    </script>
+</body>
+</html>
