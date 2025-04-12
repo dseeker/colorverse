@@ -349,7 +349,7 @@ function getImageUrl(prompt, params = {}) {
         }
 
         // Crucial for coloring pages: Modify the prompt for good line art
-        const coloringPrompt = `line art coloring page, ${enhancedPrompt}, black and white outlines, clean lines, simple, vector style`;
+        const coloringPrompt = `high contrast black and white line art coloring page, ${enhancedPrompt}, pure outlines with no shading, no color, no grayscale, thick clean lines, simple contours only, minimalist printable coloring book style, suitable for children to color`;
 
         const query = new URLSearchParams({
             width: fullParams.width,
@@ -456,50 +456,61 @@ function getRandomPastelGradient() {
     return gradients[Math.floor(Math.random() * gradients.length)];
 }
 
-// Function to apply theme to UI
+// Function to apply theme to UI - simplified
 function applyTheme(themeName) {
-    const theme = THEMES[themeName] || THEMES.light;
+    if (!['light', 'dark', 'colorful'].includes(themeName)) {
+        themeName = 'light'; // Fallback to light theme
+    }
     
-    // Remove existing theme classes and add new ones
+    // 1. Remove all theme classes and add the selected one
     bodyElement.classList.remove('theme-light', 'theme-dark', 'theme-colorful');
     bodyElement.classList.add(`theme-${themeName}`);
     
-    // Store the selection in local storage
+    // 2. Save the selection in local storage
     localStorage.setItem('colorverse-theme', themeName);
     
-    // Apply dark mode to carousel buttons and other elements if needed
+    // 3. Update theme button active states
+    const themeButtons = {
+        'light': document.getElementById('theme-light'),
+        'dark': document.getElementById('theme-dark'),
+        'colorful': document.getElementById('theme-colorful')
+    };
+    
+    // Clear active state from all buttons
+    Object.values(themeButtons).forEach(button => {
+        if (button) {
+            button.classList.remove('bg-white', 'bg-opacity-30', 'text-white', 'font-bold');
+        }
+    });
+    
+    // Add active state to current theme button
+    if (themeButtons[themeName]) {
+        themeButtons[themeName].classList.add('bg-white', 'bg-opacity-30', 'text-white', 'font-bold');
+    }
+    
+    // 4. Update carousel buttons
     const carouselButtons = document.querySelectorAll('#carousel-prev, #carousel-next');
     if (carouselButtons) {
         carouselButtons.forEach(button => {
+            // First remove all theme-specific classes
+            button.classList.remove(
+                'bg-white', 'hover:bg-gray-100', 
+                'bg-gray-700', 'hover:bg-gray-600', 'text-white'
+            );
+            
+            // Then add theme-specific classes
             if (themeName === 'dark') {
-                button.classList.remove('bg-white', 'hover:bg-gray-100');
                 button.classList.add('bg-gray-700', 'hover:bg-gray-600', 'text-white');
             } else {
-                button.classList.remove('bg-gray-700', 'hover:bg-gray-600', 'text-white');
                 button.classList.add('bg-white', 'hover:bg-gray-100');
             }
         });
     }
     
-    // Apply dark mode to body background
-    if (themeName === 'dark') {
-        document.body.style.backgroundColor = '#121826';
-    } else if (themeName === 'colorful') {
-        document.body.style.backgroundColor = '#f0f9ff';
-    } else {
-        // Light theme - reset background color
-        document.body.style.backgroundColor = '';
-    }
-    
-    // Apply dark mode to loading indicators
+    // 5. Apply theme-specific image loading indicator styling
     document.querySelectorAll('.image-loading-indicator').forEach(el => {
-        if (themeName === 'dark') {
-            el.classList.remove('bg-gray-100');
-            el.classList.add('bg-gray-700');
-        } else {
-            el.classList.remove('bg-gray-700');
-            el.classList.add('bg-gray-100');
-        }
+        el.classList.remove('bg-gray-100', 'bg-gray-700');
+        el.classList.add(themeName === 'dark' ? 'bg-gray-700' : 'bg-gray-100');
     });
     
     console.log(`Theme switched to: ${themeName}`);
@@ -826,7 +837,7 @@ function renderCategory(categoryData, categoryKey) {
     const categoryIcon = getCategoryIcon(categoryKey);
     
     let html = `
-        <nav aria-label="breadcrumb" class="flex items-center mb-6 text-sm text-gray-600 dark:text-gray-400">
+        <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 dark:text-gray-400 py-2">
             <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
                 <i class="fas fa-home mr-1"></i> Home
             </a>
@@ -919,30 +930,35 @@ function renderItem(itemData, categoryKey, itemKey) {
     const nextItemKey = currentIndex < itemKeys.length - 1 ? itemKeys[currentIndex + 1] : null;
 
     let html = `
-        <nav aria-label="breadcrumb" class="mb-4 text-sm text-gray-600">
-          <a href="#" class="hover:underline">Home</a> &raquo;
-          <a href="#category/${categoryKey}" class="hover:underline">${category.title}</a> &raquo;
-          ${itemData.title}
+        <nav aria-label="breadcrumb" class="mb-6 mt-2 text-sm py-2" style="color: var(--text-color);">
+          <a href="#" class="hover:underline hover:text-primary-600">Home</a> &raquo;
+          <a href="#category/${categoryKey}" class="hover:underline hover:text-primary-600 mx-1">${category.title}</a> &raquo;
+          <span class="mx-1 font-medium">${itemData.title}</span>
         </nav>
-        <h2 class="text-3xl font-bold mb-2">${itemData.title}</h2>
-        <p class="text-gray-700 mb-6">${itemData.description}</p>
+        <h2 class="text-3xl font-bold mb-2" style="color: var(--text-color);">${itemData.title}</h2>
+        <p class="mb-6" style="color: var(--text-color);">${itemData.description}</p>
 
-        <div class="bg-white p-4 shadow-lg rounded-lg flex flex-col lg:flex-row gap-6">
+        <div class="p-4 shadow-lg rounded-lg flex flex-col lg:flex-row gap-6" 
+            style="background-color: var(--card-bg); color: var(--card-text); border: 1px solid var(--border-color);">
             <!-- Image Area -->
-            <div class="flex-grow flex justify-center items-center lg:border-r lg:pr-6 relative">
+            <div class="flex-grow flex justify-center items-center lg:pr-6 relative" style="border-right: 1px solid var(--border-color);">
                 <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                     <div class="spinner"></div>
                 </div>
-                <img src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" alt="Coloring page: ${itemData.title}" class="max-w-full max-h-[70vh] object-contain rounded shadow relative z-10">
+                <img id="coloring-image" src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" alt="Coloring page: ${itemData.title}" class="max-w-full max-h-[70vh] object-contain rounded shadow relative z-10">
             </div>
 
             <!-- Controls & Info Area -->
-            <div class="lg:w-1/4 flex flex-col gap-4">
-                <h3 class="text-xl font-semibold border-b pb-2">Actions</h3>
+            <div class="lg:w-1/4 flex flex-col gap-4 actions-panel">
+                <h3 class="text-xl font-semibold pb-2 border-b" style="color: var(--text-color); border-color: var(--border-color);">Actions</h3>
                 <a href="${imageUrl}" download="${categoryKey}-${itemKey}-${itemData.title.replace(/\s+/g, '-')}.jpg"
                    class="block w-full text-center bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition duration-300">
                    Download Image
                 </a>
+                <button onclick="printColoringPage('${itemData.title}')"
+                        class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition duration-300">
+                   Print Coloring Page
+                </button>
                 <button onclick="sharePage('${itemData.title}', window.location.href)"
                         class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition duration-300">
                    Share
@@ -952,29 +968,30 @@ function renderItem(itemData, categoryKey, itemKey) {
                     Support Us (Donate)
                  </a>
                 <!-- Placeholder for Save/Favorite -->
-                <button class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded transition duration-300" disabled>
+                <button class="w-full font-bold py-2 px-4 rounded transition duration-300" style="background-color: #d1d5db; color: #4b5563;" disabled>
                     Save (Coming Soon)
                 </button>
 
-                <h3 class="text-xl font-semibold border-b pb-2 mt-4">Navigation</h3>
+                <h3 class="text-xl font-semibold pb-2 mt-4 border-b" style="color: var(--text-color); border-color: var(--border-color);">Navigation</h3>
                  <div class="flex justify-between gap-2">
-                    ${prevItemKey ? `<a href="#item/${categoryKey}/${prevItemKey}" class="flex-1 text-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded transition duration-300">&laquo; Previous</a>` : '<div class="flex-1"></div>'}
-                    ${nextItemKey ? `<a href="#item/${categoryKey}/${nextItemKey}" class="flex-1 text-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded transition duration-300">Next &raquo;</a>` : '<div class="flex-1"></div>'}
+                    ${prevItemKey ? `<a href="#item/${categoryKey}/${prevItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">&laquo; Previous</a>` : '<div class="flex-1"></div>'}
+                    ${nextItemKey ? `<a href="#item/${categoryKey}/${nextItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">Next &raquo;</a>` : '<div class="flex-1"></div>'}
                  </div>
-                 <a href="#category/${categoryKey}" class="block text-center mt-2 text-blue-600 hover:underline">Back to ${category.title}</a>
+                 <a href="#category/${categoryKey}" class="block text-center mt-2 hover:underline" style="color: var(--accent-color);">Back to ${category.title}</a>
 
                  <!-- Placeholder for Affiliate Links -->
-                 <div class="mt-6 border-t pt-4">
-                     <h4 class="text-md font-semibold mb-2">Get Coloring Supplies!</h4>
-                     <a href="#" target="_blank" rel="noopener noreferrer sponsored" class="text-sm text-blue-500 hover:underline block">Shop Pencils on Amazon (Affiliate)</a>
-                     <a href="#" target="_blank" rel="noopener noreferrer sponsored" class="text-sm text-blue-500 hover:underline block">Shop Markers on Amazon (Affiliate)</a>
-                     <p class="text-xs text-gray-500 mt-1">(As an Amazon Associate we earn from qualifying purchases)</p>
+                 <div class="mt-6 pt-4 border-t" style="border-color: var(--border-color);">
+                     <h4 class="text-md font-semibold mb-2" style="color: var(--text-color);">Get Coloring Supplies!</h4>
+                     <a href="#" target="_blank" rel="noopener noreferrer sponsored" class="text-sm hover:underline block" style="color: var(--accent-color);">Shop Pencils on Amazon (Affiliate)</a>
+                     <a href="#" target="_blank" rel="noopener noreferrer sponsored" class="text-sm hover:underline block" style="color: var(--accent-color);">Shop Markers on Amazon (Affiliate)</a>
+                     <p class="text-xs mt-1" style="color: var(--text-color); opacity: 0.7;">(As an Amazon Associate we earn from qualifying purchases)</p>
                  </div>
             </div>
         </div>
 
         <!-- Placeholder for Ads -->
-        <div class="mt-8 p-4 bg-gray-200 rounded text-center text-gray-600">
+        <div class="mt-8 p-4 rounded-lg text-center border" 
+            style="background-color: var(--bg-color); color: var(--text-color); border-color: var(--border-color); opacity: 0.8;">
             Advertisement Placeholder
         </div>
     `;
@@ -1039,6 +1056,165 @@ function setupGlobalImageErrorHandling() {
             target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iIzk5OTk5OSI+SW1hZ2UgRXJyb3I8L3RleHQ+PC9zdmc+';
         }
     }, true); // Use capture phase to catch all image errors
+}
+
+// Function to print the coloring page
+function printColoringPage(title) {
+    const img = document.getElementById('coloring-image');
+    
+    // Make sure the image is fully loaded
+    if (img.complete && img.naturalHeight !== 0) {
+        doPrint(img.src, title);
+    } else {
+        // If image is not loaded yet, load from data-src
+        const actualSrc = img.getAttribute('data-src');
+        // Show loading toast
+        if (typeof showToast === 'function') {
+            showToast('Preparing coloring page for printing...', 'info');
+        }
+        
+        const tempImg = new Image();
+        tempImg.onload = function() {
+            doPrint(actualSrc, title);
+        };
+        tempImg.onerror = function() {
+            if (typeof showToast === 'function') {
+                showToast('Error preparing image for print.', 'error');
+            } else {
+                alert('Error preparing image for print.');
+            }
+        };
+        tempImg.src = actualSrc;
+    }
+    
+    function doPrint(imgSrc, pageTitle) {
+        // Get the current theme
+        const currentTheme = localStorage.getItem('colorverse-theme') || 'light';
+        
+        // Get a sample element to extract computed CSS variables
+        const sampleEl = document.createElement('div');
+        sampleEl.className = `theme-${currentTheme}`;
+        document.body.appendChild(sampleEl);
+        
+        // We'll provide fallback values in case the CSS variables aren't accessible
+        let bgColor, textColor, cardBg;
+        
+        // Try to get CSS variables from our element, fall back to theme-specific defaults if needed
+        try {
+            // This may fail in some contexts, so we have fallbacks
+            const computedStyle = getComputedStyle(sampleEl);
+            sampleEl.remove();
+            
+            bgColor = currentTheme === 'colorful' ? 
+                'linear-gradient(135deg, #fdf2f8, #e0f2fe, #ecfdf5)' : 
+                (currentTheme === 'dark' ? '#1a202c' : '#ffffff');
+                
+            textColor = currentTheme === 'dark' ? '#e2e8f0' : '#333333';
+            cardBg = currentTheme === 'dark' ? '#2d3748' : '#ffffff';
+        } catch(e) {
+            console.warn('Could not access CSS variables, using fallbacks');
+            // Fallback values
+            bgColor = currentTheme === 'dark' ? '#1a202c' : 
+                (currentTheme === 'colorful' ? 'linear-gradient(135deg, #fdf2f8, #e0f2fe, #ecfdf5)' : '#ffffff');
+            textColor = currentTheme === 'dark' ? '#e2e8f0' : '#333333';
+            cardBg = currentTheme === 'dark' ? '#2d3748' : '#ffffff';
+        }
+        
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>ColorVerse - ${pageTitle}</title>
+                <style>
+                    body {
+                        margin: 0;
+                        padding: 20px;
+                        text-align: center;
+                        font-family: Arial, sans-serif;
+                        background: ${bgColor};
+                        color: ${textColor};
+                    }
+                    h1 {
+                        font-size: 24px;
+                        margin-bottom: 20px;
+                        color: ${textColor};
+                    }
+                    img {
+                        max-width: 100%;
+                        max-height: 90vh;
+                        margin: 0 auto;
+                        display: block;
+                        background-color: #ffffff;
+                        border-radius: 5px;
+                        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                    }
+                    .footer {
+                        margin-top: 20px;
+                        font-size: 12px;
+                        color: ${textColor};
+                        opacity: 0.8;
+                    }
+                    .print-button {
+                        padding: 10px 20px; 
+                        background-color: #3182ce; 
+                        color: white; 
+                        border: none; 
+                        border-radius: 5px; 
+                        cursor: pointer; 
+                        font-weight: bold; 
+                        margin-top: 10px;
+                    }
+                    .print-button:hover {
+                        background-color: #2c5282;
+                    }
+                    @media print {
+                        .no-print {
+                            display: none;
+                        }
+                        body {
+                            padding: 0;
+                            background-color: white !important;
+                            color: black !important;
+                        }
+                        h1 {
+                            margin-top: 0;
+                            color: black !important;
+                        }
+                        img {
+                            background-color: white !important;
+                            padding: 0 !important;
+                        }
+                        .footer {
+                            color: #666 !important;
+                        }
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>${pageTitle} - Coloring Page</h1>
+                <img src="${imgSrc}" alt="${pageTitle}">
+                <div class="footer">
+                    <p>Downloaded from ColorVerse - Free Coloring Pages & AI Art</p>
+                    <p class="no-print">
+                        <button onclick="window.print();" class="print-button">
+                            Click to Print
+                        </button>
+                    </p>
+                </div>
+                <script>
+                    // Auto-print when loaded
+                    window.onload = function() {
+                        setTimeout(function() {
+                            window.print();
+                        }, 500);
+                    };
+                </script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    }
 }
 
 async function sharePage(title, url) {

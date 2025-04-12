@@ -32,6 +32,11 @@
             border-left-color: #09f;
             animation: spin 1s ease infinite;
         }
+        
+        .theme-dark .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-left-color: #38b2ff;
+        }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -89,21 +94,82 @@
             --text-primary: #2d3748;
             --accent-primary: linear-gradient(135deg, #f687b3, #7f9cf5, #4fd1c5);
             --accent-secondary: linear-gradient(135deg, #faf089, #f6ad55, #fc8181);
+            --page-bg-gradient: linear-gradient(135deg, #fdf2f8, #e0f2fe, #ecfdf5);
         }
         
-        /* Additional theme-specific styles */
+        /* Basic theme definitions - simple and clear */
+        /* Light Theme (Default) */
+        .theme-light {
+            --bg-color: #f9fafb;
+            --text-color: #333333;
+            --card-bg: #ffffff;
+            --card-text: #333333;
+            --border-color: #e5e7eb;
+            --accent-color: #3182ce;
+            --accent-gradient: linear-gradient(135deg, #90cdf4, #3182ce);
+            --header-text: #ffffff;
+        }
+        
+        .theme-light body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+        
+        /* Dark Theme */
+        .theme-dark {
+            --bg-color: #121826;
+            --text-color: #e2e8f0;
+            --card-bg: #1e293b;
+            --card-text: #e2e8f0;
+            --border-color: #374151;
+            --accent-color: #4299e1;
+            --accent-gradient: linear-gradient(135deg, #2a4365, #2b6cb0);
+            --header-text: #ffffff;
+        }
+        
         .theme-dark body {
-            background-color: #121826;
-            color: #e2e8f0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
         }
         
-        .theme-dark .carousel-button {
-            background-color: #4a5568;
-            color: white;
+        /* Colorful Theme */
+        .theme-colorful {
+            --bg-color: #f0f9ff;
+            --text-color: #2d3748;
+            --card-bg: #ffffff;
+            --card-text: #2d3748;
+            --border-color: #e2e8f0;
+            --accent-color: #8b5cf6;
+            --accent-gradient: linear-gradient(135deg, #f687b3, #7f9cf5, #4fd1c5);
+            --header-text: #ffffff;
+            --page-bg-gradient: linear-gradient(135deg, #fdf2f8, #e0f2fe, #ecfdf5);
         }
         
-        .theme-dark .carousel-button:hover {
-            background-color: #2d3748;
+        .theme-colorful body {
+            background: var(--page-bg-gradient);
+            color: var(--text-color);
+        }
+        
+        /* All theme header styling */
+        header h1 a, header p {
+            color: var(--header-text) !important;
+        }
+        
+        /* Theme-specific overrides */
+        .theme-colorful .accent-panel {
+            background-image: var(--accent-gradient);
+        }
+        
+        .theme-colorful header {
+            background: linear-gradient(to right, #f687b3, #7f9cf5, #4fd1c5) !important;
+        }
+        
+        /* Theme-specific visual enhancements */
+        .theme-colorful #page-container {
+            background-image: 
+                radial-gradient(circle at 70% 20%, rgba(246, 135, 179, 0.1) 0%, transparent 20%),
+                radial-gradient(circle at 20% 40%, rgba(79, 209, 197, 0.15) 0%, transparent 30%),
+                radial-gradient(circle at 50% 70%, rgba(127, 156, 245, 0.1) 0%, transparent 25%);
         }
         
         /* Section backgrounds */
@@ -209,8 +275,8 @@
 </head>
 <body class="theme-light bg-gray-100 text-gray-800 loading flex flex-col min-h-screen">
 
-<div id="page-container" class="flex-grow pt-16"> <!-- Add padding-top to accommodate fixed header -->
-    <header class="bg-gradient-to-r from-cyan-500 to-blue-500 text-white p-4 shadow-md fixed top-0 left-0 right-0 z-50">
+<div id="page-container" class="flex-grow pt-20"> <!-- Increased padding-top to prevent breadcrumbs from being cut off -->
+    <header class="bg-gradient-to-r from-cyan-500 to-blue-500 p-4 shadow-md fixed top-0 left-0 right-0 z-50">
         <div class="container mx-auto flex justify-between items-center">
             <div class="flex items-center">
                 <div class="mr-3 hidden sm:block">
@@ -234,7 +300,12 @@
                 </div>
             </div>
             <nav class="flex items-center">
-                <div class="flex items-center mr-4 bg-white bg-opacity-20 rounded-lg p-1">
+                <div class="flex items-center mr-6">
+                <button id="refresh-content" class="mr-3 p-2 rounded-lg text-white bg-yellow-500 hover:bg-yellow-600 transition-colors" title="Refresh Content">
+                    <i class="fas fa-dice"></i>
+                    <span class="sr-only">Refresh Content</span>
+                </button>
+                <div class="flex items-center bg-white bg-opacity-20 rounded-lg p-1">
                     <button id="theme-light" class="p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-10 transition-colors" title="Light Mode">
                         <i class="fas fa-sun"></i>
                         <span class="sr-only">Light Mode</span>
@@ -248,7 +319,7 @@
                         <span class="sr-only">Colorful Mode</span>
                     </button>
                 </div>
-                <a href="#donate" class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center">
+                <a href="#donate" class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center ml-4">
                     <i class="fas fa-heart mr-2"></i> Donate
                 </a>
             </nav>
@@ -332,13 +403,14 @@
     <!-- Load Site Data and App Logic -->
     <script src="app.js"></script>
     
-    <!-- Theme Switcher Script -->
+    <!-- Theme Switcher and Refresh Script -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Theme switching functionality
             const themeLight = document.getElementById('theme-light');
             const themeDark = document.getElementById('theme-dark');
             const themeColorful = document.getElementById('theme-colorful');
+            const refreshButton = document.getElementById('refresh-content');
             const body = document.body;
             
             // Apply saved theme or default to light
@@ -349,6 +421,36 @@
             if (!body.classList.contains('loading')) {
                 body.classList.add('loading');
             }
+            
+            // Set initial active state for the current theme button
+            const currentThemeButton = document.getElementById(`theme-${savedTheme}`);
+            if (currentThemeButton) {
+                currentThemeButton.classList.add('bg-white', 'bg-opacity-30', 'text-white', 'font-bold');
+            }
+            
+            // Set up refresh content button
+            refreshButton.addEventListener('click', () => {
+                // Show confirmation dialog
+                if (confirm('This will refresh all content and generate new coloring pages. Continue?')) {
+                    // Clear the cache
+                    localStorage.removeItem('colorverse-site-data');
+                    localStorage.removeItem('colorverse-cache-timestamp');
+                    localStorage.removeItem('colorverse-image-urls');
+                    
+                    // Show loading state
+                    body.classList.add('loading');
+                    
+                    // Show toast notification
+                    if (typeof showToast === 'function') {
+                        showToast('Regenerating content...', 'info');
+                    }
+                    
+                    // Force reload the page
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500);
+                }
+            });
             
             // Set up theme switching
             themeLight.addEventListener('click', () => {
