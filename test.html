@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pollinations API Test Page - ColorVerse</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .debug-output {
+            background: #000;
+            color: #00ff00;
+            padding: 15px;
+            font-family: monospace;
+            border-radius: 4px;
+            margin: 10px 0;
+            height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .error {
+            background: #ffe6e6;
+            color: #cc0000;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #e6ffe6;
+            color: #008800;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .test-image {
+            max-width: 300px;
+            margin: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-success { background: #28a745; }
+        .status-error { background: #dc3545; }
+        .status-warning { background: #ffc107; }
+        .status-loading { background: #17a2b8; animation: pulse 1s infinite; }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .api-stats {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .api-stats h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+        .referer-test {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎨 ColorVerse Pollinations API Test Suite</h1>
+        <p>Comprehensive testing for image generation, text generation, and referer functionality</p>
+        <p>Current Time: <span id="current-time"></span></p>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 API Status & Configuration</h2>
+        <div class="api-stats">
+            <h4>Current Configuration</h4>
+            <div class="stat-item">
+                <span>Image API URL:</span>
+                <span id="image-api-url">-</span>
+            </div>
+            <div class="stat-item">
+                <span>Text API URL:</span>
+                <span id="text-api-url">-</span>
+            </div>
+            <div class="stat-item">
+                <span>Referrer ID:</span>
+                <span id="referrer-id">-</span>
+            </div>
+            <div class="stat-item">
+                <span>Default Model:</span>
+                <span id="default-model">-</span>
+            </div>
+            <div class="stat-item">
+                <span>User Agent:</span>
+                <span id="user-agent">-</span>
+            </div>
+            <div class="stat-item">
+                <span>Origin:</span>
+                <span id="origin">-</span>
+            </div>
+        </div>
+        
+        <div class="referer-test">
+            <h4>🔍 Referer Test Information</h4>
+            <p><strong>Current Referer:</strong> <span id="current-referer">-</span></p>
+            <p><strong>Document URL:</strong> <span id="document-url">-</span></p>
+            <p><strong>Expected Referer ID:</strong> ColorVerseWebApp</p>
+            <p><strong>Referer Status:</strong> <span id="referer-status">Testing...</span></p>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🖼️ Image Generation Tests</h2>
+        <div class="grid">
+            <div>
+                <h3>Basic Image Generation</h3>
+                <button onclick="testBasicImageGeneration()">Test Basic Image</button>
+                <button onclick="testMultipleImages()">Test Multiple Images</button>
+                <button onclick="testDifferentSizes()">Test Different Sizes</button>
+                <div id="basic-image-results"></div>
+            </div>
+            <div>
+                <h3>Parameter Testing</h3>
+                <button onclick="testWithDifferentModels()">Test Different Models</button>
+                <button onclick="testWithSeeds()">Test Seed Consistency</button>
+                <button onclick="testWithNoLogo()">Test NoLogo Parameter</button>
+                <div id="param-test-results"></div>
+            </div>
+        </div>
+        <div class="debug-output" id="image-debug"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>💬 Text Generation Tests</h2>
+        <div class="grid">
+            <div>
+                <h3>Basic Text Generation</h3>
+                <button onclick="testBasicTextGeneration()">Test Basic Text</button>
+                <button onclick="testJSONGeneration()">Test JSON Generation</button>
+                <button onclick="testLongTextGeneration()">Test Long Text</button>
+                <div id="basic-text-results"></div>
+            </div>
+            <div>
+                <h3>Advanced Text Tests</h3>
+                <button onclick="testDifferentModels()">Test Different Models</button>
+                <button onclick="testTemperatureVariations()">Test Temperature</button>
+                <button onclick="testSystemPrompts()">Test System Prompts</button>
+                <div id="advanced-text-results"></div>
+            </div>
+        </div>
+        <div class="debug-output" id="text-debug"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🚫 Error Handling & Rate Limiting Tests</h2>
+        <div class="grid">
+            <div>
+                <h3>Error Scenarios</h3>
+                <button onclick="testInvalidPrompts()">Test Invalid Prompts</button>
+                <button onclick="testMalformedRequests()">Test Malformed Requests</button>
+                <button onclick="testNetworkErrors()">Test Network Errors</button>
+                <div id="error-test-results"></div>
+            </div>
+            <div>
+                <h3>Rate Limiting</h3>
+                <button onclick="testRateLimiting()">Test Rate Limits</button>
+                <button onclick="testBulkRequests()">Test Bulk Requests</button>
+                <button onclick="resetRateLimitTest()">Reset Rate Test</button>
+                <div id="rate-limit-results"></div>
+            </div>
+        </div>
+        <div class="debug-output" id="error-debug"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📈 Performance & Statistics</h2>
+        <div class="api-stats">
+            <h4>Test Statistics</h4>
+            <div class="stat-item">
+                <span>Total API Calls:</span>
+                <span id="total-calls">0</span>
+            </div>
+            <div class="stat-item">
+                <span>Successful Calls:</span>
+                <span id="successful-calls">0</span>
+            </div>
+            <div class="stat-item">
+                <span>Failed Calls:</span>
+                <span id="failed-calls">0</span>
+            </div>
+            <div class="stat-item">
+                <span>Average Response Time:</span>
+                <span id="avg-response-time">0ms</span>
+            </div>
+            <div class="stat-item">
+                <span>Rate Limit Errors:</span>
+                <span id="rate-limit-errors">0</span>
+            </div>
+            <div class="stat-item">
+                <span>Network Errors:</span>
+                <span id="network-errors">0</span>
+            </div>
+        </div>
+        <button onclick="clearAllStats()">Clear Statistics</button>
+        <button onclick="exportTestResults()">Export Results</button>
+    </div>
+
+    <div class="test-section">
+        <h2>🔄 Continuous Testing</h2>
+        <div>
+            <button onclick="startContinuousTesting()">Start Continuous Testing</button>
+            <button onclick="stopContinuousTesting()">Stop Continuous Testing</button>
+            <button onclick="runFullTestSuite()">Run Full Test Suite</button>
+        </div>
+        <div class="debug-output" id="continuous-debug"></div>
+    </div>
+
+    <script>
+        // Configuration from app.js
+        const API_BASE_URL = "https://image.pollinations.ai/prompt/";
+        const TEXT_API_URL = "https://text.pollinations.ai/openai";
+        const DEFAULT_IMAGE_PARAMS = {
+            width: 1024,
+            height: 1024,
+            seed: () => Math.floor(Math.random() * 100000),
+            nologo: true,
+            model: 'flux'
+        };
+        const REFERRER_ID = "ColorVerseWebApp";
+        
+        // Test statistics
+        let testStats = {
+            totalCalls: 0,
+            successfulCalls: 0,
+            failedCalls: 0,
+            responseTimes: [],
+            rateLimitErrors: 0,
+            networkErrors: 0
+        };
+        
+        let continuousTestingInterval = null;
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCurrentTime();
+            setInterval(updateCurrentTime, 1000);
+            displayConfiguration();
+            checkRefererStatus();
+            debugLog('image-debug', 'ColorVerse Pollinations Test Suite Initialized');
+            debugLog('text-debug', 'Text generation testing ready');
+            debugLog('error-debug', 'Error handling tests ready');
+            debugLog('continuous-debug', 'Continuous testing module ready');
+        });
+        
+        function updateCurrentTime() {
+            document.getElementById('current-time').textContent = new Date().toLocaleString();
+        }
+        
+        function displayConfiguration() {
+            document.getElementById('image-api-url').textContent = API_BASE_URL;
+            document.getElementById('text-api-url').textContent = TEXT_API_URL;
+            document.getElementById('referrer-id').textContent = REFERRER_ID;
+            document.getElementById('default-model').textContent = DEFAULT_IMAGE_PARAMS.model;
+            document.getElementById('user-agent').textContent = navigator.userAgent;
+            document.getElementById('origin').textContent = window.location.origin;
+        }
+        
+        function checkRefererStatus() {
+            document.getElementById('current-referer').textContent = document.referrer || 'None';
+            document.getElementById('document-url').textContent = window.location.href;
+            
+            const refererStatus = document.getElementById('referer-status');
+            if (document.referrer) {
+                refererStatus.innerHTML = '<span class="status-indicator status-success"></span>Referer Available';
+            } else {
+                refererStatus.innerHTML = '<span class="status-indicator status-warning"></span>No Referer (Direct Access)';
+            }
+        }
+        
+        function debugLog(elementId, message, type = 'info') {
+            const debugElement = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '[ERROR]' : type === 'warning' ? '[WARN]' : '[INFO]';
+            const logMessage = `[${timestamp}] ${prefix} ${message}\n`;
+            debugElement.textContent += logMessage;
+            debugElement.scrollTop = debugElement.scrollHeight;
+        }
+        
+        function updateStats() {
+            document.getElementById('total-calls').textContent = testStats.totalCalls;
+            document.getElementById('successful-calls').textContent = testStats.successfulCalls;
+            document.getElementById('failed-calls').textContent = testStats.failedCalls;
+            document.getElementById('rate-limit-errors').textContent = testStats.rateLimitErrors;
+            document.getElementById('network-errors').textContent = testStats.networkErrors;
+            
+            if (testStats.responseTimes.length > 0) {
+                const avgTime = testStats.responseTimes.reduce((a, b) => a + b, 0) / testStats.responseTimes.length;
+                document.getElementById('avg-response-time').textContent = Math.round(avgTime) + 'ms';
+            }
+        }
+        
+        // Generate image URL similar to app.js
+        function getImageUrl(prompt, params = {}) {
+            const fullParams = { ...DEFAULT_IMAGE_PARAMS, ...params };
+            const seed = typeof fullParams.seed === 'function' ? fullParams.seed() : fullParams.seed;
+            
+            const coloringPrompt = `high contrast black and white line art coloring page, ${prompt}, pure outlines with no shading, no color, no grayscale, thick clean lines, simple contours only, minimalist printable coloring book style, suitable for children to color`;
+            
+            const query = new URLSearchParams({
+                width: fullParams.width,
+                height: fullParams.height,
+                seed: seed,
+                nologo: fullParams.nologo,
+                referrer: REFERRER_ID,
+                model: fullParams.model || DEFAULT_IMAGE_PARAMS.model
+            });
+            
+            return `${API_BASE_URL}${encodeURIComponent(coloringPrompt)}?${query.toString()}`;
+        }
+        
+        // Test functions
+        async function testBasicImageGeneration() {
+            debugLog('image-debug', 'Starting basic image generation test...');
+            const resultsDiv = document.getElementById('basic-image-results');
+            resultsDiv.innerHTML = '<div class="spinner"></div>';
+            
+            try {
+                const startTime = performance.now();
+                const imageUrl = getImageUrl('cute cat playing with yarn ball');
+                
+                debugLog('image-debug', `Generated URL: ${imageUrl}`);
+                
+                const img = new Image();
+                img.onload = function() {
+                    const endTime = performance.now();
+                    const responseTime = endTime - startTime;
+                    
+                    testStats.totalCalls++;
+                    testStats.successfulCalls++;
+                    testStats.responseTimes.push(responseTime);
+                    updateStats();
+                    
+                    resultsDiv.innerHTML = `
+                        <div class="success">✅ Basic image generation successful!</div>
+                        <img src="${imageUrl}" alt="Test Image" class="test-image">
+                        <p>Response time: ${Math.round(responseTime)}ms</p>
+                    `;
+                    debugLog('image-debug', `Image loaded successfully in ${Math.round(responseTime)}ms`);
+                };
+                
+                img.onerror = function() {
+                    testStats.totalCalls++;
+                    testStats.failedCalls++;
+                    updateStats();
+                    
+                    resultsDiv.innerHTML = '<div class="error">❌ Failed to load image</div>';
+                    debugLog('image-debug', 'Image failed to load', 'error');
+                };
+                
+                img.src = imageUrl;
+                
+            } catch (error) {
+                testStats.totalCalls++;
+                testStats.failedCalls++;
+                testStats.networkErrors++;
+                updateStats();
+                
+                resultsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+                debugLog('image-debug', `Error in basic image generation: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testMultipleImages() {
+            debugLog('image-debug', 'Starting multiple images test...');
+            const resultsDiv = document.getElementById('basic-image-results');
+            resultsDiv.innerHTML = '<div class="spinner"></div>';
+            
+            const prompts = [
+                'beautiful butterfly on flower',
+                'majestic eagle soaring',
+                'playful dolphin jumping',
+                'colorful parrot on branch'
+            ];
+            
+            let successCount = 0;
+            let failCount = 0;
+            let imagesHtml = '';
+            
+            for (let i = 0; i < prompts.length; i++) {
+                try {
+                    const startTime = performance.now();
+                    const imageUrl = getImageUrl(prompts[i], { seed: 1000 + i });
+                    
+                    debugLog('image-debug', `Testing image ${i + 1}: ${prompts[i]}`);
+                    
+                    await new Promise((resolve) => {
+                        const img = new Image();
+                        img.onload = function() {
+                            const endTime = performance.now();
+                            const responseTime = endTime - startTime;
+                            
+                            testStats.totalCalls++;
+                            testStats.successfulCalls++;
+                            testStats.responseTimes.push(responseTime);
+                            
+                            successCount++;
+                            imagesHtml += `<img src="${imageUrl}" alt="${prompts[i]}" class="test-image">`;
+                            debugLog('image-debug', `Image ${i + 1} loaded in ${Math.round(responseTime)}ms`);
+                            resolve();
+                        };
+                        
+                        img.onerror = function() {
+                            testStats.totalCalls++;
+                            testStats.failedCalls++;
+                            failCount++;
+                            debugLog('image-debug', `Image ${i + 1} failed to load`, 'error');
+                            resolve();
+                        };
+                        
+                        img.src = imageUrl;
+                    });
+                    
+                } catch (error) {
+                    testStats.totalCalls++;
+                    testStats.failedCalls++;
+                    testStats.networkErrors++;
+                    failCount++;
+                    debugLog('image-debug', `Error with image ${i + 1}: ${error.message}`, 'error');
+                }
+            }
+            
+            updateStats();
+            resultsDiv.innerHTML = `
+                <div class="${successCount === prompts.length ? 'success' : 'warning'}">
+                    Multiple images test: ${successCount}/${prompts.length} successful
+                </div>
+                ${imagesHtml}
+            `;
+        }
+        
+        async function testDifferentSizes() {
+            debugLog('image-debug', 'Testing different image sizes...');
+            const resultsDiv = document.getElementById('basic-image-results');
+            resultsDiv.innerHTML = '<div class="spinner"></div>';
+            
+            const sizes = [
+                { width: 256, height: 256, label: 'Small (256x256)' },
+                { width: 512, height: 512, label: 'Medium (512x512)' },
+                { width: 1024, height: 1024, label: 'Large (1024x1024)' },
+                { width: 800, height: 600, label: 'Landscape (800x600)' }
+            ];
+            
+            let imagesHtml = '';
+            
+            for (const size of sizes) {
+                try {
+                    const startTime = performance.now();
+                    const imageUrl = getImageUrl('simple geometric pattern', size);
+                    
+                    debugLog('image-debug', `Testing ${size.label}: ${imageUrl}`);
+                    
+                    await new Promise((resolve) => {
+                        const img = new Image();
+                        img.onload = function() {
+                            const endTime = performance.now();
+                            const responseTime = endTime - startTime;
+                            
+                            testStats.totalCalls++;
+                            testStats.successfulCalls++;
+                            testStats.responseTimes.push(responseTime);
+                            
+                            imagesHtml += `
+                                <div style="margin: 10px; display: inline-block; text-align: center;">
+                                    <img src="${imageUrl}" alt="${size.label}" style="max-width: 150px; border: 1px solid #ccc;">
+                                    <p style="font-size: 12px;">${size.label}<br>${Math.round(responseTime)}ms</p>
+                                </div>
+                            `;
+                            debugLog('image-debug', `${size.label} loaded in ${Math.round(responseTime)}ms`);
+                            resolve();
+                        };
+                        
+                        img.onerror = function() {
+                            testStats.totalCalls++;
+                            testStats.failedCalls++;
+                            debugLog('image-debug', `${size.label} failed to load`, 'error');
+                            resolve();
+                        };
+                        
+                        img.src = imageUrl;
+                    });
+                    
+                } catch (error) {
+                    testStats.totalCalls++;
+                    testStats.failedCalls++;
+                    testStats.networkErrors++;
+                    debugLog('image-debug', `Error with ${size.label}: ${error.message}`, 'error');
+                }
+            }
+            
+            updateStats();
+            resultsDiv.innerHTML = `
+                <div class="success">✅ Different sizes test completed</div>
+                ${imagesHtml}
+            `;
+        }
+        
+        async function testBasicTextGeneration() {
+            debugLog('text-debug', 'Starting basic text generation test...');
+            const resultsDiv = document.getElementById('basic-text-results');
+            resultsDiv.innerHTML = '<div class="spinner"></div>';
+            
+            try {
+                const startTime = performance.now();
+                
+                const payload = {
+                    model: "openai-large",
+                    messages: [
+                        { role: "system", content: "You are a helpful assistant." },
+                        { role: "user", content: "Write a short poem about coloring books." }
+                    ],
+                    temperature: 0.7,
+                    referrer: REFERRER_ID
+                };
+                
+                debugLog('text-debug', `Making request to: ${TEXT_API_URL}`);
+                debugLog('text-debug', `Payload: ${JSON.stringify(payload, null, 2)}`);
+                
+                const response = await fetch(TEXT_API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                
+                const endTime = performance.now();
+                const responseTime = endTime - startTime;
+                
+                testStats.totalCalls++;
+                testStats.responseTimes.push(responseTime);
+                
+                debugLog('text-debug', `Response status: ${response.status}`);
+                debugLog('text-debug', `Response time: ${Math.round(responseTime)}ms`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                testStats.successfulCalls++;
+                updateStats();
+                
+                debugLog('text-debug', `Response: ${JSON.stringify(result, null, 2)}`);
+                
+                const generatedText = result?.choices?.[0]?.message?.content || 'No content received';
+                
+                resultsDiv.innerHTML = `
+                    <div class="success">✅ Text generation successful!</div>
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 10px 0;">
+                        <strong>Generated Text:</strong><br>
+                        ${generatedText}
+                    </div>
+                    <p>Response time: ${Math.round(responseTime)}ms</p>
+                `;
+                
+            } catch (error) {
+                testStats.failedCalls++;
+                if (error.message.includes('429')) {
+                    testStats.rateLimitErrors++;
+                } else {
+                    testStats.networkErrors++;
+                }
+                updateStats();
+                
+                resultsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+                debugLog('text-debug', `Error in text generation: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testJSONGeneration() {
+            debugLog('text-debug', 'Testing JSON generation...');
+            const resultsDiv = document.getElementById('basic-text-results');
+            resultsDiv.innerHTML = '<div class="spinner"></div>';
+            
+            try {
+                const startTime = performance.now();
+                
+                const payload = {
+                    model: "openai-large",
+                    messages: [
+                        { role: "system", content: "You are an AI that generates JSON data." },
+                        { role: "user", content: "Generate a JSON object with 3 coloring page categories, each with 2 items. Include titles and descriptions." }
+                    ],
+                    response_format: { "type": "json_object" },
+                    temperature: 0.5,
+                    referrer: REFERRER_ID
+                };
+                
+                debugLog('text-debug', 'Testing JSON generation with response_format');
+                
+                const response = await fetch(TEXT_API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                
+                const endTime = performance.now();
+                const responseTime = endTime - startTime;
+                
+                testStats.totalCalls++;
+                testStats.responseTimes.push(responseTime);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                testStats.successfulCalls++;
+                updateStats();
+                
+                const generatedContent = result?.choices?.[0]?.message?.content || 'No content received';
+                
+                // Try to parse as JSON
+                let parsedJSON;
+                try {
+                    parsedJSON = JSON.parse(generatedContent);
+                } catch (e) {
+                    throw new Error('Generated content is not valid JSON');
+                }
+                
+                resultsDiv.innerHTML = `
+                    <div class="success">✅ JSON generation successful!</div>
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 10px 0;">
+                        <strong>Generated JSON:</strong><br>
+                        <pre style="background: #fff; padding: 10px; overflow-x: auto;">${JSON.stringify(parsedJSON, null, 2)}</pre>
+                    </div>
+                    <p>Response time: ${Math.round(responseTime)}ms</p>
+                `;
+                
+                debugLog('text-debug', 'JSON generation successful');
+                
+            } catch (error) {
+                testStats.failedCalls++;
+                if (error.message.includes('429')) {
+                    testStats.rateLimitErrors++;
+                } else {
+                    testStats.networkErrors++;
+                }
+                updateStats();
+                
+                resultsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+                debugLog('text-debug', `Error in JSON generation: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testRateLimiting() {
+            debugLog('error-debug', 'Testing rate limiting with rapid requests...');
+            const resultsDiv = document.getElementById('rate-limit-results');
+            resultsDiv.innerHTML = '<div class="spinner"></div>';
+            
+            const requestCount = 10;
+            let successCount = 0;
+            let rateLimitCount = 0;
+            let errorCount = 0;
+            
+            debugLog('error-debug', `Sending ${requestCount} rapid requests...`);
+            
+            const promises = [];
+            for (let i = 0; i < requestCount; i++) {
+                promises.push(
+                    fetch(TEXT_API_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            model: "openai-large",
+                            messages: [
+                                { role: "user", content: `Test request ${i + 1}` }
+                            ],
+                            referrer: REFERRER_ID
+                        })
+                    }).then(response => {
+                        testStats.totalCalls++;
+                        if (response.status === 429) {
+                            rateLimitCount++;
+                            testStats.rateLimitErrors++;
+                            debugLog('error-debug', `Request ${i + 1}: Rate limited (429)`, 'warning');
+                            return { status: 429, index: i + 1 };
+                        } else if (response.ok) {
+                            successCount++;
+                            testStats.successfulCalls++;
+                            debugLog('error-debug', `Request ${i + 1}: Success (${response.status})`);
+                            return { status: response.status, index: i + 1 };
+                        } else {
+                            errorCount++;
+                            testStats.failedCalls++;
+                            debugLog('error-debug', `Request ${i + 1}: Error (${response.status})`, 'error');
+                            return { status: response.status, index: i + 1 };
+                        }
+                    }).catch(error => {
+                        testStats.totalCalls++;
+                        testStats.failedCalls++;
+                        testStats.networkErrors++;
+                        errorCount++;
+                        debugLog('error-debug', `Request ${i + 1}: Network error - ${error.message}`, 'error');
+                        return { status: 'error', index: i + 1, error: error.message };
+                    })
+                );
+            }
+            
+            const results = await Promise.all(promises);
+            updateStats();
+            
+            resultsDiv.innerHTML = `
+                <div class="${rateLimitCount > 0 ? 'warning' : 'success'}">
+                    Rate limiting test completed:
+                    <ul>
+                        <li>✅ Successful: ${successCount}/${requestCount}</li>
+                        <li>⚠️ Rate limited: ${rateLimitCount}/${requestCount}</li>
+                        <li>❌ Errors: ${errorCount}/${requestCount}</li>
+                    </ul>
+                </div>
+            `;
+            
+            debugLog('error-debug', `Rate limiting test completed: ${successCount} success, ${rateLimitCount} rate limited, ${errorCount} errors`);
+        }
+        
+        function clearAllStats() {
+            testStats = {
+                totalCalls: 0,
+                successfulCalls: 0,
+                failedCalls: 0,
+                responseTimes: [],
+                rateLimitErrors: 0,
+                networkErrors: 0
+            };
+            updateStats();
+            
+            // Clear all debug logs
+            document.getElementById('image-debug').textContent = '';
+            document.getElementById('text-debug').textContent = '';
+            document.getElementById('error-debug').textContent = '';
+            document.getElementById('continuous-debug').textContent = '';
+            
+            debugLog('image-debug', 'Statistics and logs cleared');
+        }
+        
+        function exportTestResults() {
+            const testResults = {
+                timestamp: new Date().toISOString(),
+                statistics: testStats,
+                configuration: {
+                    imageApiUrl: API_BASE_URL,
+                    textApiUrl: TEXT_API_URL,
+                    referrerId: REFERRER_ID,
+                    defaultModel: DEFAULT_IMAGE_PARAMS.model,
+                    userAgent: navigator.userAgent,
+                    origin: window.location.origin,
+                    referer: document.referrer || 'None'
+                },
+                logs: {
+                    imageDebug: document.getElementById('image-debug').textContent,
+                    textDebug: document.getElementById('text-debug').textContent,
+                    errorDebug: document.getElementById('error-debug').textContent,
+                    continuousDebug: document.getElementById('continuous-debug').textContent
+                }
+            };
+            
+            const blob = new Blob([JSON.stringify(testResults, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pollinations-test-results-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            debugLog('continuous-debug', 'Test results exported successfully');
+        }
+        
+        function startContinuousTesting() {
+            if (continuousTestingInterval) {
+                debugLog('continuous-debug', 'Continuous testing already running');
+                return;
+            }
+            
+            debugLog('continuous-debug', 'Starting continuous testing (every 30 seconds)...');
+            
+            continuousTestingInterval = setInterval(() => {
+                debugLog('continuous-debug', '--- Running continuous test cycle ---');
+                
+                // Alternate between image and text tests
+                const testType = Math.random() < 0.5 ? 'image' : 'text';
+                
+                if (testType === 'image') {
+                    testBasicImageGeneration();
+                } else {
+                    testBasicTextGeneration();
+                }
+                
+            }, 30000); // Every 30 seconds
+        }
+        
+        function stopContinuousTesting() {
+            if (continuousTestingInterval) {
+                clearInterval(continuousTestingInterval);
+                continuousTestingInterval = null;
+                debugLog('continuous-debug', 'Continuous testing stopped');
+            } else {
+                debugLog('continuous-debug', 'No continuous testing to stop');
+            }
+        }
+        
+        async function runFullTestSuite() {
+            debugLog('continuous-debug', '🚀 Starting full test suite...');
+            
+            // Disable buttons during testing
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(btn => btn.disabled = true);
+            
+            try {
+                // Image tests
+                debugLog('continuous-debug', '1/6 Running basic image generation...');
+                await testBasicImageGeneration();
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                debugLog('continuous-debug', '2/6 Running multiple images test...');
+                await testMultipleImages();
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                debugLog('continuous-debug', '3/6 Running different sizes test...');
+                await testDifferentSizes();
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Text tests
+                debugLog('continuous-debug', '4/6 Running basic text generation...');
+                await testBasicTextGeneration();
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                debugLog('continuous-debug', '5/6 Running JSON generation test...');
+                await testJSONGeneration();
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Rate limiting test
+                debugLog('continuous-debug', '6/6 Running rate limiting test...');
+                await testRateLimiting();
+                
+                debugLog('continuous-debug', '✅ Full test suite completed successfully!');
+                
+            } catch (error) {
+                debugLog('continuous-debug', `❌ Full test suite failed: ${error.message}`, 'error');
+            } finally {
+                // Re-enable buttons
+                buttons.forEach(btn => btn.disabled = false);
+            }
+        }
+        
+        // Additional test functions that were referenced in buttons but not defined
+        async function testWithDifferentModels() {
+            debugLog('image-debug', 'Testing different models...');
+            const resultsDiv = document.getElementById('param-test-results');
+            resultsDiv.innerHTML = '<div class="warning">⚠️ Model testing not implemented yet</div>';
+        }
+        
+        async function testWithSeeds() {
+            debugLog('image-debug', 'Testing seed consistency...');
+            const resultsDiv = document.getElementById('param-test-results');
+            
+            const seed = 12345;
+            const prompt = 'simple flower design';
+            
+            // Generate same image twice with same seed
+            const url1 = getImageUrl(prompt, { seed: seed });
+            const url2 = getImageUrl(prompt, { seed: seed });
+            
+            resultsDiv.innerHTML = `
+                <div class="success">✅ Seed consistency test</div>
+                <p>Same seed (${seed}) should generate identical images:</p>
+                <img src="${url1}" alt="Seed test 1" style="max-width: 150px; margin: 5px;">
+                <img src="${url2}" alt="Seed test 2" style="max-width: 150px; margin: 5px;">
+                <p>URLs match: ${url1 === url2 ? '✅ Yes' : '❌ No'}</p>
+            `;
+        }
+        
+        async function testWithNoLogo() {
+            debugLog('image-debug', 'Testing nologo parameter...');
+            const resultsDiv = document.getElementById('param-test-results');
+            
+            // Test with and without nologo
+            const urlWithoutLogo = getImageUrl('test pattern', { nologo: true });
+            const urlWithLogo = getImageUrl('test pattern', { nologo: false });
+            
+            resultsDiv.innerHTML = `
+                <div class="success">✅ NoLogo parameter test</div>
+                <div style="display: flex; gap: 20px;">
+                    <div>
+                        <p>With nologo=true:</p>
+                        <img src="${urlWithoutLogo}" alt="No logo" style="max-width: 150px;">
+                    </div>
+                    <div>
+                        <p>With nologo=false:</p>
+                        <img src="${urlWithLogo}" alt="With logo" style="max-width: 150px;">
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Placeholder functions for buttons
+        async function testLongTextGeneration() {
+            debugLog('text-debug', 'Long text generation test not implemented yet');
+        }
+        
+        async function testDifferentModels() {
+            debugLog('text-debug', 'Different models test not implemented yet');
+        }
+        
+        async function testTemperatureVariations() {
+            debugLog('text-debug', 'Temperature variations test not implemented yet');
+        }
+        
+        async function testSystemPrompts() {
+            debugLog('text-debug', 'System prompts test not implemented yet');
+        }
+        
+        async function testInvalidPrompts() {
+            debugLog('error-debug', 'Invalid prompts test not implemented yet');
+        }
+        
+        async function testMalformedRequests() {
+            debugLog('error-debug', 'Malformed requests test not implemented yet');
+        }
+        
+        async function testNetworkErrors() {
+            debugLog('error-debug', 'Network errors test not implemented yet');
+        }
+        
+        async function testBulkRequests() {
+            debugLog('error-debug', 'Bulk requests test not implemented yet');
+        }
+        
+        async function resetRateLimitTest() {
+            debugLog('error-debug', 'Rate limit test reset');
+            document.getElementById('rate-limit-results').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
