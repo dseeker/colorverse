@@ -29,6 +29,73 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Setup Node.js for MCP servers
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Python for MCP servers
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python uv for fetch server
+        run: |
+          pip install uv
+
+      - name: Install MCP servers
+        run: |
+          # Install TypeScript-based MCP servers via npx (they'll be cached)
+          echo "Installing Puppeteer MCP server..."
+          npx -y @modelcontextprotocol/server-puppeteer --version || true
+          
+          echo "Installing GitHub MCP server..."
+          npx -y @modelcontextprotocol/server-github --version || true
+          
+          echo "Installing Brave Search MCP server..."
+          npx -y @modelcontextprotocol/server-brave-search --version || true
+          
+          echo "Testing Python fetch server..."
+          uvx --help || pip install uvx
+
+      - name: Create MCP configuration
+        run: |
+          mkdir -p .vscode
+          cat > .mcp.json << 'EOF'
+          {
+            "mcpServers": {
+              "fetch": {
+                "command": "uvx",
+                "args": ["mcp-server-fetch"],
+                "env": {}
+              },
+              "puppeteer": {
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+                "env": {}
+              },
+              "github": {
+                "command": "npx", 
+                "args": ["-y", "@modelcontextprotocol/server-github"],
+                "env": {
+                  "GITHUB_PERSONAL_ACCESS_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+                }
+              },
+              "brave-search": {
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-brave-search"], 
+                "env": {
+                  "BRAVE_API_KEY": "${{ secrets.BRAVE_API_KEY }}"
+                }
+              }
+            }
+          }
+          EOF
+          
+          echo "Created .mcp.json configuration:"
+          cat .mcp.json
+
       - name: Run Claude PR Action
         uses: grll/claude-code-action@beta
         with:
