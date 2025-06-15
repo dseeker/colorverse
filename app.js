@@ -12,7 +12,28 @@ const DEFAULT_IMAGE_PARAMS = {
     nologo: true,
     model: 'flux' // Using Turbo model
 };
-const REFERRER_ID = "ColorVerseWebApp"; // For API usage tracking
+// Dynamic referrer based on domain name
+function getDynamicReferrer() {
+    try {
+        // Extract domain from current hostname
+        const hostname = window.location.hostname;
+        
+        // Handle different environments
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            return 'ColorVerse-LocalDev';
+        } else if (hostname) {
+            return hostname;
+        } else {
+            // Fallback for edge cases
+            return 'ColorVerseWebApp';
+        }
+    } catch (error) {
+        console.warn('Failed to extract domain for referrer:', error);
+        return 'ColorVerseWebApp'; // Fallback
+    }
+}
+
+const REFERRER_ID = getDynamicReferrer(); // Dynamic referrer for API usage tracking
 const PLACEHOLDER_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 // Theme and seasonal content configuration
