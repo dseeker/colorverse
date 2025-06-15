@@ -20,12 +20,12 @@ function getDynamicReferrer() {
         
         // Handle different environments
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            return 'ColorVerse-LocalDev';
+            return 'dseeker.github.io';
         } else if (hostname) {
             return hostname;
         } else {
             // Fallback for edge cases
-            return 'ColorVerseWebApp';
+            return 'dseeker.github.io';
         }
     } catch (error) {
         console.warn('Failed to extract domain for referrer:', error);
