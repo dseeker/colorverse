@@ -308,7 +308,28 @@
             nologo: true,
             model: 'flux'
         };
-        const REFERRER_ID = "ColorVerseWebApp";
+        // Dynamic referrer based on domain name
+        function getDynamicReferrer() {
+            try {
+                // Extract domain from current hostname
+                const hostname = window.location.hostname;
+                
+                // Handle different environments
+                if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                    return 'ColorVerse-TestSuite-LocalDev';
+                } else if (hostname) {
+                    return hostname + '-TestSuite';
+                } else {
+                    // Fallback for edge cases
+                    return 'ColorVerseTestSuite';
+                }
+            } catch (error) {
+                console.warn('Failed to extract domain for referrer:', error);
+                return 'ColorVerseTestSuite'; // Fallback
+            }
+        }
+
+        const REFERRER_ID = getDynamicReferrer();
         
         // Test statistics
         let testStats = {
