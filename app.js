@@ -743,27 +743,23 @@ function renderHomepage(data) {
 
 // Generate a daily special pick
 function renderDailyPick(data) {
-    // Create a deterministic "random" pick based on the current date
+    // Use the daily pick from the data if available
+    const dailyPick = data.daily_pick || {};
+    
+    // If no specific daily pick, create a fallback
+    const pickItem = dailyPick.item || {
+        title: 'Daily Coloring Adventure',
+        description: 'A delightful coloring page to brighten your day'
+    };
+    
+    // Use the first spring category if seasonal_gallery exists
+    const categoryKey = data.seasonal_gallery ? 'seasonal' : 
+        Object.keys(data.categories)[0];
+    
+    // Generate image with a consistent seed
     const today = new Date();
-    const dateString = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-    const dateHash = Array.from(dateString).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    
-    // Get all categories and their items
-    const allCategories = Object.keys(data.categories);
-    const categoryIndex = dateHash % allCategories.length;
-    const categoryKey = allCategories[categoryIndex];
-    const category = data.categories[categoryKey];
-    
-    if (!category || !category.items) return '<p>No daily pick available</p>';
-    
-    const allItems = Object.keys(category.items);
-    const itemIndex = dateHash % allItems.length;
-    const itemKey = allItems[itemIndex];
-    const item = category.items[itemKey];
-    
-    // Generate image with a fixed seed based on the date
-    const seed = dateHash;
-    const imageUrl = getImageUrl(item.description, { seed: seed, width: 600, height: 600 });
+    const seed = +`${today.getFullYear()}${today.getMonth()}${today.getDate()}`;
+    const imageUrl = getImageUrl(pickItem.description, { seed: seed, width: 600, height: 600 });
     
     return `
         <div class="flex flex-col md:flex-row">
@@ -771,15 +767,17 @@ function renderDailyPick(data) {
                 <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                     <div class="spinner"></div>
                 </div>
-                <img src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" alt="${item.title}" class="w-full h-auto object-contain rounded relative z-10">
+                <img src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" alt="${pickItem.title}" class="w-full h-auto object-contain rounded relative z-10">
             </div>
             <div class="md:w-1/3 p-4 flex flex-col justify-between">
                 <div>
-                    <span class="text-xs font-medium text-primary-600 bg-primary-100 px-2 py-1 rounded-full">${category.title}</span>
-                    <h3 class="text-xl font-bold mt-2">${item.title}</h3>
-                    <p class="text-sm text-gray-600 mt-2">${item.description}</p>
+                    <span class="text-xs font-medium text-primary-600 bg-primary-100 px-2 py-1 rounded-full">
+                        ${dailyPick.title || 'Today\'s Pick'}
+                    </span>
+                    <h3 class="text-xl font-bold mt-2">${pickItem.title}</h3>
+                    <p class="text-sm text-gray-600 mt-2">${pickItem.description}</p>
                 </div>
-                <a href="#item/${categoryKey}/${itemKey}" class="mt-4 bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded-lg font-medium text-center">
+                <a href="#category/${categoryKey}" class="mt-4 bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded-lg font-medium text-center">
                     View & Download
                 </a>
             </div>
@@ -853,7 +851,7 @@ function renderCategory(categoryData, categoryKey) {
                 </div>
                 <div>
                     <h2 class="text-3xl font-bold">${categoryData.title}</h2>
-                    <p class="mt-2 text-white text-opacity-90 max-w-2xl">${categoryData.description}</p>
+                    <p class="mt-2 text-white text-opacity-90 max-w-2xl">${categoryData.description || ''}</p>
                 </div>
             </div>
         </div>
@@ -875,7 +873,14 @@ function renderCategory(categoryData, categoryKey) {
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
     `;
 
-    for (const [itemKey, item] of Object.entries(categoryData.items)) {
+    let itemsToRender = categoryData.items || {};
+    
+    // If seasonal category, use seasonal_gallery items if available
+    if (categoryKey === 'seasonal' && siteData.seasonal_gallery && siteData.seasonal_gallery.items) {
+        itemsToRender = siteData.seasonal_gallery.items;
+    }
+    
+    for (const [itemKey, item] of Object.entries(itemsToRender)) {
          const thumbnailUrl = getImageUrl(item.description, { width: 400, height: 400 });
          html += `
             <a href="#item/${categoryKey}/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group">
@@ -897,22 +902,42 @@ function renderCategory(categoryData, categoryKey) {
          `;
     }
 
+    // If no items found for seasonal category, provide a fallback
+    if (categoryKey === 'seasonal' && Object.keys(itemsToRender).length === 0) {
+        html += `
+            <div class="col-span-full text-center py-12 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                <i class="${SEASONAL_THEMES[currentSeason].icon} text-6xl text-primary-600 mb-4 block"></i>
+                <h3 class="text-2xl font-semibold mb-2">No ${currentSeason} Coloring Pages Yet</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                    We're preparing some exciting ${currentSeason} themed coloring pages! 
+                    Check back soon or explore our other categories.
+                </p>
+                <a href="#" class="inline-block bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition">
+                    Browse All Categories
+                </a>
+            </div>
+        `;
+    }
+
     html += '</div>';
     
-    // Add pagination controls
-    html += `
-        <div class="mt-8 flex justify-center">
-            <nav class="flex items-center space-x-2" aria-label="Pagination">
-                <span class="px-3 py-1 rounded-md bg-gray-200 text-gray-600 cursor-not-allowed">Previous</span>
-                <span class="px-3 py-1 rounded-md bg-primary-600 text-white">1</span>
-                <a href="#" class="px-3 py-1 rounded-md hover:bg-gray-200 text-gray-700 dark:text-gray-300">2</a>
-                <a href="#" class="px-3 py-1 rounded-md hover:bg-gray-200 text-gray-700 dark:text-gray-300">3</a>
-                <span class="px-2">...</span>
-                <a href="#" class="px-3 py-1 rounded-md hover:bg-gray-200 text-gray-700 dark:text-gray-300">8</a>
-                <a href="#" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:text-gray-300">Next</a>
-            </nav>
-        </div>
-    `;
+    // Modify pagination to only show if more than one page of items
+    const itemCount = Object.keys(itemsToRender).length;
+    if (itemCount > 12) {
+        html += `
+            <div class="mt-8 flex justify-center">
+                <nav class="flex items-center space-x-2" aria-label="Pagination">
+                    <span class="px-3 py-1 rounded-md bg-gray-200 text-gray-600 cursor-not-allowed">Previous</span>
+                    <span class="px-3 py-1 rounded-md bg-primary-600 text-white">1</span>
+                    <a href="#" class="px-3 py-1 rounded-md hover:bg-gray-200 text-gray-700 dark:text-gray-300">2</a>
+                    <a href="#" class="px-3 py-1 rounded-md hover:bg-gray-200 text-gray-700 dark:text-gray-300">3</a>
+                    <span class="px-2">...</span>
+                    <a href="#" class="px-3 py-1 rounded-md hover:bg-gray-200 text-gray-700 dark:text-gray-300">8</a>
+                    <a href="#" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:text-gray-300">Next</a>
+                </nav>
+            </div>
+        `;
+    }
     
     return html;
 }
@@ -921,7 +946,52 @@ function renderItem(itemData, categoryKey, itemKey) {
     if (!itemData) return '<p class="text-center text-red-500">Item not found.</p>';
 
     const category = siteData.categories[categoryKey];
-    const imageUrl = getImageUrl(itemData.description); // Generate full size image URL
+    
+    // Create a unique cache key for this specific item
+    const itemCacheKey = `colorverse-item-cache-${categoryKey}-${itemKey}`;
+    
+    // Try to retrieve cached image generation details
+    const cachedItemData = localStorage.getItem(itemCacheKey);
+    let imageUrl, generationParams;
+
+    if (cachedItemData) {
+        try {
+            const parsedCache = JSON.parse(cachedItemData);
+            // Use cached seed and other params to regenerate the exact same image
+            generationParams = {
+                seed: parsedCache.seed,
+                width: parsedCache.width,
+                height: parsedCache.height
+            };
+            imageUrl = getImageUrl(itemData.description, generationParams);
+            console.log('Using cached image generation parameters');
+        } catch (e) {
+            console.warn('Failed to parse cached item data:', e);
+            // Fallback to default image generation
+            imageUrl = getImageUrl(itemData.description);
+        }
+    } else {
+        // Generate new image with a persistent seed
+        const seed = Math.floor(Math.random() * 100000);
+        generationParams = {
+            seed: seed,
+            width: 1024,
+            height: 1024
+        };
+        imageUrl = getImageUrl(itemData.description, generationParams);
+
+        // Cache the generation parameters
+        try {
+            localStorage.setItem(itemCacheKey, JSON.stringify({
+                seed: generationParams.seed,
+                width: generationParams.width,
+                height: generationParams.height,
+                timestamp: Date.now()
+            }));
+        } catch (e) {
+            console.warn('Failed to cache item image details:', e);
+        }
+    }
 
     // Simple next/prev logic
     const itemKeys = Object.keys(category.items);
@@ -1257,14 +1327,21 @@ function handleRouteChange() {
         imageLoadQueue.isProcessing = false;
     }
 
+    // Hide all static content sections
+    document.querySelectorAll('[id^="static-"]').forEach(element => {
+        element.classList.add('hidden');
+    });
+
     // Small delay to allow UI to show loading state
     setTimeout(() => {
         try {
              if (hash === '#' || hash === '#/') {
                 mainContent.innerHTML = renderHomepage(siteData);
+                mainContent.classList.remove('hidden');
             } else if (hash.startsWith('#category/')) {
                 const categoryKey = hash.substring('#category/'.length);
                 mainContent.innerHTML = renderCategory(siteData.categories[categoryKey], categoryKey);
+                mainContent.classList.remove('hidden');
             } else if (hash.startsWith('#item/')) {
                 const parts = hash.substring('#item/'.length).split('/');
                 if (parts.length === 2) {
@@ -1272,27 +1349,161 @@ function handleRouteChange() {
                     const itemKey = parts[1];
                     const itemData = siteData?.categories?.[categoryKey]?.items?.[itemKey];
                     mainContent.innerHTML = renderItem(itemData, categoryKey, itemKey);
+                    mainContent.classList.remove('hidden');
                 } else {
                      mainContent.innerHTML = '<p class="text-center text-red-500">Invalid item URL.</p>';
+                     mainContent.classList.remove('hidden');
                 }
-            } else {
-                 // Handle other routes like #about, #donate, #privacy etc.
-                 mainContent.innerHTML = `<h2 class="text-2xl font-semibold mb-4">${hash.substring(1)} Page</h2><p>Content for the ${hash.substring(1)} page goes here.</p>`;
-                 // Add specific content generation for these pages if needed
-                 if (hash === '#donate') {
-                    mainContent.innerHTML += `
-                        <div class="mt-4 p-6 bg-white rounded shadow-md">
-                            <h3 class="text-xl font-bold mb-3">Support ColorVerse</h3>
-                            <p class="mb-4">If you enjoy our free coloring pages, please consider supporting us. Your donations help keep the site running and allow us to add new content!</p>
-                            <a href="https://patreon.com/" target="_blank" rel="noopener noreferrer" class="inline-block bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-5 rounded transition duration-300 mr-4">Support on Patreon</a>
-                            <a href="#" target="_blank" rel="noopener noreferrer" class="inline-block bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-5 rounded transition duration-300">One-time Donation (Link)</a>
+            } else if (hash === '#about') {
+                // Show static about page content
+                document.getElementById('static-about').classList.remove('hidden');
+                mainContent.classList.add('hidden');
+            } else if (hash === '#privacy') {
+                // Show static privacy policy content
+                document.getElementById('static-privacy').classList.remove('hidden');
+                mainContent.classList.add('hidden');
+            } else if (hash === '#terms') {
+                // Show static terms of service content
+                document.getElementById('static-terms').classList.remove('hidden');
+                mainContent.classList.add('hidden');
+            } else if (hash === '#contact') {
+                // Show static contact page content
+                document.getElementById('static-contact').classList.remove('hidden');
+                mainContent.classList.add('hidden');
+            } else if (hash === '#donate') {
+                mainContent.innerHTML = `
+                    <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 py-2">
+                        <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
+                            <i class="fas fa-home mr-1"></i> Home
+                        </a>
+                        <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
+                        <span class="font-medium text-gray-800">Support ColorVerse</span>
+                    </nav>
+                    
+                    <h1 class="text-3xl font-bold mb-6">Support ColorVerse</h1>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
+                        <h2 class="text-2xl font-semibold mb-4">Why Support Us?</h2>
+                        <p class="mb-4">ColorVerse is dedicated to making high-quality coloring pages accessible to everyone. We provide all our content for free, but maintaining and improving our platform requires resources. Your support helps us:</p>
+                        
+                        <ul class="list-disc ml-6 mb-6 space-y-2">
+                            <li>Keep our coloring pages completely free for everyone</li>
+                            <li>Develop new features and improve our AI generation technology</li>
+                            <li>Add more diverse categories and designs</li>
+                            <li>Cover our server and development costs</li>
+                            <li>Keep ads minimal and non-intrusive</li>
+                        </ul>
+                        
+                        <p>Every contribution, no matter the size, makes a difference in our ability to continue providing this creative resource.</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+                            <h2 class="text-2xl font-semibold mb-4 flex items-center">
+                                <i class="fas fa-heart text-red-500 mr-3"></i> 
+                                One-Time Donation
+                            </h2>
+                            <p class="mb-6">Make a single contribution to support our ongoing efforts. Every donation helps!</p>
+                            
+                            <div class="space-y-4">
+                                <button class="w-full py-3 bg-primary-100 hover:bg-primary-200 text-primary-800 font-medium rounded-lg transition-colors">$5 Donation</button>
+                                <button class="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-lg transition-colors">$10 Donation</button>
+                                <button class="w-full py-3 bg-primary-100 hover:bg-primary-200 text-primary-800 font-medium rounded-lg transition-colors">$25 Donation</button>
+                                <button class="w-full py-3 bg-primary-100 hover:bg-primary-200 text-primary-800 font-medium rounded-lg transition-colors">Custom Amount</button>
+                            </div>
+                            
+                            <div class="mt-6 flex flex-wrap gap-3">
+                                <button class="flex-1 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors flex items-center justify-center">
+                                    <i class="fab fa-paypal mr-2"></i> PayPal
+                                </button>
+                                <button class="flex-1 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors flex items-center justify-center">
+                                    <i class="fas fa-credit-card mr-2"></i> Card
+                                </button>
+                            </div>
                         </div>
-                    `;
-                 }
+                        
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+                            <h2 class="text-2xl font-semibold mb-4 flex items-center">
+                                <i class="fas fa-star text-yellow-500 mr-3"></i> 
+                                Become a Patron
+                            </h2>
+                            <p class="mb-6">Support us monthly and receive special perks as a thank you for your ongoing support!</p>
+                            
+                            <div class="space-y-6">
+                                <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                                    <h3 class="font-semibold text-lg mb-2">Art Enthusiast - $5/month</h3>
+                                    <ul class="text-sm space-y-1 mb-3">
+                                        <li>• Ad-free browsing experience</li>
+                                        <li>• Special thank you in our monthly newsletter</li>
+                                    </ul>
+                                </div>
+                                
+                                <div class="p-4 border-2 border-primary-500 rounded-lg relative">
+                                    <span class="absolute top-0 right-0 transform translate-x-1/3 -translate-y-1/2 bg-primary-500 text-white px-3 py-1 rounded-full text-sm font-medium">Popular</span>
+                                    <h3 class="font-semibold text-lg mb-2">Creative Supporter - $10/month</h3>
+                                    <ul class="text-sm space-y-1 mb-3">
+                                        <li>• All Art Enthusiast benefits</li>
+                                        <li>• Early access to new coloring page collections</li>
+                                        <li>• Vote on upcoming coloring page themes</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <a href="https://patreon.com/" target="_blank" rel="noopener noreferrer" class="mt-6 block w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors text-center">
+                                <i class="fab fa-patreon mr-2"></i> Join on Patreon
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="accent-panel p-6 text-white mb-8">
+                        <h2 class="text-2xl font-semibold mb-4">Other Ways to Support</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <div class="rounded-full bg-white bg-opacity-20 w-16 h-16 flex items-center justify-center text-3xl mb-4">
+                                    <i class="fas fa-share-alt"></i>
+                                </div>
+                                <h3 class="text-xl font-medium mb-2">Share ColorVerse</h3>
+                                <p>Help us grow by sharing ColorVerse with friends, family, and on social media.</p>
+                            </div>
+                            
+                            <div>
+                                <div class="rounded-full bg-white bg-opacity-20 w-16 h-16 flex items-center justify-center text-3xl mb-4">
+                                    <i class="fas fa-comment"></i>
+                                </div>
+                                <h3 class="text-xl font-medium mb-2">Provide Feedback</h3>
+                                <p>Your input helps us improve! Let us know what you like and how we can make ColorVerse even better.</p>
+                            </div>
+                            
+                            <div>
+                                <div class="rounded-full bg-white bg-opacity-20 w-16 h-16 flex items-center justify-center text-3xl mb-4">
+                                    <i class="fas fa-envelope"></i>
+                                </div>
+                                <h3 class="text-xl font-medium mb-2">Subscribe</h3>
+                                <p>Join our newsletter to stay updated and engaged with our growing community.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 text-center">
+                        <h2 class="text-2xl font-semibold mb-3">Thank You!</h2>
+                        <p class="mb-4">We're grateful for every form of support. Your contributions help us continue to provide free, high-quality coloring pages to our community.</p>
+                        <p class="text-sm text-gray-500">ColorVerse is not a registered non-profit organization. Donations are not tax-deductible.</p>
+                    </div>
+                `;
+                mainContent.classList.remove('hidden');
+            } else {
+                // Handle any other routes
+                mainContent.innerHTML = `<div class="text-center py-8">
+                    <h2 class="text-2xl font-semibold mb-4">Page Not Found</h2>
+                    <p class="mb-4">Sorry, the page you're looking for doesn't exist or is still under construction.</p>
+                    <a href="#" class="inline-block bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">Return Home</a>
+                </div>`;
+                mainContent.classList.remove('hidden');
             }
         } catch (error) {
             console.error("Error rendering route:", error);
             mainContent.innerHTML = '<p class="text-center text-red-500">An error occurred while loading this page. Please try again later.</p>';
+            mainContent.classList.remove('hidden');
         } finally {
             showLoading(false);
             window.scrollTo(0, 0); // Scroll to top on page change
@@ -1398,6 +1609,25 @@ The output MUST be a valid JSON object adhering strictly to the following struct
   "brand": {
     "name": "ColorVerse",
     "vision": "A short, inspiring vision statement for the ColorVerse brand."
+  },
+  "seasonal_gallery": {
+    "title": "Spring Awakening",
+    "subtitle": "Nature's Palette of Renewal and Growth",
+    "description": "Discover the vibrant transformation of spring through intricate coloring pages that capture life's beautiful emergence.",
+    "items": {
+      "garden_symphony": { 
+        "title": "Garden Symphony", 
+        "description": "An intricate line art of a spring garden with layered tulips, daffodils, and cherry blossoms, highlighting delicate petals and emerging new growth" 
+      },
+      "meadow_morning": { 
+        "title": "Meadow Morning", 
+        "description": "A whimsical scene of newborn animals - baby rabbits, lambs, and chirping birds - nestled in a lush, detail-rich spring meadow with wildflowers" 
+      },
+      "butterfly_dance": {
+        "title": "Butterfly Dance",
+        "description": "A graceful composition of butterflies emerging from chrysalises, surrounded by budding branches and delicate spring foliage"
+      }
+    }
   },
   "categories": {
     "category_key_1": {
@@ -1511,6 +1741,19 @@ Constraints & Guidelines:
         throw error; // Reject the promise
     }
 }
+
+// Make the static content functions available globally for use in links
+window.printColoringPage = printColoringPage;
+window.sharePage = sharePage;
+
+// Handle form submissions on static pages
+document.addEventListener('submit', function(event) {
+    // Check if this is a form in our static content
+    if (event.target.closest('#static-contact')) {
+        event.preventDefault();
+        alert('Thank you for your message! This is a demo form. In a production environment, this would submit your information to our team.');
+    }
+});
 
 // --- Global Event Listeners ---
 window.addEventListener('hashchange', handleRouteChange);
