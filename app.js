@@ -15,10 +15,10 @@ const DEFAULT_IMAGE_PARAMS = {
 // Dynamic referrer based on domain name
 function getDynamicReferrer() {
     try {
-        // Extract domain from current hostname
+        // Extract hostname from current location
         const hostname = window.location.hostname;
         
-        // Handle different environments
+        // Handle local development environments
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
             return 'dseeker.github.io';
         } else if (hostname) {
@@ -29,7 +29,7 @@ function getDynamicReferrer() {
         }
     } catch (error) {
         console.warn('Failed to extract domain for referrer:', error);
-        return 'ColorVerseWebApp'; // Fallback
+        return 'dseeker.github.io'; // Fallback
     }
 }
 
@@ -1704,14 +1704,21 @@ Constraints & Guidelines:
         ],
         response_format: { "type": "json_object" }, // Request JSON output
         temperature: 0.7, // Adjust creativity slightly
-        // seed: 12345 // Optional: for reproducibility during testing
-        referrer: REFERRER_ID // Identify the app
+        seed: Math.floor(Math.random() * 10000) // Optional: for reproducibility
+        // referrer: REFERRER_ID // Remove referrer to test CORS
     };
-    const headers = { "Content-Type": "application/json" };
+    const headers = { 
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Origin": window.location.origin
+    };
 
     try {
+        console.log("Calling Pollinations OpenAI endpoint with referrer:", REFERRER_ID);
+        
         const response = await fetch(url, {
             method: "POST",
+            mode: "cors",
             headers: headers,
             body: JSON.stringify(payload)
         });
