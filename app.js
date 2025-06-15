@@ -12,21 +12,24 @@ const DEFAULT_IMAGE_PARAMS = {
     nologo: true,
     model: 'flux' // Using Turbo model
 };
-// Dynamic referrer extraction for better API identification and rate limiting
+// Dynamic referrer based on domain name
 function getDynamicReferrer() {
     try {
+        // Extract domain from current hostname
         const hostname = window.location.hostname;
         
-        // Handle localhost and development environments
+        // Handle different environments
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            return 'ColorVerse-LocalDev';
+            return 'dseeker.github.io';
+        } else if (hostname) {
+            return hostname;
+        } else {
+            // Fallback for edge cases
+            return 'dseeker.github.io';
         }
-        
-        // Use actual domain name for production
-        return hostname;
     } catch (error) {
-        console.warn('Failed to extract dynamic referrer:', error);
-        return 'ColorVerseWebApp'; // Fallback to original hardcoded value
+        console.warn('Failed to extract domain for referrer:', error);
+        return 'ColorVerseWebApp'; // Fallback
     }
 }
 
