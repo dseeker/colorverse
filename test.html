@@ -245,6 +245,45 @@
     </div>
 
     <div class="test-section">
+        <h2>🔬 Embedded API Tests (CORS & Localhost)</h2>
+        <p>These tests make direct calls from the browser to the Pollinations API to check for Cross-Origin Resource Sharing (CORS) issues and general connectivity from a client-side environment.</p>
+        
+        <div class="grid">
+            <!-- Test 1: Simple GET -->
+            <div class="api-stats">
+                <h4>Test 1: Simple GET Request</h4>
+                <p><code>GET https://text.pollinations.ai/hello_world</code></p>
+                <button onclick="runEmbeddedTest('simple-get')">Run Test</button>
+                <div id="simple-get-result" class="result-output" style="margin-top: 10px;"></div>
+            </div>
+
+            <!-- Test 2: GET with Params -->
+            <div class="api-stats">
+                <h4>Test 2: GET with Parameters</h4>
+                <p><code>GET .../poem?model=mistral&json=true</code></p>
+                <button onclick="runEmbeddedTest('get-with-params')">Run Test</button>
+                <div id="get-with-params-result" class="result-output" style="margin-top: 10px;"></div>
+            </div>
+
+            <!-- Test 3: Simple POST -->
+            <div class="api-stats">
+                <h4>Test 3: Simple POST Request</h4>
+                <p><code>POST https://text.pollinations.ai/openai</code></p>
+                <button onclick="runEmbeddedTest('simple-post')">Run Test</button>
+                <div id="simple-post-result" class="result-output" style="margin-top: 10px;"></div>
+            </div>
+
+            <!-- Test 4: POST with Streaming -->
+            <div class="api-stats">
+                <h4>Test 4: POST with Streaming</h4>
+                <p><code>POST .../openai (stream=true)</code></p>
+                <button onclick="runEmbeddedTest('post-stream')">Run Test</button>
+                <div id="post-stream-result" class="result-output" style="margin-top: 10px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
         <h2>📈 Performance & Statistics</h2>
         <div class="api-stats">
             <h4>Test Statistics</h4>

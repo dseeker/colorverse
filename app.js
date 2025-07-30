@@ -9,8 +9,8 @@ const DEFAULT_IMAGE_PARAMS = {
     width: 1024,
     height: 1024,
     seed: () => Math.floor(Math.random() * 100000), // Random seed per image
-    nologo: true,
-    model: 'flux' // Using Turbo model
+    nologo: true
+    // Removed model parameter to let API choose default
 };
 // Dynamic referrer based on domain name
 function getDynamicReferrer() {
@@ -35,6 +35,83 @@ function getDynamicReferrer() {
 
 const REFERRER_ID = getDynamicReferrer(); // Dynamic referrer for API usage tracking
 const PLACEHOLDER_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+// Coloring book styles configuration
+const COLORING_STYLES = {
+    '': {
+        name: 'Classic Style',
+        prompt: '',
+        description: 'Traditional simple coloring book style'
+    },
+    'bold-simple': {
+        name: 'Bold & Simple',
+        prompt: 'bold and simple line art, thick clean outlines, minimalistic detail, uniform bold lines',
+        description: 'Thick, clean outlines perfect for beginners'
+    },
+    'intricate': {
+        name: 'Intricate & Detailed',
+        prompt: 'intricate and detailed line art, fine lines, elaborate patterns, high density of elements, complex designs',
+        description: 'Complex detailed patterns for advanced colorists'
+    },
+    'geometric': {
+        name: 'Geometric & Abstract',
+        prompt: 'geometric and abstract patterns, geometric shapes, repeating patterns, tessellating designs, structured patterns',
+        description: 'Mathematical shapes and abstract pattern designs'
+    },
+    'doodle': {
+        name: 'Doodle & Sketch',
+        prompt: 'doodle and sketch style, spontaneous hand-drawn feel, whimsical drawings, overlapping patterns, creative doodles',
+        description: 'Spontaneous, hand-drawn artistic expression'
+    },
+    'whimsical': {
+        name: 'Whimsical & Playful',
+        prompt: 'whimsical and playful style, charming imaginative features, fantasy elements, lighthearted design, magical quality',
+        description: 'Charming, imaginative designs with fantasy elements'
+    },
+    'vintage': {
+        name: 'Vintage & Retro',
+        prompt: 'vintage and retro style, art nouveau flowing lines, retro graphics, historical design elements, classic aesthetic',
+        description: 'Nostalgic designs inspired by past eras'
+    },
+    'fantasy': {
+        name: 'Fantasy & Surreal',
+        prompt: 'fantasy and surreal art, mythical creatures, magical landscapes, dreamlike scenes, imaginative otherworldly',
+        description: 'Imaginative scenes with mythical and magical elements'
+    },
+    'kawaii': {
+        name: 'Kawaii & Cute',
+        prompt: 'kawaii and chibi style, cute characters, large heads, big eyes, adorable charming design',
+        description: 'Japanese-inspired cute and charming style'
+    },
+    'minimalist': {
+        name: 'Minimalist & One-Line',
+        prompt: 'minimalist and one-line art, bare minimum lines, continuous line drawing, elegant simplicity, pure form',
+        description: 'Modern elegant style with minimal lines'
+    },
+    'architectural': {
+        name: 'Architectural & Technical',
+        prompt: 'architectural and technical line art, precise structured lines, buildings, perspective drawings, detailed renderings',
+        description: 'Precise, structured designs with architectural elements'
+    },
+    'organic': {
+        name: 'Organic & Nature',
+        prompt: 'organic and nature-inspired, flowing natural lines, leaf veins, wood grain patterns, botanical forms, natural textures',
+        description: 'Natural forms and textures inspired by nature'
+    },
+    'zentangle': {
+        name: 'Zentangle Style', 
+        prompt: 'zentangle style, repetitive patterns, detailed doodles, meditative line art, structured tangle patterns',
+        description: 'Detailed repetitive patterns for meditative coloring'
+    },
+    'mosaic': {
+        name: 'Mosaic Style',
+        prompt: 'mosaic style, tessellated tiles, segmented patterns, stained glass effect, geometric tile divisions, mosaic art pieces',
+        description: 'Artistic mosaic patterns with tile-like segments'
+    }
+};
+
+// Global state for current coloring style
+let currentColoringStyle = '';
 
 // Theme and seasonal content configuration
 const THEMES = {
@@ -122,6 +199,102 @@ const CATEGORY_ICONS = {
     science: 'fas fa-atom',
     music: 'fas fa-music'
 };
+
+// --- Style Management Functions ---
+function changeColoringStyle(newStyle) {
+    console.log(`[changeColoringStyle] Called with newStyle: "${newStyle}"`);
+    console.log(`[changeColoringStyle] Current currentColoringStyle: "${currentColoringStyle}"`);
+    
+    // Update current style
+    currentColoringStyle = newStyle;
+    console.log(`[changeColoringStyle] Updated currentColoringStyle to: "${currentColoringStyle}"`);
+    
+    // Clear image URL cache since style affects all URLs
+    imageUrlCache.clear();
+    
+    // Show toast notification
+    const styleName = COLORING_STYLES[newStyle]?.name || 'Classic Style';
+    showToast(`Switched to ${styleName}`, 'info', 2000);
+    
+    // Reload all images on the page
+    reloadAllImages();
+}
+
+function reloadAllImages() {
+    // Find all images with data-src (lazy loaded images)
+    const lazyImages = document.querySelectorAll('img[data-src]');
+    console.log(`Found ${lazyImages.length} lazy images to reset`);
+    lazyImages.forEach(img => {
+        // Get the original prompt from the image's dataset
+        const prompt = img.dataset.prompt;
+        if (prompt) {
+            // Generate new URL with current style
+            const newDataSrc = getImageUrl(prompt, {
+                width: img.dataset.width || 400,
+                height: img.dataset.height || 400,
+                seed: img.dataset.seed
+            });
+            
+            console.log(`Updating lazy image data-src from old style to new style`);
+            console.log(`New data-src: ${newDataSrc.substring(0, 200)}...`);
+            
+            // Update the data-src attribute with the new URL
+            img.setAttribute('data-src', newDataSrc);
+        }
+        
+        // Reset image state
+        img.classList.add('loading');
+        img.classList.remove('error');
+        
+        // Show loading indicator if it exists
+        const loadingIndicator = img.parentElement.querySelector('.image-loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'flex';
+        }
+        
+        // Hide error indicator if it exists
+        const errorIndicator = img.parentElement.querySelector('.image-error-indicator');
+        if (errorIndicator) {
+            errorIndicator.style.display = 'none';
+        }
+        
+        // Trigger reload by re-observing the image
+        if (window.imageObserver) {
+            window.imageObserver.unobserve(img);
+            window.imageObserver.observe(img);
+        }
+    });
+    
+    // Find all images that are already loaded (have src but no data-src)
+    const loadedImages = document.querySelectorAll('img[src]:not([data-src])');
+    console.log(`Found ${loadedImages.length} loaded images to reload`);
+    loadedImages.forEach(img => {
+        // Get the original prompt from the image's dataset if available
+        const prompt = img.dataset.prompt;
+        if (prompt) {
+            console.log(`Reloading image with prompt: "${prompt}"`);
+            // Generate new URL with current style
+            const newSrc = getImageUrl(prompt, {
+                width: img.dataset.width || 400,
+                height: img.dataset.height || 400,
+                seed: img.dataset.seed
+            });
+            
+            console.log(`New image URL: ${newSrc}`);
+            
+            // Show loading state
+            img.classList.add('loading');
+            img.classList.remove('error');
+            
+            // Update src to trigger reload
+            img.src = newSrc;
+        } else {
+            console.log('Image missing data-prompt attribute');
+        }
+    });
+    
+    console.log(`Reloading ${lazyImages.length + loadedImages.length} images with new style`);
+}
 
 // --- Toast Notification System ---
 function showToast(message, type = 'info', duration = 3000) {
@@ -214,54 +387,52 @@ class ImageLoadQueue {
         const { imageElement, src } = this.queue.shift();
         
         try {
-            // Show loading state
-            imageElement.classList.add('loading');
+            // Ensure the image element is still in the DOM
+            if (!document.contains(imageElement)) {
+                console.warn('Image element no longer in DOM, skipping:', src);
+                // Continue with the next item
+                await new Promise(resolve => setTimeout(resolve, this.delayBetweenLoads));
+                this.processQueue();
+                return;
+            }
             
-            // Create a new image to preload
-            const img = new Image();
+            // Use the enhanced loading function with retry mechanism
+            const success = await loadImageWithRetry(imageElement, src);
             
-            img.onload = () => {
-                imageElement.src = src;
-                imageElement.classList.remove('loading');
-                const loadingIndicator = imageElement.parentNode.querySelector('.image-loading-indicator');
-                if (loadingIndicator) {
-                    loadingIndicator.style.display = 'none';
-                }
-            };
+            if (!success) {
+                console.error(`Failed to load image after retries: ${src}`);
+            }
+        } catch (error) {
+            console.error(`Unexpected error loading image: ${src}`, error);
             
-            img.onerror = () => {
-                console.error(`Failed to load image: ${src}`);
+            // Ensure error state is properly set
+            if (imageElement) {
                 imageElement.classList.remove('loading');
                 imageElement.classList.add('error');
                 
                 // Hide loading indicator
-                const loadingIndicator = imageElement.parentNode.querySelector('.image-loading-indicator');
+                const loadingIndicator = imageElement.parentNode?.querySelector('.image-loading-indicator');
                 if (loadingIndicator) {
                     loadingIndicator.style.display = 'none';
                 }
                 
-                // Add error indication
-                const errorIndicator = document.createElement('div');
-                errorIndicator.className = 'image-error-indicator absolute inset-0 flex items-center justify-center';
-                errorIndicator.innerHTML = '<i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>';
-                imageElement.parentNode.classList.add('relative');
-                imageElement.parentNode.appendChild(errorIndicator);
-                
-                // Set a placeholder image
-                imageElement.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iIzk5OTk5OSI+SW1hZ2UgRXJyb3I8L3RleHQ+PC9zdmc+';
-            };
-            
-            // Start loading
-            img.src = src;
-            
-            // Delay before next image
+                // Add error indication if not already present
+                const wrapper = imageElement.parentNode;
+                if (wrapper && !wrapper.querySelector('.image-error-indicator')) {
+                    wrapper.classList.add('relative');
+                    const errorIndicator = document.createElement('div');
+                    errorIndicator.className = 'image-error-indicator absolute inset-0 flex items-center justify-center bg-red-100 bg-opacity-50';
+                    errorIndicator.innerHTML = '<i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>';
+                    wrapper.appendChild(errorIndicator);
+                }
+            }
+        } finally {
+            // Delay before next image regardless of success or failure
             await new Promise(resolve => setTimeout(resolve, this.delayBetweenLoads));
-        } catch (error) {
-            console.error('Error loading image:', error);
+            
+            // Continue with the next item
+            this.processQueue();
         }
-        
-        // Continue with the next item
-        this.processQueue();
     }
 }
 
@@ -270,21 +441,33 @@ const imageLoadQueue = new ImageLoadQueue(300); // 300ms between loads
 
 // --- Lazy Loading Setup ---
 function setupLazyLoading() {
+    // Clear any existing observers to prevent duplicates
+    if (window.imageObserver) {
+        window.imageObserver.disconnect();
+    }
+    
     if (!('IntersectionObserver' in window)) {
         // Fallback for browsers that don't support IntersectionObserver
         document.querySelectorAll('img[data-src]').forEach(img => {
-            img.src = img.getAttribute('data-src');
+            // Ensure the image hasn't already been loaded
+            if (img.src !== img.getAttribute('data-src')) {
+                img.src = img.getAttribute('data-src');
+            }
         });
         return;
     }
     
-    // First look for any stuck loading indicators and hide them
+    // First look for any stuck loading indicators and ensure they're visible
     document.querySelectorAll('.image-loading-indicator').forEach(indicator => {
-        indicator.style.display = 'none';
+        // Only show indicators for images that haven't loaded yet
+        const img = indicator.parentNode?.querySelector('img');
+        if (img && !img.complete) {
+            indicator.style.display = 'flex'; // Ensure loading indicators are visible
+        }
     });
     
     // Create the IntersectionObserver to watch for images entering the viewport
-    const imageObserver = new IntersectionObserver((entries, observer) => {
+    window.imageObserver = new IntersectionObserver((entries, observer) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 const lazyImage = entry.target;
@@ -306,16 +489,32 @@ function setupLazyLoading() {
         threshold: 0.1 // 10% of the item visible
     });
     
-    // Observe all images with data-src
+    // Observe all images with data-src that haven't been loaded yet
     document.querySelectorAll('img[data-src]').forEach(img => {
-        // Add loading indicator
+        // Skip if already loaded
+        if (img.src === img.getAttribute('data-src') && img.complete) {
+            // Hide loading indicator if it exists
+            const loadingIndicator = img.parentNode?.querySelector('.image-loading-indicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+            return;
+        }
+        
+        // Add loading indicator if not already present
         const wrapper = img.parentNode;
         if (wrapper) {
-            wrapper.classList.add('relative');
-            const loader = document.createElement('div');
-            loader.className = 'image-loading-indicator absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-50 z-0';
-            loader.innerHTML = '<div class="spinner"></div>';
-            wrapper.insertBefore(loader, wrapper.firstChild); // Insert loader before the image
+            let loader = wrapper.querySelector('.image-loading-indicator');
+            if (!loader) {
+                wrapper.classList.add('relative');
+                loader = document.createElement('div');
+                loader.className = 'image-loading-indicator absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-50 z-0';
+                loader.innerHTML = '<div class="spinner"></div>';
+                wrapper.insertBefore(loader, wrapper.firstChild); // Insert loader before the image
+            } else {
+                // Ensure loader is visible for unloaded images
+                loader.style.display = 'flex';
+            }
             
             // Make sure the image has a higher z-index
             img.style.position = 'relative';
@@ -323,7 +522,7 @@ function setupLazyLoading() {
         }
         
         // Start observing
-        imageObserver.observe(img);
+        window.imageObserver.observe(img);
     });
 }
 
@@ -351,11 +550,14 @@ const imageUrlCache = new Map(); // Cache for image URLs
 // --- API Functions ---
 function getImageUrl(prompt, params = {}) {
     try {
-        // Generate a cache key based on prompt and params
-        const cacheKey = JSON.stringify({ prompt, params });
+        console.log(`getImageUrl called with currentColoringStyle: "${currentColoringStyle}"`);
+        
+        // Include current style in cache key
+        const cacheKey = JSON.stringify({ prompt, params, style: currentColoringStyle });
         
         // Check if we have this URL cached
         if (imageUrlCache.has(cacheKey)) {
+            console.log(`Using cached URL for style "${currentColoringStyle}"`);
             return imageUrlCache.get(cacheKey);
         }
         
@@ -369,16 +571,29 @@ function getImageUrl(prompt, params = {}) {
             enhancedPrompt = `${prompt}, ${seasonalTheme.prompt}`;
         }
 
+        // Add current coloring style to the prompt
+        const styleConfig = COLORING_STYLES[currentColoringStyle];
+        console.log(`[getImageUrl] currentColoringStyle: "${currentColoringStyle}"`);
+        console.log(`[getImageUrl] styleConfig:`, styleConfig);
+        if (styleConfig && styleConfig.prompt) {
+            enhancedPrompt = `${enhancedPrompt}, ${styleConfig.prompt}`;
+            console.log(`Applied style "${currentColoringStyle}": ${styleConfig.prompt}`);
+        } else {
+            console.log(`No style applied, currentColoringStyle: "${currentColoringStyle}"`);
+        }
+
         // Crucial for coloring pages: Modify the prompt for good line art
         const coloringPrompt = `high contrast black and white line art coloring page, ${enhancedPrompt}, pure outlines with no shading, no color, no grayscale, thick clean lines, simple contours only, minimalist printable coloring book style, suitable for children to color`;
+
+        console.log(`Final coloring prompt: ${coloringPrompt.substring(0, 200)}...`);
 
         const query = new URLSearchParams({
             width: fullParams.width,
             height: fullParams.height,
             seed: seed,
             nologo: fullParams.nologo,
-            referrer: REFERRER_ID,
-            model: fullParams.model || DEFAULT_IMAGE_PARAMS.model
+            referrer: REFERRER_ID
+            // Removed model parameter to let API choose default
         });
         
         const imageUrl = `${API_BASE_URL}${encodeURIComponent(coloringPrompt)}?${query.toString()}`;
@@ -426,9 +641,27 @@ function isCacheValid() {
 
 function saveToCache(data) {
     try {
+        // Check if data is valid before caching
+        if (!data || !data.categories) {
+            console.warn('Skipping cache save - invalid data structure');
+            return false;
+        }
+        
+        // Check available storage space (if supported)
+        if (navigator.storage && navigator.storage.estimate) {
+            navigator.storage.estimate().then(estimate => {
+                const percentage = (estimate.usage / estimate.quota) * 100;
+                if (percentage > 90) {
+                    console.warn('Storage is almost full - clearing cache');
+                    localStorage.removeItem(CACHE_KEY_SITE_DATA);
+                }
+            });
+        }
+        
         localStorage.setItem(CACHE_KEY_SITE_DATA, JSON.stringify(data));
         localStorage.setItem(CACHE_KEY_TIMESTAMP, Date.now().toString());
         console.log('Site data cached successfully');
+        return true;
     } catch (error) {
         console.warn('Failed to cache site data:', error);
         // If storage is full, clear it and try again
@@ -436,8 +669,11 @@ function saveToCache(data) {
             localStorage.clear();
             localStorage.setItem(CACHE_KEY_SITE_DATA, JSON.stringify(data));
             localStorage.setItem(CACHE_KEY_TIMESTAMP, Date.now().toString());
+            console.log('Site data cached successfully after clearing');
+            return true;
         } catch (e) {
             console.error('Still failed to cache after clearing localStorage:', e);
+            return false;
         }
     }
 }
@@ -446,10 +682,29 @@ function loadFromCache() {
     try {
         const cachedData = localStorage.getItem(CACHE_KEY_SITE_DATA);
         if (cachedData) {
-            return JSON.parse(cachedData);
+            const parsedData = JSON.parse(cachedData);
+            
+            // Validate the cached data structure
+            if (!parsedData || !parsedData.categories) {
+                console.warn('Cached data is invalid - missing required fields');
+                return null;
+            }
+            
+            // Check if we have enough categories
+            const categoryCount = Object.keys(parsedData.categories).length;
+            if (categoryCount < 5) {
+                console.warn(`Cached data has insufficient categories (${categoryCount})`);
+                return null;
+            }
+            
+            console.log(`Loaded valid cached data with ${categoryCount} categories`);
+            return parsedData;
         }
     } catch (error) {
         console.warn('Failed to load cached site data:', error);
+        // Clear invalid cache data
+        localStorage.removeItem(CACHE_KEY_SITE_DATA);
+        localStorage.removeItem(CACHE_KEY_TIMESTAMP);
     }
     return null;
 }
@@ -627,7 +882,12 @@ function renderHomepage(data) {
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${category.title}" class="w-full h-48 object-cover group-hover:opacity-90 transition-opacity relative z-10">
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" 
+                         data-prompt="${firstItem.description}" 
+                         data-width="400" 
+                         data-height="400" 
+                         alt="${category.title}" 
+                         class="w-full aspect-square object-contain group-hover:opacity-90 transition-opacity relative z-10">
                     <div class="absolute top-3 right-3 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md z-20">
                         <i class="${getCategoryIcon(key)} text-primary-600"></i>
                     </div>
@@ -704,7 +964,13 @@ function renderHomepage(data) {
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${category.title}" class="w-full h-40 object-cover group-hover:opacity-90 transition-opacity relative z-10">
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" 
+                         data-prompt="${firstItem.description}" 
+                         data-width="400" 
+                         data-height="400" 
+                         data-seed="${key.charCodeAt(0) * 1000}" 
+                         alt="${category.title}" 
+                         class="w-full aspect-square object-contain group-hover:opacity-90 transition-opacity relative z-10">
                 </div>
                 <div class="p-4 flex-grow flex flex-col">
                     <div class="flex items-center mb-2">
@@ -788,7 +1054,13 @@ function renderDailyPick(data) {
                 <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                     <div class="spinner"></div>
                 </div>
-                <img src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" alt="${pickItem.title}" class="w-full h-auto object-contain rounded relative z-10">
+                <img src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" 
+                     data-prompt="${pickItem.description}" 
+                     data-width="600" 
+                     data-height="600" 
+                     data-seed="${seed}" 
+                     alt="${pickItem.title}" 
+                     class="w-full h-auto object-contain rounded relative z-10">
             </div>
             <div class="md:w-1/3 p-4 flex flex-col justify-between">
                 <div>
@@ -837,7 +1109,12 @@ function renderRecentAdditions(data) {
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${item.title}" class="w-full h-48 object-cover relative z-10">
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" 
+                         data-prompt="${item.description}" 
+                         data-width="300" 
+                         data-height="300" 
+                         alt="${item.title}" 
+                         class="w-full aspect-square object-contain relative z-10">
                 </div>
                 <div class="p-3">
                     <span class="text-xs font-medium text-primary-600 bg-primary-100 px-2 py-0.5 rounded-full">${categoryTitle}</span>
@@ -909,7 +1186,12 @@ function renderCategory(categoryData, categoryKey) {
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${item.title}" class="w-full h-32 object-cover group-hover:opacity-80 transition-opacity relative z-10">
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" 
+                         data-prompt="${item.description}" 
+                         data-width="400" 
+                         data-height="400" 
+                         alt="${item.title}" 
+                         class="w-full aspect-square object-contain group-hover:opacity-80 transition-opacity relative z-10">
                     <div class="absolute inset-0 bg-primary-600 bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center z-20">
                         <div class="bg-white p-2 rounded-full opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all duration-300">
                             <i class="fas fa-eye text-primary-600"></i>
@@ -1036,7 +1318,13 @@ function renderItem(itemData, categoryKey, itemKey) {
                 <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                     <div class="spinner"></div>
                 </div>
-                <img id="coloring-image" src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" alt="Coloring page: ${itemData.title}" class="max-w-full max-h-[70vh] object-contain rounded shadow relative z-10">
+                <img id="coloring-image" src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" 
+                     data-prompt="${itemData.description}" 
+                     data-width="${generationParams.width}" 
+                     data-height="${generationParams.height}" 
+                     data-seed="${generationParams.seed}" 
+                     alt="Coloring page: ${itemData.title}" 
+                     class="max-w-full max-h-[70vh] object-contain rounded shadow relative z-10">
             </div>
 
             <!-- Controls & Info Area -->
@@ -1109,7 +1397,12 @@ function renderRelatedItems(category, categoryKey, currentItemKey) {
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" alt="${item.title}" class="w-full h-32 object-cover relative z-10">
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" 
+                         data-prompt="${item.description}" 
+                         data-width="300" 
+                         data-height="300" 
+                         alt="${item.title}" 
+                         class="w-full aspect-square object-contain relative z-10">
                 </div>
                 <div class="p-3">
                     <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">${item.title}</h4>
@@ -1147,6 +1440,96 @@ function setupGlobalImageErrorHandling() {
             target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iIzk5OTk5OSI+SW1hZ2UgRXJyb3I8L3RleHQ+PC9zdmc+';
         }
     }, true); // Use capture phase to catch all image errors
+}
+
+// Enhanced image loading with retry mechanism
+async function loadImageWithRetry(imageElement, src, maxRetries = 3) {
+    // Validate input
+    if (!imageElement || !src) {
+        console.error('Invalid parameters for loadImageWithRetry');
+        return false;
+    }
+    
+    // Add loading class to show loading state
+    imageElement.classList.add('loading');
+    imageElement.classList.remove('error');
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            console.log(`Image load attempt ${attempt} for ${src}`);
+            
+            await new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    console.log(`Image loaded successfully on attempt ${attempt}: ${src}`);
+                    resolve();
+                };
+                img.onerror = (error) => {
+                    console.warn(`Image load error on attempt ${attempt} for ${src}:`, error);
+                    reject(new Error(`Image load failed: ${error?.message || 'Unknown error'}`));
+                };
+                img.src = src;
+                
+                // Add timeout
+                setTimeout(() => {
+                    console.warn(`Image load timeout on attempt ${attempt} for ${src}`);
+                    reject(new Error('Image load timeout after 10 seconds'));
+                }, 10000);
+            });
+            
+            // If we get here, the image loaded successfully
+            imageElement.src = src;
+            imageElement.classList.remove('loading', 'error');
+            
+            // Hide loading indicator if it exists
+            const loadingIndicator = imageElement.parentNode?.querySelector('.image-loading-indicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+            
+            return true;
+        } catch (error) {
+            console.warn(`Image load attempt ${attempt} failed for ${src}:`, error.message || error);
+            
+            if (attempt === maxRetries) {
+                // Last attempt failed, show error
+                imageElement.classList.remove('loading');
+                imageElement.classList.add('error');
+                
+                // Hide loading indicator
+                const loadingIndicator = imageElement.parentNode?.querySelector('.image-loading-indicator');
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                }
+                
+                // Show a more descriptive error message
+                const errorImageUrl = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iIzk5OTk5OSI+SW1hZ2UgRXJyb3I8L3RleHQ+PC9zdmc+';
+                imageElement.src = errorImageUrl;
+                
+                // Show toast notification about the failed image load
+                if (typeof showToast === 'function') {
+                    showToast(`Failed to load image after ${maxRetries} attempts. Please try again later.`, 'error');
+                }
+                
+                // Add error indication
+                const wrapper = imageElement.parentNode;
+                if (wrapper && !wrapper.querySelector('.image-error-indicator')) {
+                    wrapper.classList.add('relative');
+                    const errorIndicator = document.createElement('div');
+                    errorIndicator.className = 'image-error-indicator absolute inset-0 flex items-center justify-center bg-red-100 bg-opacity-50';
+                    errorIndicator.innerHTML = '<i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>';
+                    wrapper.appendChild(errorIndicator);
+                }
+                
+                return false;
+            }
+            
+            // Wait before retrying with exponential backoff
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Max 5 seconds
+            console.log(`Waiting ${delay}ms before retrying image load for ${src}`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
 }
 
 // Function to print the coloring page
@@ -1347,6 +1730,11 @@ function handleRouteChange() {
         // Just mark as not processing, which will reset on next add
         imageLoadQueue.isProcessing = false;
     }
+    
+    // Disconnect any existing IntersectionObserver to prevent memory leaks
+    if (window.imageObserver) {
+        window.imageObserver.disconnect();
+    }
 
     // Hide all static content sections
     document.querySelectorAll('[id^="static-"]').forEach(element => {
@@ -1421,7 +1809,7 @@ function handleRouteChange() {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
                             <h2 class="text-2xl font-semibold mb-4 flex items-center">
-                                <i class="fas fa-heart text-red-500 mr-3"></i> 
+                                <i class="fas fa-heart text-red-500 mr-3"></i>
                                 One-Time Donation
                             </h2>
                             <p class="mb-6">Make a single contribution to support our ongoing efforts. Every donation helps!</p>
@@ -1445,7 +1833,7 @@ function handleRouteChange() {
                         
                         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
                             <h2 class="text-2xl font-semibold mb-4 flex items-center">
-                                <i class="fas fa-star text-yellow-500 mr-3"></i> 
+                                <i class="fas fa-star text-yellow-500 mr-3"></i>
                                 Become a Patron
                             </h2>
                             <p class="mb-6">Support us monthly and receive special perks as a thank you for your ongoing support!</p>
@@ -1636,13 +2024,13 @@ The output MUST be a valid JSON object adhering strictly to the following struct
     "subtitle": "Nature's Palette of Renewal and Growth",
     "description": "Discover the vibrant transformation of spring through intricate coloring pages that capture life's beautiful emergence.",
     "items": {
-      "garden_symphony": { 
-        "title": "Garden Symphony", 
-        "description": "An intricate line art of a spring garden with layered tulips, daffodils, and cherry blossoms, highlighting delicate petals and emerging new growth" 
+      "garden_symphony": {
+        "title": "Garden Symphony",
+        "description": "An intricate line art of a spring garden with layered tulips, daffodils, and cherry blossoms, highlighting delicate petals and emerging new growth"
       },
-      "meadow_morning": { 
-        "title": "Meadow Morning", 
-        "description": "A whimsical scene of newborn animals - baby rabbits, lambs, and chirping birds - nestled in a lush, detail-rich spring meadow with wildflowers" 
+      "meadow_morning": {
+        "title": "Meadow Morning",
+        "description": "A whimsical scene of newborn animals - baby rabbits, lambs, and chirping birds - nestled in a lush, detail-rich spring meadow with wildflowers"
       },
       "butterfly_dance": {
         "title": "Butterfly Dance",
@@ -1697,35 +2085,41 @@ Constraints & Guidelines:
 
     const url = "https://text.pollinations.ai/openai";
     const payload = {
-        model: "openai-large", // Use the specified large model
+        model: "openai", // Use the openai model which works with anonymous tier
         messages: [
             { role: "system", content: "You are an AI assistant that generates structured JSON data based on user requirements. Output ONLY the requested JSON object." },
             { role: "user", content: prompt }
         ],
         response_format: { "type": "json_object" }, // Request JSON output
-        temperature: 0.7, // Adjust creativity slightly
-        seed: Math.floor(Math.random() * 10000) // Optional: for reproducibility
-        // referrer: REFERRER_ID // Remove referrer to test CORS
+        temperature: 0.5, // Use the same temperature as in test.html
+        referrer: REFERRER_ID // Add referrer to help with API access
     };
-    const headers = { 
+    const headers = {
         "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Origin": window.location.origin
+        "Accept": "application/json"
     };
 
     try {
         console.log("Calling Pollinations OpenAI endpoint with referrer:", REFERRER_ID);
         
+        // Show a toast notification about data loading
+        if (typeof showToast === 'function') {
+            showToast('Loading fresh coloring page content...', 'info', 5000);
+        }
+        
+        // Simplified fetch without timeout controller to match test.html approach
         const response = await fetch(url, {
             method: "POST",
-            mode: "cors",
             headers: headers,
             body: JSON.stringify(payload)
         });
 
+        
+
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            const errorMessage = `Failed to fetch data from AI service. Status: ${response.status}. Message: ${errorText}`;
+            throw new Error(errorMessage);
         }
 
         const result = await response.json();
@@ -1738,14 +2132,56 @@ Constraints & Guidelines:
             throw new Error("AI response did not contain the expected content structure.");
         }
 
-        // Parse the JSON string within the content
-        const parsedData = JSON.parse(generatedContent);
+        // Try to parse the JSON string within the content
+        let parsedData;
+        try {
+            parsedData = JSON.parse(generatedContent);
+        } catch (parseError) {
+            console.error("Failed to parse AI response as JSON:", parseError);
+            // Try to extract JSON from the response if it has extra text
+            const jsonMatch = generatedContent.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                try {
+                    parsedData = JSON.parse(jsonMatch[0]);
+                    console.log("Successfully extracted JSON from response");
+                } catch (extractError) {
+                    throw new Error("Could not extract valid JSON from AI response: " + extractError.message);
+                }
+            } else {
+                throw new Error("AI response does not contain valid JSON. Response: " + generatedContent.substring(0, 200) + "...");
+            }
+        }
 
         // Basic validation (can be expanded)
         if (!parsedData.brand || !parsedData.categories || Object.keys(parsedData.categories).length === 0) {
              throw new Error("Generated JSON data is missing required fields (brand/categories).");
         }
-        // Add more checks if needed (e.g., category count, item count)
+        
+        // Validate category structure
+        const categoryKeys = Object.keys(parsedData.categories);
+        if (categoryKeys.length !== 20) {
+            console.warn(`Expected 20 categories, but got ${categoryKeys.length}`);
+            if (typeof showToast === 'function') {
+                showToast(`Expected 20 categories, but received ${categoryKeys.length}. Some categories may be missing.`, 'warning');
+            }
+        }
+        
+        // Validate items in each category
+        let validCategories = 0;
+        const totalCategories = categoryKeys.length;
+        for (const [catKey, category] of Object.entries(parsedData.categories)) {
+            if (category.items && Object.keys(category.items).length >= 10) { // At least 10 items per category
+                validCategories++;
+            } else {
+                const itemCount = category.items ? Object.keys(category.items).length : 0;
+                console.warn(`Category ${catKey} has insufficient items: ${itemCount}`);
+                if (typeof showToast === 'function') {
+                    showToast(`Category "${category.title || catKey}" has only ${itemCount} items.`, 'warning');
+                }
+            }
+        }
+        
+        console.log(`Validated categories: ${validCategories}/${totalCategories}`);
 
         console.log("Site data generated and parsed successfully");
         siteData = parsedData; // Store globally
@@ -1753,20 +2189,129 @@ Constraints & Guidelines:
         // Cache the data
         saveToCache(parsedData);
         
+        // Show success message
+        if (typeof showToast === 'function') {
+            showToast('Content loaded successfully!', 'success');
+        }
+        
         return parsedData; // Resolve the promise
 
     } catch (error) {
         console.error("Error generating or parsing site data:", error);
-        siteData = null; // Ensure data is null on error
-        mainContent.innerHTML = `
-            <div class="text-center text-red-600 p-8 bg-red-100 border border-red-400 rounded">
-                <h2 class="text-xl font-bold mb-2">Failed to Generate Content</h2>
-                <p>We couldn't automatically generate the coloring categories using AI at this time.</p>
-                <p class="mt-2">Please try refreshing the page. If the problem persists, the AI service might be temporarily unavailable.</p>
-                <p class="text-sm mt-4">Error details: ${error.message}</p>
-            </div>`;
-        showLoading(false); // Hide loading indicator on error
-        throw error; // Reject the promise
+        
+        // Show error message to user
+        if (typeof showToast === 'function') {
+            if (error.name === 'AbortError') {
+                showToast('Request timed out. Please check your connection and try again.', 'error');
+            } else {
+                showToast('Failed to load content. Using cached data if available.', 'error');
+            }
+        }
+        
+        // Try to load from cache as a fallback
+        const cachedData = loadFromCache();
+        if (cachedData) {
+            console.log("Using cached data as fallback");
+            if (typeof showToast === 'function') {
+                showToast('Showing cached content.', 'info');
+            }
+            siteData = cachedData;
+            showLoading(false);
+            return cachedData;
+        }
+        
+        // If no cached data, use sample data as last resort
+        console.log("Using sample data as last resort");
+        if (typeof showToast === 'function') {
+            showToast('Showing sample content.', 'warning');
+        }
+        const sampleData = getSampleSiteData();
+        siteData = sampleData;
+        showLoading(false);
+        return sampleData;
+    }
+    
+    // Sample data for fallback when AI service is unavailable
+    function getSampleSiteData() {
+        return {
+            "brand": {
+                "name": "ColorVerse",
+                "vision": "Inspiring creativity through AI-generated coloring pages for everyone."
+            },
+            "seasonal_gallery": {
+                "title": "Seasonal Collection",
+                "subtitle": "Nature's Palette Throughout the Year",
+                "description": "Explore coloring pages that capture the beauty of each season.",
+                "items": {
+                    "spring_flowers": {
+                        "title": "Spring Flowers",
+                        "description": "A beautiful arrangement of tulips, daffodils, and cherry blossoms in full bloom"
+                    },
+                    "summer_beach": {
+                        "title": "Summer Beach Day",
+                        "description": "Sandy shores with seashells, umbrellas, and playful dolphins in the waves"
+                    },
+                    "autumn_leaves": {
+                        "title": "Autumn Leaves",
+                        "description": "A collection of fallen leaves with intricate vein patterns and acorns"
+                    },
+                    "winter_snowflakes": {
+                        "title": "Winter Snowflakes",
+                        "description": "Delicate snowflakes with unique crystalline structures and winter scenes"
+                    }
+                }
+            },
+            "categories": {
+                "animals": {
+                    "title": "Animal Kingdom",
+                    "description": "Coloring pages featuring animals from around the world.",
+                    "keywords": ["animals", "wildlife", "creatures", "zoo", "pets"],
+                    "items": {
+                        "cute_cat": { "title": "Cute Cat", "description": "An adorable cat with big eyes sitting curled up, clean line art style" },
+                        "playful_dog": { "title": "Playful Dog", "description": "A happy dog with floppy ears running in a field, clean line art style" },
+                        "majestic_lion": { "title": "Majestic Lion", "description": "A regal lion with a full mane standing on a rock, clean line art style" },
+                        "graceful_deer": { "title": "Graceful Deer", "description": "A deer with antlers in a forest clearing, clean line art style" },
+                        "fluffy_rabbit": { "title": "Fluffy Rabbit", "description": "A cute rabbit with long ears sitting among flowers, clean line art style" }
+                    }
+                },
+                "fantasy": {
+                    "title": "Fantasy Worlds",
+                    "description": "Magical creatures and enchanted settings for your imagination.",
+                    "keywords": ["fantasy", "magic", "dragons", "unicorns", "fairies"],
+                    "items": {
+                        "mighty_dragon": { "title": "Mighty Dragon", "description": "A powerful dragon with wings soaring over mountains, clean line art style" },
+                        "graceful_unicorn": { "title": "Graceful Unicorn", "description": "A unicorn with a spiraled horn in a magical forest, clean line art style" },
+                        "fairy_queen": { "title": "Fairy Queen", "description": "A fairy with delicate wings and a crown in a flower garden, clean line art style" },
+                        "castle_wizard": { "title": "Wizard's Castle", "description": "A mystical castle with towers and magical symbols, clean line art style" },
+                        "enchanted_forest": { "title": "Enchanted Forest", "description": "A forest with glowing mushrooms and magical creatures, clean line art style" }
+                    }
+                },
+                "mandalas": {
+                    "title": "Mandalas",
+                    "description": "Intricate circular patterns for relaxation and focus.",
+                    "keywords": ["mandalas", "patterns", "zen", "meditation", "geometric"],
+                    "items": {
+                        "floral_mandala": { "title": "Floral Mandala", "description": "A circular pattern with intricate flower designs, clean line art style" },
+                        "geometric_mandala": { "title": "Geometric Mandala", "description": "A symmetrical pattern with geometric shapes, clean line art style" },
+                        "sacred_geometry": { "title": "Sacred Geometry", "description": "A mandala based on sacred geometric principles, clean line art style" },
+                        "nature_mandala": { "title": "Nature Mandala", "description": "A circular design with leaves, vines, and natural elements, clean line art style" },
+                        "cosmic_mandala": { "title": "Cosmic Mandala", "description": "A mandala with stars, planets, and celestial patterns, clean line art style" }
+                    }
+                },
+                "vehicles": {
+                    "title": "Vehicles",
+                    "description": "Cars, planes, boats, and other transportation for young enthusiasts.",
+                    "keywords": ["vehicles", "cars", "trucks", "planes", "trains"],
+                    "items": {
+                        "race_car": { "title": "Race Car", "description": "A sleek racing car with aerodynamic design, clean line art style" },
+                        "airplane_sky": { "title": "Airplane in Sky", "description": "A commercial airplane flying through clouds, clean line art style" },
+                        "sailboat_ocean": { "title": "Sailboat Ocean", "description": "A sailboat with billowing sails on calm waters, clean line art style" },
+                        "fire_truck": { "title": "Fire Truck", "description": "An emergency fire truck with ladder and sirens, clean line art style" },
+                        "train_journey": { "title": "Train Journey", "description": "A locomotive with connected cars on railway tracks, clean line art style" }
+                    }
+                }
+            }
+        };
     }
 }
 
@@ -1811,6 +2356,34 @@ function initThemeHandlers() {
     }
 }
 
+// --- Style Selector Initialization ---
+function initStyleSelector() {
+    const styleSelector = document.getElementById('style-selector');
+    
+    if (styleSelector) {
+        // Load saved style from localStorage or use default
+        const savedStyle = localStorage.getItem('colorverse-style') || '';
+        currentColoringStyle = savedStyle;
+        styleSelector.value = savedStyle;
+        
+        // Add change event listener
+        styleSelector.addEventListener('change', (event) => {
+            const newStyle = event.target.value;
+            console.log(`Style selector changed to: "${newStyle}"`);
+            
+            // Save to localStorage
+            localStorage.setItem('colorverse-style', newStyle);
+            
+            // Apply the new style
+            changeColoringStyle(newStyle);
+        });
+        
+        console.log(`Style selector initialized with style: "${currentColoringStyle}"`);
+    } else {
+        console.warn('Style selector element not found');
+    }
+}
+
 // Load cached image URLs on startup
 function loadCachedImageUrls() {
     try {
@@ -1839,6 +2412,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Initialize theme handlers first
         initThemeHandlers();
+        
+        // Initialize style selector
+        initStyleSelector();
         
         // Set up global error handling for images
         setupGlobalImageErrorHandling();
