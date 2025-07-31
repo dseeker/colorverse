@@ -66,6 +66,31 @@
             opacity: 0.3;
         }
 
+        /* Image Preview Overlay */
+        #image-preview-overlay {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        
+        #image-preview-overlay img {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease;
+        }
+        
+        #image-preview-overlay:hover img {
+            transform: scale(1.02);
+        }
+        
+        /* Hover effect for category cards */
+        .category-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .category-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+
         /* Painting/Art themed elements */
         .paint-splash {
             position: absolute;
@@ -323,20 +348,7 @@
                 </button>
                 <div class="relative mr-3">
                     <select id="style-selector" class="bg-white bg-opacity-20 text-white rounded-lg p-2 pr-8 border-none appearance-none focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all cursor-pointer" title="Coloring Style">
-                        <option value="" class="text-gray-800">Classic Style</option>
-                        <option value="bold-simple" class="text-gray-800">Bold & Simple</option>
-                        <option value="intricate" class="text-gray-800">Intricate & Detailed</option>
-                        <option value="geometric" class="text-gray-800">Geometric & Abstract</option>
-                        <option value="doodle" class="text-gray-800">Doodle & Sketch</option>
-                        <option value="whimsical" class="text-gray-800">Whimsical & Playful</option>
-                        <option value="vintage" class="text-gray-800">Vintage & Retro</option>
-                        <option value="fantasy" class="text-gray-800">Fantasy & Surreal</option>
-                        <option value="kawaii" class="text-gray-800">Kawaii & Cute</option>
-                        <option value="minimalist" class="text-gray-800">Minimalist & One-Line</option>
-                        <option value="architectural" class="text-gray-800">Architectural & Technical</option>
-                        <option value="organic" class="text-gray-800">Organic & Nature</option>
-                        <option value="zentangle" class="text-gray-800">Zentangle Style</option>
-                        <option value="mosaic" class="text-gray-800">Mosaic Style</option>
+                        <!-- Options will be dynamically populated by JavaScript from COLORING_STYLES -->
                     </select>
                     <i class="fas fa-chevron-down absolute right-2 top-1/2 transform -translate-y-1/2 text-white pointer-events-none"></i>
                 </div>
