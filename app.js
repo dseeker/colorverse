@@ -30,78 +30,83 @@ const COLORING_STYLES = {
     },
     'bold-simple': {
         name: 'Bold & Simple',
-        prompt: 'bold and simple line art, thick clean outlines, minimalistic detail, uniform bold lines',
+        prompt: 'EXTREMELY BOLD AND THICK black lines, MASSIVE stroke width, ultra-simple shapes, MINIMAL detail, chunky outlines, beginner-friendly thick borders, BOLD BOLD BOLD line art style',
         description: 'Thick, clean outlines perfect for beginners'
     },
     'intricate': {
         name: 'Intricate & Detailed',
-        prompt: 'intricate and detailed line art, fine lines, elaborate patterns, high density of elements, complex designs',
+        prompt: 'ULTRA INTRICATE and EXTREMELY detailed line art, FINE hairline strokes, elaborate ornate patterns, MAXIMUM complexity, incredibly dense detail work, sophisticated fine line patterns, complex decorative elements',
         description: 'Complex detailed patterns for advanced colorists'
     },
     'geometric': {
-        name: 'Geometric & Abstract',
-        prompt: 'geometric line art, perfect symmetry, precise geometric shapes, triangular patterns, hexagonal forms, circular symmetry, mathematical precision, balanced geometric compositions, symmetrical design elements',
+        name: 'Geometric',
+        prompt: 'PERFECT GEOMETRIC precision, MATHEMATICAL symmetry, precise angular shapes, triangular tessellations, hexagonal grids, CRYSTALLINE structures, architectural precision, STRICT geometric forms, symmetrical mandala patterns',
         description: 'Perfectly symmetrical geometric shapes and mathematical patterns'
     },
     'doodle': {
         name: 'Doodle & Sketch',
-        prompt: 'doodle and sketch style, pencil sketch lines, hand-drawn pencil strokes, sketchy crosshatching, rough pencil texture, spontaneous sketching style, scribbled line work, artistic pencil drawing techniques',
+        prompt: 'HAND-DRAWN sketchy style, ROUGH pencil strokes, messy crosshatching, spontaneous scribbled lines, artistic sketch marks, LOOSE drawing style, imperfect hand-drawn lines, sketchy doodle texture',
         description: 'Spontaneous, hand-drawn artistic expression with pencil sketch lines'
     },
     'whimsical': {
         name: 'Whimsical & Playful',
-        prompt: 'whimsical and playful style, charming imaginative features, fantasy elements, lighthearted design, magical quality',
+        prompt: 'WHIMSICAL fairy-tale style, PLAYFUL magical elements, charming storybook illustrations, fantasy flourishes, lighthearted enchanted design, magical creature aesthetics, storybook charm',
         description: 'Charming, imaginative designs with fantasy elements'
     },
     'vintage': {
         name: 'Vintage & Retro',
-        prompt: 'vintage and retro style, art nouveau flowing lines, retro graphics, historical design elements, classic aesthetic',
+        prompt: 'VINTAGE art nouveau style, RETRO classic illustration, historical decorative elements, antique design aesthetic, classic vintage typography style, old-fashioned ornate details',
         description: 'Nostalgic designs inspired by past eras'
     },
     'fantasy': {
         name: 'Fantasy & Surreal',
-        prompt: 'fantasy and surreal art, mythical creatures, magical landscapes, dreamlike scenes, imaginative otherworldly',
+        prompt: 'FANTASY epic art style, SURREAL mythical elements, magical creatures and landscapes, otherworldly dreamlike scenes, enchanted fantasy realms, mystical ethereal design',
         description: 'Imaginative scenes with mythical and magical elements'
     },
     'children_friendly': {
         name: 'Children Friendly',
-        prompt: 'very simple outlines for children, extra thick bold lines, basic shapes, minimal details, easy to color, large areas, simple cartoon style',
+        prompt: 'EXTRA THICK outlines for children, SUPER BOLD lines, HUGE stroke width, basic simple shapes, MASSIVE line thickness, chunky cartoon style, toddler-friendly thick borders, GIANT outline style',
         description: 'Extra simple drawings with thick lines, perfect for young children'
     },
     'futuristic': {
         name: 'Futuristic & Sci-Fi',
-        prompt: 'futuristic sci-fi style, sleek technological lines, cyberpunk elements, space age design, robotic features, geometric tech patterns, neon-inspired outlines',
+        prompt: 'FUTURISTIC sci-fi aesthetic, sleek technological lines, CYBERPUNK neon-style outlines, space-age design, robotic angular features, HIGH-TECH geometric patterns, digital circuit aesthetics, cyber-enhanced line art',
         description: 'Cutting-edge futuristic designs with sci-fi and tech elements'
     },
     'minimalist': {
         name: 'Minimalist & One-Line',
-        prompt: 'minimalist and one-line art, bare minimum lines, continuous line drawing, elegant simplicity, pure form',
+        prompt: 'ULTRA MINIMALIST design, SINGLE continuous line art, bare essential strokes only, ONE-LINE drawing style, elegant simplicity, pure minimal form, continuous unbroken lines, clean minimal aesthetic',
         description: 'Modern elegant style with minimal lines'
     },
     'architectural': {
         name: 'Technical',
-        prompt: 'technical drawing style, precise structured lines, mechanical diagrams, blueprint style, engineering drawings, detailed technical renderings',
+        prompt: 'TECHNICAL blueprint style, PRECISE engineering lines, mechanical diagram aesthetic, ARCHITECTURAL drawing style, technical schematic look, engineering blueprint precision, structured technical rendering',
         description: 'Precise, structured technical drawings and mechanical diagrams'
     },
     'organic': {
         name: 'Organic & Nature',
-        prompt: 'organic and nature-inspired, flowing natural lines, leaf veins, wood grain patterns, botanical forms, natural textures',
+        prompt: 'ORGANIC natural flowing lines, BOTANICAL detailed textures, leaf vein patterns, wood grain aesthetics, natural form structures, flowing nature-inspired curves, organic botanical art style',
         description: 'Natural forms and textures inspired by nature'
     },
     'zentangle': {
         name: 'Zentangle Style', 
-        prompt: 'zentangle style, repetitive patterns, detailed doodles, meditative line art, structured tangle patterns',
+        prompt: 'ZENTANGLE meditation art, REPETITIVE intricate patterns, detailed zen doodles, STRUCTURED tangle designs, meditative pattern work, COMPLEX repetitive motifs, zen-inspired line patterns',
         description: 'Detailed repetitive patterns for meditative coloring'
     },
     'kawaii': {
         name: 'Kawaii & Cute',
-        prompt: 'kawaii and cute style, adorable characters, big round eyes, soft rounded shapes, chibi style, sweet and endearing features',
+        prompt: 'KAWAII ultra-cute style, ADORABLE character design, big round eyes, soft bubbly shapes, CHIBI cartoon style, super cute Japanese aesthetic, endearing kawaii features',
         description: 'Adorable Japanese-inspired cute character style'
     },
     'mosaic': {
         name: 'Mosaic Style',
-        prompt: 'mosaic style, tessellated tiles, segmented patterns, stained glass effect, geometric tile divisions, mosaic art pieces',
+        prompt: 'MOSAIC tile pattern, TESSELLATED geometric segments, stained glass divisions, TILED mosaic art style, segmented geometric patterns, mosaic tile aesthetic',
         description: 'Artistic mosaic patterns with tile-like segments'
+    },
+    'painted_preview': {
+        name: 'Painted Preview',
+        prompt: 'PROFESSIONAL WATERCOLOR painting style, artistic coloring book illustration FULLY COLORED with gentle shading and shadows, soft painterly textures, harmonious color palette, skilled colorist technique, traditional art medium appearance, watercolor paper texture, artistic brush strokes, NOT line art but PAINTED ARTWORK',
+        description: 'See how it would look when professionally colored with watercolors'
     }
 };
 
@@ -831,30 +836,29 @@ function getImageUrl(prompt, params = {}) {
             enhancedPrompt = `${prompt}, ${seasonalTheme.prompt}`;
         }
 
-        // Add current coloring style to the prompt
+        // Add current coloring style to the prompt with HIGH PRIORITY
         const styleConfig = COLORING_STYLES[currentColoringStyle];
         console.log(`[getImageUrl] currentColoringStyle: "${currentColoringStyle}"`);
         console.log(`[getImageUrl] styleConfig:`, styleConfig);
         console.log(`[getImageUrl] styleConfig.prompt:`, styleConfig?.prompt);
         console.log(`[getImageUrl] enhancedPrompt BEFORE style:`, enhancedPrompt);
-        
-        if (styleConfig && styleConfig.prompt) {
-            enhancedPrompt = `${enhancedPrompt}, ${styleConfig.prompt}`;
-            console.log(`Applied style "${currentColoringStyle}": ${styleConfig.prompt}`);
-            console.log(`[getImageUrl] enhancedPrompt AFTER style:`, enhancedPrompt);
-        } else {
-            console.log(`No style applied, currentColoringStyle: "${currentColoringStyle}"`);
-            console.log(`Style config exists: ${!!styleConfig}, Has prompt: ${!!(styleConfig?.prompt)}`);
-        }
 
-        // Create coloring prompt with style-specific instructions taking precedence
+        // Create coloring prompt with STYLE-FIRST approach for maximum effect
         let coloringPrompt;
         if (styleConfig && styleConfig.prompt) {
-            // For styled images, use more generic base instructions that don't conflict with style
-            coloringPrompt = `high contrast black and white line art coloring page, ${enhancedPrompt}, pure outlines with no shading, no color, no grayscale, suitable for children to color`;
+            // Special handling for painted preview style - generate colored artwork instead of line art
+            if (currentColoringStyle === 'painted_preview') {
+                coloringPrompt = `${styleConfig.prompt}, beautiful illustration of ${enhancedPrompt}, artistic watercolor painting, gentle shading and highlights, professional coloring technique, harmonious color scheme, painterly style`;
+                console.log(`Applied PAINTED PREVIEW style - generating COLORED artwork`);
+            } else {
+                // Put style at the BEGINNING for maximum priority and effect
+                coloringPrompt = `${styleConfig.prompt}, coloring page of ${enhancedPrompt}, black and white line art, no color, no shading, no grayscale, pure outlines only, EMPHASIZE THE STYLE: ${styleConfig.prompt}`;
+                console.log(`Applied DOMINANT style "${currentColoringStyle}": ${styleConfig.prompt}`);
+            }
         } else {
-            // For unstyled images, use the full generic description
+            // For unstyled images, use the classic approach
             coloringPrompt = `high contrast black and white line art coloring page, ${enhancedPrompt}, pure outlines with no shading, no color, no grayscale, thick clean lines, simple contours only`;
+            console.log(`No style applied - using classic approach`);
         }
 
         console.log(`Final coloring prompt: ${coloringPrompt.substring(0, 200)}...`);
@@ -1872,12 +1876,28 @@ function generateCategoryPageItems(categoryData, categoryKey, page, itemsPerPage
 
 // Global functions for pagination and sorting
 window.goToPage = function(categoryKey, page, sortBy = 'popular') {
+    // Cancel pending loads when changing pages
+    if (window.imageLoadQueue) {
+        const canceledCount = window.imageLoadQueue.cancelAll();
+        if (canceledCount > 0) {
+            console.log(`[Pagination] Canceled ${canceledCount} pending downloads for page change`);
+        }
+    }
+    
     // Update URL to include page and sort parameters
     const newHash = `#category/${categoryKey}?page=${page}&sort=${sortBy}`;
     window.location.hash = newHash;
 };
 
 window.sortCategory = function(categoryKey, sortBy) {
+    // Cancel pending loads when changing sort order
+    if (window.imageLoadQueue) {
+        const canceledCount = window.imageLoadQueue.cancelAll();
+        if (canceledCount > 0) {
+            console.log(`[Sort Change] Canceled ${canceledCount} pending downloads for sort change`);
+        }
+    }
+    
     // Get current page from URL or default to 1
     const currentPage = getCurrentPageFromHash() || 1;
     const newHash = `#category/${categoryKey}?page=${currentPage}&sort=${sortBy}`;
@@ -2431,13 +2451,17 @@ function showLoading(isLoading) {
 function handleRouteChange() {
     showLoading(true);
     const hash = window.location.hash || '#';
-    mainContent.innerHTML = ''; // Clear previous content
     
-    // Reset the image loading queue in a more efficient way
-    if (imageLoadQueue) {
-        // Just mark as not processing, which will reset on next add
-        imageLoadQueue.isProcessing = false;
+    // Cancel all pending image downloads when navigation occurs
+    if (window.imageLoadQueue) {
+        const canceledCount = window.imageLoadQueue.cancelAll();
+        if (canceledCount > 0) {
+            console.log(`[Navigation] Canceled ${canceledCount} pending image downloads due to page change`);
+            showToast(`Canceled ${canceledCount} pending downloads`, 'info', 1500);
+        }
     }
+    
+    mainContent.innerHTML = ''; // Clear previous content
     
     // Disconnect any existing IntersectionObserver to prevent memory leaks
     if (window.imageObserver) {
@@ -3576,6 +3600,14 @@ window.getApiCallStatus = () => ({
 async function renderCategoryWithProgressiveLoading(categoryKey, currentPage = 1, sortBy = 'popular') {
     console.log('Rendering category with progressive loading:', categoryKey, 'Page:', currentPage, 'Sort:', sortBy);
     
+    // Cancel any pending image loads from previous category
+    if (window.imageLoadQueue) {
+        const canceledCount = window.imageLoadQueue.cancelAll();
+        if (canceledCount > 0) {
+            console.log(`[Category Loading] Canceled ${canceledCount} pending image downloads for new category`);
+        }
+    }
+    
     try {
         // Show loading state first
         mainContent.innerHTML = `
@@ -4254,6 +4286,16 @@ document.addEventListener('submit', function(event) {
 
 // --- Global Event Listeners ---
 window.addEventListener('hashchange', handleRouteChange);
+
+// Cancel all pending downloads when user navigates away from the site
+window.addEventListener('beforeunload', () => {
+    if (window.imageLoadQueue) {
+        const canceledCount = window.imageLoadQueue.cancelAll();
+        if (canceledCount > 0) {
+            console.log(`[Page Unload] Canceled ${canceledCount} pending downloads before page unload`);
+        }
+    }
+});
 
 // --- Theme Initialization and Event Listeners ---
 function initThemeHandlers() {
