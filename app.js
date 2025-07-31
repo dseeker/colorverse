@@ -2548,21 +2548,21 @@ function handleRouteChange() {
                 mainContent.classList.remove('hidden');
             } else if (hash === '#donate') {
                 mainContent.innerHTML = `
-                    <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 py-2">
-                        <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
+                    <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm py-2">
+                        <a href="#" class="hover:text-primary-600 transition-colors flex items-center opacity-70">
                             <i class="fas fa-home mr-1"></i> Home
                         </a>
-                        <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
-                        <span class="font-medium text-gray-800">Support ColorVerse</span>
+                        <i class="fas fa-chevron-right mx-2 opacity-50"></i>
+                        <span class="font-medium">Support ColorVerse</span>
                     </nav>
                     
                     <h1 class="text-3xl font-bold mb-6">Support ColorVerse</h1>
                     
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
-                        <h2 class="text-2xl font-semibold mb-4">Why Support Us?</h2>
-                        <p class="mb-4">ColorVerse is dedicated to making high-quality coloring pages accessible to everyone. We provide all our content for free, but maintaining and improving our platform requires resources. Your support helps us:</p>
+                        <h2 class="text-2xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Why Support Us?</h2>
+                        <p class="mb-4 text-gray-700 dark:text-gray-300">ColorVerse is dedicated to making high-quality coloring pages accessible to everyone. We provide all our content for free, but maintaining and improving our platform requires resources. Your support helps us:</p>
                         
-                        <ul class="list-disc ml-6 mb-6 space-y-2">
+                        <ul class="list-disc ml-6 mb-6 space-y-2 text-gray-700 dark:text-gray-300">
                             <li>Keep our coloring pages completely free for everyone</li>
                             <li>Develop new features and improve our AI generation technology</li>
                             <li>Add more diverse categories and designs</li>
@@ -2570,16 +2570,16 @@ function handleRouteChange() {
                             <li>Keep ads minimal and non-intrusive</li>
                         </ul>
                         
-                        <p>Every contribution, no matter the size, makes a difference in our ability to continue providing this creative resource.</p>
+                        <p class="text-gray-700 dark:text-gray-300">Every contribution, no matter the size, makes a difference in our ability to continue providing this creative resource.</p>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
-                            <h2 class="text-2xl font-semibold mb-4 flex items-center">
+                            <h2 class="text-2xl font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
                                 <i class="fas fa-heart text-red-500 mr-3"></i>
                                 One-Time Donation
                             </h2>
-                            <p class="mb-6">Make a single contribution to support our ongoing efforts. Every donation helps!</p>
+                            <p class="mb-6 text-gray-700 dark:text-gray-300">Make a single contribution to support our ongoing efforts. Every donation helps!</p>
                             
                             <div class="space-y-4">
                                 <button class="w-full py-3 bg-primary-100 hover:bg-primary-200 text-primary-800 font-medium rounded-lg transition-colors">$5 Donation</button>
@@ -2599,16 +2599,16 @@ function handleRouteChange() {
                         </div>
                         
                         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
-                            <h2 class="text-2xl font-semibold mb-4 flex items-center">
+                            <h2 class="text-2xl font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
                                 <i class="fas fa-star text-yellow-500 mr-3"></i>
                                 Become a Patron
                             </h2>
-                            <p class="mb-6">Support us monthly and receive special perks as a thank you for your ongoing support!</p>
+                            <p class="mb-6 text-gray-700 dark:text-gray-300">Support us monthly and receive special perks as a thank you for your ongoing support!</p>
                             
                             <div class="space-y-6">
                                 <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                                    <h3 class="font-semibold text-lg mb-2">Art Enthusiast - $5/month</h3>
-                                    <ul class="text-sm space-y-1 mb-3">
+                                    <h3 class="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Art Enthusiast - $5/month</h3>
+                                    <ul class="text-sm space-y-1 mb-3 text-gray-600 dark:text-gray-400">
                                         <li>• Ad-free browsing experience</li>
                                         <li>• Special thank you in our monthly newsletter</li>
                                     </ul>
@@ -2616,8 +2616,8 @@ function handleRouteChange() {
                                 
                                 <div class="p-4 border-2 border-primary-500 rounded-lg relative">
                                     <span class="absolute top-0 right-0 transform translate-x-1/3 -translate-y-1/2 bg-primary-500 text-white px-3 py-1 rounded-full text-sm font-medium">Popular</span>
-                                    <h3 class="font-semibold text-lg mb-2">Creative Supporter - $10/month</h3>
-                                    <ul class="text-sm space-y-1 mb-3">
+                                    <h3 class="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Creative Supporter - $10/month</h3>
+                                    <ul class="text-sm space-y-1 mb-3 text-gray-600 dark:text-gray-400">
                                         <li>• All Art Enthusiast benefits</li>
                                         <li>• Early access to new coloring page collections</li>
                                         <li>• Vote on upcoming coloring page themes</li>
@@ -2639,7 +2639,7 @@ function handleRouteChange() {
                                     <i class="fas fa-share-alt"></i>
                                 </div>
                                 <h3 class="text-xl font-medium mb-2">Share ColorVerse</h3>
-                                <p>Help us grow by sharing ColorVerse with friends, family, and on social media.</p>
+                                <p class="text-white text-opacity-90">Help us grow by sharing ColorVerse with friends, family, and on social media.</p>
                             </div>
                             
                             <div>
@@ -2647,7 +2647,7 @@ function handleRouteChange() {
                                     <i class="fas fa-comment"></i>
                                 </div>
                                 <h3 class="text-xl font-medium mb-2">Provide Feedback</h3>
-                                <p>Your input helps us improve! Let us know what you like and how we can make ColorVerse even better.</p>
+                                <p class="text-white text-opacity-90">Your input helps us improve! Let us know what you like and how we can make ColorVerse even better.</p>
                             </div>
                             
                             <div>
@@ -2655,15 +2655,15 @@ function handleRouteChange() {
                                     <i class="fas fa-envelope"></i>
                                 </div>
                                 <h3 class="text-xl font-medium mb-2">Subscribe</h3>
-                                <p>Join our newsletter to stay updated and engaged with our growing community.</p>
+                                <p class="text-white text-opacity-90">Join our newsletter to stay updated and engaged with our growing community.</p>
                             </div>
                         </div>
                     </div>
                     
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 text-center">
-                        <h2 class="text-2xl font-semibold mb-3">Thank You!</h2>
-                        <p class="mb-4">We're grateful for every form of support. Your contributions help us continue to provide free, high-quality coloring pages to our community.</p>
-                        <p class="text-sm text-gray-500">ColorVerse is not a registered non-profit organization. Donations are not tax-deductible.</p>
+                        <h2 class="text-2xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Thank You!</h2>
+                        <p class="mb-4 text-gray-700 dark:text-gray-300">We're grateful for every form of support. Your contributions help us continue to provide free, high-quality coloring pages to our community.</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">ColorVerse is not a registered non-profit organization. Donations are not tax-deductible.</p>
                     </div>
                 `;
                 mainContent.classList.remove('hidden');
