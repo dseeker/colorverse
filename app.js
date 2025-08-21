@@ -3346,9 +3346,11 @@ function getOptimizedModelOrder(preferredModel = 'openai') {
         return orderedModels;
     }
     
-    // Otherwise start with preferred model, then use success-based ordering
-    const modelsToTry = preferredModel !== 'openai' 
-        ? [preferredModel, ...availableModels.filter(m => m !== preferredModel)]
+    // Otherwise start with preferred model (if available), then use success-based ordering
+    const modelsToTry = preferredModel !== 'openai'
+        ? (availableModels.includes(preferredModel)
+            ? [preferredModel, ...availableModels.filter(m => m !== preferredModel)]
+            : availableModels)
         : availableModels;
     
     return modelsToTry;
@@ -4472,6 +4474,9 @@ if (typeof module !== 'undefined' && module.exports) {
         COLORING_STYLES,
         getCurrentColoringStyle: () => currentColoringStyle,
         imageUrlCache,
+        callAIAPI,
+        getOptimizedModelOrder,
+        modelSuccessTracker,
         CACHE_KEY_IMAGE_URLS,
         CACHE_KEY_SITE_DATA,
         CACHE_KEY_TIMESTAMP
