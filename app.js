@@ -3346,9 +3346,11 @@ function getOptimizedModelOrder(preferredModel = 'openai') {
         return orderedModels;
     }
     
-    // Otherwise start with preferred model, then use success-based ordering
-    const modelsToTry = preferredModel !== 'openai' 
-        ? [preferredModel, ...availableModels.filter(m => m !== preferredModel)]
+    // Otherwise start with preferred model (if available), then use success-based ordering
+    const modelsToTry = preferredModel !== 'openai'
+        ? (availableModels.includes(preferredModel)
+            ? [preferredModel, ...availableModels.filter(m => m !== preferredModel)]
+            : availableModels)
         : availableModels;
     
     return modelsToTry;
@@ -4343,6 +4345,11 @@ function initStyleSelector() {
         const savedStyle = localStorage.getItem('colorverse-style') || '';
         currentColoringStyle = savedStyle;
         styleSelector.value = savedStyle;
+
+        // Apply saved style on initialization
+        if (savedStyle) {
+            changeColoringStyle(savedStyle);
+        }
         
         // Add change event listener
         styleSelector.addEventListener('change', (event) => {
@@ -4446,3 +4453,32 @@ function clearAllCache() {
 
 // Make functions accessible from HTML
 window.sharePage = sharePage;
+
+// Export functions for testing in Node environment
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        initStyleSelector,
+        changeColoringStyle,
+        applyTheme,
+        loadCachedImageUrls,
+        getImageUrl,
+        getDynamicReferrer,
+        getCategoryIcon,
+        getRandomPastelGradient,
+        isCacheValid,
+        saveToCache,
+        loadFromCache,
+        getCurrentPageFromHash,
+        getCurrentSortFromHash,
+        shouldRefreshCache,
+        COLORING_STYLES,
+        getCurrentColoringStyle: () => currentColoringStyle,
+        imageUrlCache,
+        callAIAPI,
+        getOptimizedModelOrder,
+        modelSuccessTracker,
+        CACHE_KEY_IMAGE_URLS,
+        CACHE_KEY_SITE_DATA,
+        CACHE_KEY_TIMESTAMP
+    };
+}
