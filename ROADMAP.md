@@ -29,12 +29,12 @@ This document outlines competitors, high-ranking coloring keywords, and proposed
 ## Proposed Features
 1. **Keyword-Focused Library** – Organize content around top keywords like "free coloring pages" and "coloring pages for kids" to boost search visibility.
 2. **Holiday & Seasonal Collections** – Release themed bundles for major holidays and seasons to keep the library fresh and relevant.
-3. **Printable Downloads** – One-click PDF exports for every coloring page to support offline use.
-4. **Coloring Tips & Tutorials** – Blog posts and downloadable guides that teach coloring techniques and color theory.
-5. **AI Color Suggestions** – Optional auto-color feature offering palette recommendations based on image context.
-6. **Community Challenges** – Weekly themed contests and badges to encourage repeat engagement.
-7. **Responsive & Offline Support** – Mobile-friendly design with service worker caching for offline coloring.
-8. **Educational Packs** – Curated bundles that teach topics (e.g., animals, geography) through themed pages.
+3. **High-Resolution & SVG Downloads** – Offer scalable vector and high-resolution image files for flexible digital or print use.
+4. **Coloring Tips Infobox** – When a coloring page is shown, display a tooltip at the bottom with a random tip that teaches coloring techniques and color theory.
+5. **Tag-Based Search & Filtering** – Use tags for themes and difficulty to help visitors quickly find relevant pages.
+6. **Social Sharing Buttons** – One-click sharing options for popular platforms to promote finished artworks.
+7. **Accessibility Best Practices** – Semantic markup, alt text, and keyboard navigation to meet modern accessibility standards.
+8. **Structured Data & XML Sitemap** – Implement schema markup and generate a sitemap for better SEO performance.
 9. **Multi-Language Interface** – Localize menus and keywords to reach a global audience.
 10. **Analytics Dashboard** – Track page popularity and keyword performance to inform future content.
 
