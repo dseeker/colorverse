@@ -95,7 +95,7 @@ Navigate to a URL
 | Command | Description |
 |---------|-------------|
 | `npm start` | Start development server on localhost:3000 |
-| `npm test` | Run tests (placeholder) |
+| `npm test` | Run unit tests with Node's test runner |
 | `npm install` | Install dependencies |
 
 ## Project Structure
@@ -108,6 +108,22 @@ colorverse/
 ├── README.md         # This file
 └── assets/           # Static assets (if any)
 ```
+
+## Documentation
+
+- [DEVELOPMENT.md](DEVELOPMENT.md) – codebase overview and testing notes
+- [POLLINATIONS_INTEGRATION.md](POLLINATIONS_INTEGRATION.md) – Pollinations API usage guide
+- [AI-APIDOCS.md](AI-APIDOCS.md) – detailed API reference
+
+## Testing
+
+Run all unit tests with:
+
+```bash
+npm test
+```
+
+The suite covers API fallbacks, theme handling, caching helpers, and more. Test files reside in the `test/` directory.
 
 ## Credits
 
