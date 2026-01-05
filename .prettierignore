@@ -3,6 +3,7 @@ node_modules/
 
 # Build outputs
 dist/
+build/
 coverage/
 
 # Generated files
@@ -23,19 +24,3 @@ yarn-error.log*
 # OS files
 .DS_Store
 Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-
-# Test reports
-test-results/
-playwright-report/
-
-# Temporary files
-*.swp
-*.swo
-*~
-
-# Environment variables
-.env
