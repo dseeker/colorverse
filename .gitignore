@@ -36,6 +36,19 @@ playwright-report/
 *.swp
 *.swo
 *~
+*.tmp
+*.bak
 
 # Environment variables
 .env
+
+# Test images and data
+test_image_*.jpg
+test_*.jpg
+*.png
+*.jpeg
+test-prompts.txt
+variations.txt
+
+# Debug backups
+debug/*.bak
