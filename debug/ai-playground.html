@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ColorVerse JSON Generation Playground</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+  </head>
+  <body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+      <header class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">
+          <i class="fas fa-database text-purple-600 mr-3"></i>
+          ColorVerse JSON Generation Playground
+        </h1>
+        <p class="text-gray-600">
+          Test and fine-tune AI prompts for generating website structure JSON
+        </p>
+      </header>
+
+      <!-- API Settings -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800">
+          <i class="fas fa-cog text-orange-600 mr-2"></i>
+          API Settings
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
+            <select
+              id="modelSelect"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Loading models...</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Temperature</label>
+            <input
+              type="number"
+              id="tempInput"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value="0.5"
+              step="0.1"
+              min="0"
+              max="2"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Response Format</label>
+            <select
+              id="formatSelect"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="json_object">json_object</option>
+              <option value="text">text</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <div id="statusDisplay" class="px-3 py-2 bg-gray-100 rounded text-sm">Ready</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prompt Editor -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-semibold text-gray-800">
+            <i class="fas fa-edit text-blue-600 mr-2"></i>
+            JSON Generation Prompt
+          </h2>
+          <div class="flex gap-2">
+            <button
+              id="loadDefaultBtn"
+              class="bg-purple-600 text-white px-3 py-1.5 rounded text-sm hover:bg-purple-700"
+            >
+              <i class="fas fa-download mr-1"></i>Load App Prompt
+            </button>
+            <button
+              id="resetPromptBtn"
+              class="bg-gray-600 text-white px-3 py-1.5 rounded text-sm hover:bg-gray-700"
+            >
+              <i class="fas fa-undo mr-1"></i>Reset
+            </button>
+          </div>
+        </div>
+        <textarea
+          id="promptInput"
+          class="w-full h-64 px-3 py-2 border border-gray-300 rounded-md font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter your JSON generation prompt..."
+        ></textarea>
+        <div class="mt-4 flex gap-2">
+          <button id="testBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+            <i class="fas fa-play mr-2"></i>Test Prompt
+          </button>
+          <button id="clearBtn" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+            <i class="fas fa-trash mr-2"></i>Clear Results
+          </button>
+        </div>
+      </div>
+
+      <!-- Results Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white rounded-lg shadow-md p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-800">Generated JSON</h3>
+            <div class="flex gap-2">
+              <button
+                id="copyJsonBtn"
+                class="bg-purple-600 text-white px-3 py-1.5 rounded text-sm hover:bg-purple-700"
+              >
+                <i class="fas fa-copy mr-1"></i>Copy JSON
+              </button>
+              <button
+                id="downloadJsonBtn"
+                class="bg-gray-600 text-white px-3 py-1.5 rounded text-sm hover:bg-gray-700"
+              >
+                <i class="fas fa-download mr-1"></i>Download JSON
+              </button>
+            </div>
+          </div>
+          <pre
+            id="jsonOutput"
+            class="bg-gray-50 p-4 rounded border h-96 overflow-auto text-sm font-mono"
+          >
+Results will appear here...</pre
+          >
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-6">
+          <h3 class="text-lg font-semibold mb-4 text-gray-800">Analysis</h3>
+          <div id="analysisOutput" class="bg-gray-50 p-4 rounded border h-96 overflow-auto text-sm">
+            Analysis will appear here...
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+  <script>
+    const promptInput = document.getElementById("promptInput");
+    const jsonOutput = document.getElementById("jsonOutput");
+    const analysisOutput = document.getElementById("analysisOutput");
+    const statusDisplay = document.getElementById("statusDisplay");
+    const modelSelect = document.getElementById("modelSelect");
+    const tempInput = document.getElementById("tempInput");
+    const formatSelect = document.getElementById("formatSelect");
+
+    // Simplified prompt template without template variables
+    const defaultPrompt = `Generate front page data for 'ColorVerse', a free coloring page website.
+The output MUST be a valid JSON object with this EXACT structure:
+{
+  "brand": {
+    "name": "ColorVerse",
+    "vision": "A short, inspiring vision statement for ColorVerse brand."
+  },
+  "seasonal_gallery": {
+    "title": "CURRENT_SEASON",
+    "subtitle": "CURRENT_SEASON_DESCRIPTION",
+    "description": "CURRENT_SEASON_DESCRIPTION",
+    "items": {
+      "seasonal_item_1": { "title": "Unique Seasonal Title 1", "description": "Detailed description for CURRENT_SEASON themed coloring page 1" },
+      "seasonal_item_2": { "title": "Unique Seasonal Title 2", "description": "Detailed description for CURRENT_SEASON themed coloring page 2" },
+      "seasonal_item_3": { "title": "Unique Seasonal Title 3", "description": "Detailed description for CURRENT_SEASON themed coloring page 3" },
+      "seasonal_item_4": { "title": "Unique Seasonal Title 4", "description": "Detailed description for CURRENT_SEASON themed coloring page 4" },
+      "seasonal_item_5": { "title": "Unique Seasonal Title 5", "description": "Detailed description for CURRENT_SEASON themed coloring page 5" },
+      "seasonal_item_6": { "title": "Unique Seasonal Title 6", "description": "Detailed description for CURRENT_SEASON themed coloring page 6" },
+      "seasonal_item_7": { "title": "Unique Seasonal Title 7", "description": "Detailed description for CURRENT_SEASON themed coloring page 7" },
+      "seasonal_item_8": { "title": "Unique Seasonal Title 8", "description": "Detailed description for CURRENT_SEASON themed coloring page 8" },
+      "seasonal_item_9": { "title": "Unique Seasonal Title 9", "description": "Detailed description for CURRENT_SEASON themed coloring page 9" },
+      "seasonal_item_10": { "title": "Unique Seasonal Title 10", "description": "Detailed description for CURRENT_SEASON themed coloring page 10" },
+      "seasonal_item_11": { "title": "Unique Seasonal Title 11", "description": "Detailed description for CURRENT_SEASON themed coloring page 11" },
+      "seasonal_item_12": { "title": "Unique Seasonal Title 12", "description": "Detailed description for CURRENT_SEASON themed coloring page 12" }
+    }
+  },
+  "categories": {
+    "animals": { "title": "Animal Kingdom", "description": "Discover wonderful world of animals from cute pets to wild creatures.", "keywords": ["animals", "wildlife", "pets", "zoo", "creatures"], "items": { "sample_item": { "title": "Majestic Mountain Eagle", "description": "A detailed animal coloring page" } } },
+    "fantasy": { "title": "Fantasy & Magic", "description": "Enter magical realms filled with dragons, unicorns, and mystical adventures.", "keywords": ["fantasy", "magic", "dragons", "unicorns", "mystical"], "items": { "sample_item": { "title": "Enchanted Forest Dragon", "description": "A detailed fantasy coloring page" } } },
+    "mandalas": { "title": "Mandala Meditation", "description": "Find peace and focus with intricate mandala patterns for mindful coloring.", "keywords": ["mandalas", "meditation", "patterns", "zen", "mindfulness"], "items": { "sample_item": { "title": "Cosmic Flower Mandala", "description": "A detailed mandala coloring page" } } },
+    "vehicles": { "title": "Vehicles & Transportation", "description": "Explore cars, trucks, planes, and all kinds of amazing vehicles.", "keywords": ["vehicles", "cars", "trucks", "planes", "transportation"], "items": { "sample_item": { "title": "Vintage Racing Speedster", "description": "A detailed vehicle coloring page" } } },
+    "nature": { "title": "Nature & Landscapes", "description": "Beautiful scenes from nature including forests, mountains, and gardens.", "keywords": ["nature", "landscapes", "trees", "flowers", "outdoors"], "items": { "sample_item": { "title": "Sunset Forest Clearing", "description": "A detailed nature coloring page" } } },
+    "food": { "title": "Delicious Food & Treats", "description": "Tasty treats, healthy foods, and culinary delights to color.", "keywords": ["food", "treats", "cooking", "desserts", "cuisine"], "items": { "sample_item": { "title": "Gourmet Pizza Delight", "description": "A detailed food coloring page" } } },
+    "space": { "title": "Space & Astronomy", "description": "Blast off to explore planets, stars, and cosmic adventures.", "keywords": ["space", "planets", "stars", "astronomy", "rockets"], "items": { "sample_item": { "title": "Galactic Space Station", "description": "A detailed space coloring page" } } },
+    "abstract": { "title": "Abstract Art", "description": "Creative abstract designs and artistic patterns for imagination.", "keywords": ["abstract", "art", "patterns", "creative", "artistic"], "items": { "sample_item": { "title": "Flowing Energy Patterns", "description": "A detailed abstract coloring page" } } },
+    "flowers": { "title": "Beautiful Flowers", "description": "Gorgeous floral designs from simple blooms to elaborate bouquets.", "keywords": ["flowers", "floral", "gardens", "blooms", "botanical"], "items": { "sample_item": { "title": "Rose Garden Paradise", "description": "A detailed flower coloring page" } } },
+    "ocean": { "title": "Ocean & Sea Life", "description": "Dive into underwater worlds filled with sea creatures and coral reefs.", "keywords": ["ocean", "sea", "marine", "underwater", "aquatic"], "items": { "sample_item": { "title": "Coral Reef Adventure", "description": "A detailed ocean coloring page" } } },
+    "dinosaurs": { "title": "Prehistoric Dinosaurs", "description": "Travel back in time to age of mighty dinosaurs and ancient creatures.", "keywords": ["dinosaurs", "prehistoric", "fossils", "ancient", "paleontology"], "items": { "sample_item": { "title": "T-Rex Jungle Hunter", "description": "A detailed dinosaur coloring page" } } },
+    "mythical": { "title": "Mythical Creatures", "description": "Legendary beings from folklore and mythology around world.", "keywords": ["mythical", "legends", "folklore", "creatures", "mythology"], "items": { "sample_item": { "title": "Phoenix Fire Dancer", "description": "A detailed mythical creature coloring page" } } },
+    "birds": { "title": "Birds & Flight", "description": "Soar with beautiful birds from tiny hummingbirds to majestic eagles.", "keywords": ["birds", "flight", "wings", "feathers", "avian"], "items": { "sample_item": { "title": "Peacock Feather Glory", "description": "A detailed bird coloring page" } } },
+    "architecture": { "title": "Buildings & Architecture", "description": "Explore amazing buildings, castles, and architectural wonders.", "keywords": ["architecture", "buildings", "castles", "monuments", "structures"], "items": { "sample_item": { "title": "Gothic Cathedral Spires", "description": "A detailed architecture coloring page" } } },
+    "sports": { "title": "Sports & Recreation", "description": "Active sports, games, and recreational activities for all ages.", "keywords": ["sports", "games", "recreation", "athletics", "competition"], "items": { "sample_item": { "title": "Soccer Championship Match", "description": "A detailed sports coloring page" } } },
+    "memes": { "title": "Internet Memes & Pop Culture", "description": "Fun and trendy internet memes, viral content, and pop culture references.", "keywords": ["memes", "internet", "viral", "trending", "pop culture"], "items": { "sample_item": { "title": "Viral Cat Sensation", "description": "A detailed meme coloring page" } } },
+    "adult_zen": { "title": "Adult Zen & Sophistication", "description": "Complex, sophisticated designs for adult colorists seeking detailed meditation.", "keywords": ["adult", "sophisticated", "complex", "detailed", "zen"], "items": { "sample_item": { "title": "Wine Cellar Meditation", "description": "A detailed zen coloring page" } } },
+    "spicy_bold": { "title": "Bold & Spicy Designs", "description": "Edgy, bold patterns with attitude - skulls, tattoo-style, and rock themes.", "keywords": ["bold", "edgy", "skulls", "tattoo", "rock"], "items": { "sample_item": { "title": "Skull Rock Anthem", "description": "A detailed bold coloring page" } } },
+    "children_characters": { "title": "Cute Children's Characters", "description": "Beloved children's characters and friendly cartoon companions for young colorists.", "keywords": ["children", "characters", "cartoon", "friendly", "kids"], "items": { "sample_item": { "title": "Happy Teddy Bear Picnic", "description": "A detailed children's character coloring page" } } },
+    "vintage_retro": { "title": "Vintage & Retro Vibes", "description": "Nostalgic designs from past decades with classic style and charm.", "keywords": ["vintage", "retro", "classic", "nostalgic", "antique"], "items": { "sample_item": { "title": "1950s Diner Dreams", "description": "A detailed vintage coloring page" } } },
+    "gaming_tech": { "title": "Gaming & Technology", "description": "Video game characters, retro gaming, robots, and futuristic technology.", "keywords": ["gaming", "technology", "robots", "futuristic", "digital"], "items": { "sample_item": { "title": "Cyber Robot Guardian", "description": "A detailed gaming coloring page" } } },
+    "holidays": { "title": "Holidays & Celebrations", "description": "Festive designs for all holidays and special celebrations year-round.", "keywords": ["holidays", "celebrations", "festive", "seasonal", "traditions"], "items": { "sample_item": { "title": "Christmas Morning Magic", "description": "A detailed holiday coloring page" } } },
+    "music_dance": { "title": "Music & Dance", "description": "Musical instruments, dance poses, and rhythm-inspired artistic designs.", "keywords": ["music", "dance", "instruments", "rhythm", "performance"], "items": { "sample_item": { "title": "Jazz Orchestra Night", "description": "A detailed music coloring page" } } },
+    "steampunk": { "title": "Steampunk & Victorian", "description": "Intricate steampunk machinery, Victorian elegance, and clockwork mechanisms.", "keywords": ["steampunk", "victorian", "gears", "clockwork", "mechanical"], "items": { "sample_item": { "title": "Clockwork Airship Captain", "description": "A detailed steampunk coloring page" } } },
+    "tribal_ethnic": { "title": "Tribal & Cultural Patterns", "description": "Beautiful traditional patterns and designs from cultures around world.", "keywords": ["tribal", "cultural", "traditional", "ethnic", "patterns"], "items": { "sample_item": { "title": "Aztec Sun Ceremony", "description": "A detailed tribal coloring page" } } }
+  }
+}
+
+CRITICAL TITLE REQUIREMENTS:
+- ALL seasonal item titles must be unique, creative, and evocative
+- NO generic patterns like "Seasonal Item Title X" or "Sample X"
+- Use descriptive adjectives + specific nouns that evoke actual coloring page
+- Each title should paint a vivid picture of what someone would color
+- Make titles engaging and specific to the seasonal theme
+
+Examples of GOOD titles for CURRENT_SEASON:
+- "Snowflake Ballet Dancer" (winter)
+- "Autumn Harvest Festival" (fall)
+- "Cherry Blossom Garden" (spring)
+- "Beach Sandcastle Adventure" (summer)
+
+Examples of BAD titles (NEVER use these patterns):
+- "Seasonal Item Title 1"
+- "Sample CURRENT_SEASON"
+- "Unique CURRENT_SEASON Title X"
+- Any generic numbered pattern
+
+Create 12 unique, engaging titles that capture the magic of CURRENT_SEASON coloring pages.
+
+Output ONLY the JSON object, with no introductory text, no explanations, and no markdown formatting.`;
+
+    promptInput.value = defaultPrompt;
+
+    console.log("[Playground] ColorVerse JSON Generation Playground loaded");
+
+    // Fetch available models from API
+    async function fetchAvailableModels() {
+      try {
+        const response = await fetch("https://gen.pollinations.ai/v1/chat/completions/models");
+        const result = await response.json();
+
+        if (result && result.data && result.data.length > 0) {
+          const models = result.data.map(m => ({
+            id: m.id,
+            name: m.id,
+            owner: m.owned_by || "unknown",
+          }));
+
+          console.log("[Playground] Fetched", models.length, "models from API");
+
+          // Populate model dropdown
+          modelSelect.innerHTML = models
+            .map(
+              m =>
+                `<option value="${m.id}">${m.id}${m.owner !== "unknown" ? " (" + m.owner + ")" : ""}</option>`
+            )
+            .join("");
+
+          return models;
+        } else {
+          console.warn("[Playground] No models data from API, using fallback list");
+          statusDisplay.innerHTML =
+            "<span class='text-yellow-600'>Using fallback model list</span>";
+          return null;
+        }
+      } catch (error) {
+        console.error("[Playground] Failed to fetch models:", error);
+        statusDisplay.innerHTML = "<span class='text-red-600'>Failed to fetch models</span>";
+        return null;
+      }
+    }
+
+    // Fetch models on page load
+    fetchAvailableModels();
+
+    // Load App Prompt button handler
+    document.getElementById("loadDefaultBtn").onclick = function () {
+      promptInput.value = defaultPrompt;
+      statusDisplay.innerHTML =
+        "<span class='text-green-600'>Loaded simplified app.js prompt (" +
+        defaultPrompt.length +
+        " chars)</span>";
+      console.log("[Playground] Loaded simplified app.js prompt");
+    };
+
+    // Reset button handler
+    document.getElementById("resetPromptBtn").onclick = function () {
+      promptInput.value = defaultPrompt;
+      statusDisplay.innerHTML = "Reset to default";
+      console.log("[Playground] Prompt reset to default");
+    };
+
+    // Test Prompt button handler
+    document.getElementById("testBtn").onclick = async function () {
+      const prompt = promptInput.value;
+      const model = modelSelect.value;
+      const temperature = parseFloat(tempInput.value);
+      const responseFormat = formatSelect.value;
+
+      console.log("[Playground] Test Prompt button clicked");
+      console.log("[Playground] Parameters:", model, temperature, responseFormat, prompt.length);
+
+      if (!model) {
+        alert("Please wait for models to load or select a model");
+        return;
+      }
+
+      statusDisplay.innerHTML =
+        "<span class='text-blue-600'><i class='fas fa-spinner fa-spin mr-2'></i>Generating...</span>";
+      jsonOutput.innerHTML =
+        "<span class='text-blue-600'><i class='fas fa-spinner fa-spin mr-2'></i>Generating...</span>";
+
+      try {
+        const response = await fetch("https://gen.pollinations.ai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object, with no explanations, no markdown formatting, and no introductory text.",
+              },
+              { role: "user", content: prompt },
+            ],
+            response_format: { type: responseFormat },
+            temperature: temperature,
+          }),
+        });
+
+        const result = await response.json();
+        let content;
+
+        // Handle different response formats
+        if (result.choices && result.choices.length > 0) {
+          content = result.choices[0].message.content;
+        } else if (result.data && result.data.content) {
+          content = result.data.content;
+        } else {
+          content = JSON.stringify(result, null, 2);
+        }
+
+        jsonOutput.textContent = content;
+
+        // Analyze
+        try {
+          const data = JSON.parse(content);
+          const categories = Object.keys(data.categories || {}).length;
+          const totalItems = Object.values(data.categories || {}).reduce(function (sum, cat) {
+            const items = Object.keys(cat.items || {}).length;
+            return sum + items;
+          }, 0);
+
+          analysisOutput.innerHTML =
+            `
+                    <p><strong>Status:</strong> <span class="text-green-600">Valid JSON</span></p>
+                    <p><strong>Categories:</strong> ` +
+            categories +
+            `</p>
+                    <p><strong>Total Items:</strong> ` +
+            totalItems +
+            `</p>
+                    <p><strong>Has Brand:</strong> ` +
+            (data.brand ? "Yes" : "No") +
+            `</p>
+                    <p><strong>Has Seasonal:</strong> ` +
+            (data.seasonal_gallery ? "Yes" : "No") +
+            `</p>
+                    <hr class="my-2">
+                    <p class="font-semibold">Category Keys:</p>
+                    <pre class="text-xs mt-1">` +
+            Object.keys(data.categories || {}).join(", ") +
+            `</pre>
+                `;
+          statusDisplay.innerHTML = "<span class='text-green-600'>Success!</span>";
+          console.log("[Playground] JSON generated successfully:", categories, totalItems);
+        } catch (e) {
+          analysisOutput.innerHTML =
+            `<p class="text-red-600">JSON Parse Error: ` + e.message + `</p>`;
+          statusDisplay.innerHTML = "<span class='text-red-600'>Invalid JSON</span>";
+          console.error("[Playground] JSON Parse Error:", e);
+        }
+      } catch (error) {
+        jsonOutput.textContent = "Error: " + error.message;
+        analysisOutput.textContent = "Error: " + error.message;
+        statusDisplay.innerHTML = "<span class='text-red-600'>Error</span>";
+        console.error("[Playground] Network Error:", error);
+      }
+    };
+
+    // Clear Results button handler
+    document.getElementById("clearBtn").onclick = function () {
+      jsonOutput.textContent = "Results will appear here...";
+      analysisOutput.textContent = "Analysis will appear here...";
+      statusDisplay.innerHTML = "Ready";
+      console.log("[Playground] Results cleared");
+    };
+
+    // Copy JSON button handler
+    document.getElementById("copyJsonBtn").onclick = function () {
+      const content = jsonOutput.textContent;
+      navigator.clipboard
+        .writeText(content)
+        .then(function () {
+          const originalText = document.getElementById("copyJsonBtn").innerHTML;
+          document.getElementById("copyJsonBtn").innerHTML =
+            '<i class="fas fa-check mr-1"></i>Copied!';
+          setTimeout(function () {
+            document.getElementById("copyJsonBtn").innerHTML = originalText;
+          }, 2000);
+        })
+        .catch(function (err) {
+          console.error("[Playground] Copy failed:", err);
+        });
+    };
+
+    // Download JSON button handler
+    document.getElementById("downloadJsonBtn").onclick = function () {
+      const content = jsonOutput.textContent;
+      const blob = new Blob([content], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "colorverse-structure.json";
+      a.click();
+      URL.revokeObjectURL(url);
+      console.log("[Playground] JSON downloaded");
+    };
+
+    console.log("[Playground] All event listeners attached");
+  </script>
+</html>
