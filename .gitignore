@@ -52,3 +52,5 @@ variations.txt
 
 # Debug backups
 debug/*.bak
+# GitHub workflow secrets
+.github/workflows/*.json
