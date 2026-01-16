@@ -1423,10 +1423,10 @@ function renderHomepage(data) {
     const firstItem = category.items[firstItemKey];
     const thumbnailUrl = firstItem
       ? getImageUrl(firstItem.description, {
-          width: 400,
-          height: 400,
-          seed: getDeterministicSeedFromItemKey(key), // ✅ Deterministic
-        })
+        width: 400,
+        height: 400,
+        seed: getDeterministicSeedFromItemKey(key), // ✅ Deterministic
+      })
       : "placeholder.png";
     delay += 50; // Stagger the API requests
 
@@ -1967,11 +1967,10 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
   html += `
         <div class="mt-8 flex justify-center">
             <nav class="flex items-center space-x-2" aria-label="Pagination">
-                ${
-                  currentPage > 1
-                    ? `<button onclick="goToPage('${categoryKey}', ${currentPage - 1}, '${sortBy}')" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">Previous</button>`
-                    : `<span class="px-3 py-1 rounded-md bg-gray-200 text-gray-500 cursor-not-allowed">Previous</span>`
-                }
+                ${currentPage > 1
+      ? `<button onclick="goToPage('${categoryKey}', ${currentPage - 1}, '${sortBy}')" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">Previous</button>`
+      : `<span class="px-3 py-1 rounded-md bg-gray-200 text-gray-500 cursor-not-allowed">Previous</span>`
+    }
     `;
 
   // Page numbers
@@ -1990,11 +1989,10 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
   }
 
   html += `
-                ${
-                  currentPage < totalPages
-                    ? `<button onclick="goToPage('${categoryKey}', ${currentPage + 1}, '${sortBy}')" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">Next</button>`
-                    : `<span class="px-3 py-1 rounded-md bg-gray-200 text-gray-500 cursor-not-allowed">Next</span>`
-                }
+                ${currentPage < totalPages
+      ? `<button onclick="goToPage('${categoryKey}', ${currentPage + 1}, '${sortBy}')" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">Next</button>`
+      : `<span class="px-3 py-1 rounded-md bg-gray-200 text-gray-500 cursor-not-allowed">Next</span>`
+    }
             </nav>
         </div>
     `;
@@ -3192,15 +3190,14 @@ The output MUST be a valid JSON object with this EXACT structure:
 }
 
 Focus on ${seasonalTheme.prompt} themes for seasonal items.
-Examples: ${
-    currentSeason === "spring"
+Examples: ${currentSeason === "spring"
       ? "cherry blossoms, Easter, baby animals, garden flowers, rain showers"
       : currentSeason === "summer"
         ? "beaches, pools, ice cream, camping, outdoor activities"
         : currentSeason === "autumn"
           ? "Halloween, harvest, falling leaves, pumpkins, cozy scenes"
           : "Christmas, snow, winter sports, hot cocoa, holiday celebrations"
-  }
+    }
 
 CRITICAL TITLE REQUIREMENTS:
 - ALL seasonal item titles must be unique, creative, and evocative
@@ -3605,6 +3602,221 @@ function getCategoryInfo(categoryKey) {
   return categoryMap[categoryKey] || null;
 }
 
+// =============================================================================
+// MULTI-PROVIDER AI CONFIGURATION
+// =============================================================================
+
+// Provider configuration for multi-provider fallback
+const AI_PROVIDERS = {
+  pollinations: {
+    name: 'Pollinations',
+    baseURL: 'https://gen.pollinations.ai/v1/chat/completions',
+    getApiKey: () => window._env?.POLLINATIONS_API_KEY || null,
+    requiresAuth: false,
+    models: ['openai', 'openai-fast', 'openai-large', 'mistral', 'gemini-fast', 'llamascout', 'phi'],
+  },
+  openrouter: {
+    name: 'OpenRouter',
+    baseURL: 'https://openrouter.ai/api/v1/chat/completions',
+    getApiKey: () => window._env?.OPENROUTER_API_KEY || null,
+    requiresAuth: true,
+    models: [
+      'meta-llama/llama-3.3-8b-instruct:free',
+      'mistralai/mistral-7b-instruct:free',
+      'google/gemma-2-9b-it:free',
+    ],
+    extraHeaders: {
+      'HTTP-Referer': 'https://dseeker.github.io',
+      'X-Title': 'ColorVerse',
+    },
+  },
+  gemini: {
+    name: 'Google Gemini',
+    baseURL: 'https://generativelanguage.googleapis.com/v1beta/models',
+    getApiKey: () => window._env?.GOOGLE_GEMINI_API_KEY || null,
+    requiresAuth: true,
+    models: ['gemini-2.0-flash', 'gemini-1.5-flash'],
+  },
+};
+
+// Provider priority for fallback
+const PROVIDER_PRIORITY = ['pollinations', 'openrouter', 'gemini'];
+
+// Provider status tracking
+let providerStatusTracker = {
+  pollinations: { available: true, lastFailure: null, consecutiveFailures: 0 },
+  openrouter: { available: true, lastFailure: null, consecutiveFailures: 0 },
+  gemini: { available: true, lastFailure: null, consecutiveFailures: 0 },
+};
+
+// Get available providers (filters out unavailable and those without API keys)
+function getAvailableProviders() {
+  const now = Date.now();
+  const recoveryTime = 10 * 60 * 1000; // 10 minutes
+
+  return PROVIDER_PRIORITY.filter(providerName => {
+    const provider = AI_PROVIDERS[providerName];
+    const status = providerStatusTracker[providerName];
+
+    // Reset unavailable status after recovery time
+    if (!status.available && status.lastFailure) {
+      if (now - status.lastFailure > recoveryTime) {
+        status.available = true;
+        status.consecutiveFailures = 0;
+        console.log(`[MultiProvider] 🔄 Resetting ${providerName} availability after recovery`);
+      }
+    }
+
+    // Skip if provider requires auth and doesn't have API key
+    if (provider.requiresAuth && !provider.getApiKey()) {
+      return false;
+    }
+
+    return status.available;
+  });
+}
+
+// Update provider status after success/failure
+function updateProviderStatus(providerName, success) {
+  const status = providerStatusTracker[providerName];
+  if (success) {
+    status.consecutiveFailures = 0;
+    status.available = true;
+  } else {
+    status.lastFailure = Date.now();
+    status.consecutiveFailures++;
+    if (status.consecutiveFailures >= 3) {
+      status.available = false;
+      console.warn(`[MultiProvider] 🚫 Marking ${providerName} as temporarily unavailable`);
+    }
+  }
+}
+
+// Call OpenRouter API
+async function callOpenRouterAPI(prompt) {
+  const provider = AI_PROVIDERS.openrouter;
+  const apiKey = provider.getApiKey();
+
+  if (!apiKey) {
+    throw new Error('OpenRouter API key not configured');
+  }
+
+  const models = provider.models;
+  let lastError = null;
+
+  for (const model of models) {
+    try {
+      console.log(`[MultiProvider] 💬 Trying OpenRouter/${model}`);
+
+      const response = await fetch(provider.baseURL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          ...provider.extraHeaders,
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'system', content: 'You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.' },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.5,
+          max_tokens: 4096,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenRouter API Error ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      const content = result?.choices?.[0]?.message?.content;
+
+      if (!content) {
+        throw new Error('OpenRouter response empty');
+      }
+
+      const parsedData = JSON.parse(content);
+      console.log(`[MultiProvider] ✅ Success with OpenRouter/${model}`);
+      return parsedData;
+    } catch (error) {
+      console.warn(`[MultiProvider] ❌ OpenRouter/${model} failed:`, error.message);
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('All OpenRouter models failed');
+}
+
+// Call Gemini API
+async function callGeminiAPI(prompt) {
+  const provider = AI_PROVIDERS.gemini;
+  const apiKey = provider.getApiKey();
+
+  if (!apiKey) {
+    throw new Error('Gemini API key not configured');
+  }
+
+  const models = provider.models;
+  let lastError = null;
+
+  for (const model of models) {
+    try {
+      console.log(`[MultiProvider] 💬 Trying Gemini/${model}`);
+
+      const url = `${provider.baseURL}/${model}:generateContent?key=${apiKey}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            { role: 'user', parts: [{ text: prompt }] },
+          ],
+          systemInstruction: {
+            parts: [{ text: 'You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.' }],
+          },
+          generationConfig: {
+            temperature: 0.5,
+            maxOutputTokens: 4096,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Gemini API Error ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      const content = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!content) {
+        throw new Error('Gemini response empty');
+      }
+
+      // Try to parse JSON from response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsedData = JSON.parse(jsonMatch[0]);
+        console.log(`[MultiProvider] ✅ Success with Gemini/${model}`);
+        return parsedData;
+      }
+
+      throw new Error('Gemini response does not contain valid JSON');
+    } catch (error) {
+      console.warn(`[MultiProvider] ❌ Gemini/${model} failed:`, error.message);
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('All Gemini models failed');
+}
+
 // Model success tracking
 let modelSuccessTracker = {
   lastSuccessfulModel: "openai",
@@ -3726,7 +3938,7 @@ async function callAIAPI(prompt, preferredModel = "openai") {
   const headers = {
     "Content-Type": "application/json",
     Accept: "application/json",
-    Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY}`,
+    Authorization: `Bearer ${window._env?.POLLINATIONS_API_KEY || ''}`,
   };
 
   let lastError = null;
@@ -3870,11 +4082,58 @@ async function callAIAPI(prompt, preferredModel = "openai") {
     successCounts: modelSuccessTracker.successCount,
   });
 
-  if (typeof showToast === "function") {
-    showToast("All AI models are currently unavailable. Please try again later.", "error", 5000);
+  // =========================================================================
+  // MULTI-PROVIDER FALLBACK: Try OpenRouter and Gemini if Pollinations fails
+  // =========================================================================
+  console.log("[MultiProvider] 🔄 Pollinations failed, trying fallback providers...");
+  updateProviderStatus('pollinations', false);
+
+  // Try OpenRouter
+  const openRouterKey = AI_PROVIDERS.openrouter.getApiKey();
+  if (openRouterKey) {
+    try {
+      console.log("[MultiProvider] 📡 Attempting OpenRouter fallback...");
+      const result = await callOpenRouterAPI(prompt);
+      updateProviderStatus('openrouter', true);
+
+      if (typeof showToast === "function") {
+        showToast("Generated content using OpenRouter fallback", "info", 3000);
+      }
+
+      return result;
+    } catch (openRouterError) {
+      console.warn("[MultiProvider] ❌ OpenRouter fallback failed:", openRouterError.message);
+      updateProviderStatus('openrouter', false);
+    }
   }
 
-  throw lastError || new Error("All AI models failed to generate content");
+  // Try Gemini
+  const geminiKey = AI_PROVIDERS.gemini.getApiKey();
+  if (geminiKey) {
+    try {
+      console.log("[MultiProvider] 📡 Attempting Gemini fallback...");
+      const result = await callGeminiAPI(prompt);
+      updateProviderStatus('gemini', true);
+
+      if (typeof showToast === "function") {
+        showToast("Generated content using Gemini fallback", "info", 3000);
+      }
+
+      return result;
+    } catch (geminiError) {
+      console.warn("[MultiProvider] ❌ Gemini fallback failed:", geminiError.message);
+      updateProviderStatus('gemini', false);
+    }
+  }
+
+  // All providers failed
+  console.error("[MultiProvider] ❌ All providers exhausted (Pollinations, OpenRouter, Gemini)");
+
+  if (typeof showToast === "function") {
+    showToast("All AI providers are currently unavailable. Please try again later.", "error", 5000);
+  }
+
+  throw lastError || new Error("All AI providers failed to generate content");
 }
 
 // Get current model status for debugging
@@ -4031,6 +4290,356 @@ async function ensureCategoryLoaded(categoryKey) {
   return await loadSingleCategory(categoryKey);
 }
 
+  // Sample data for fallback when AI service is unavailable
+  function getSampleSiteData() {
+    const currentSeason = getCurrentSeason();
+    const seasonalTheme = SEASONAL_THEMES[currentSeason];
+
+    // Create season-appropriate sample items
+    const seasonalItems =
+      currentSeason === "spring"
+        ? {
+          spring_flowers: {
+            title: "Spring Flower Garden",
+            description:
+              "A garden bursting with tulips, daffodils, and cherry blossoms with butterflies",
+          },
+          easter_bunny: {
+            title: "Easter Bunny",
+            description: "A cute bunny with Easter eggs and spring flowers in a meadow",
+          },
+          baby_animals: {
+            title: "Baby Farm Animals",
+            description: "Adorable baby chicks, lambs, and calves in a springtime farm setting",
+          },
+        }
+        : currentSeason === "summer"
+          ? {
+            beach_paradise: {
+              title: "Beach Paradise",
+              description:
+                "A detailed beach scene with palm trees, surfboards, beach umbrellas, sandcastles, and playful dolphins jumping in the waves",
+            },
+            summer_camping: {
+              title: "Summer Camping Adventure",
+              description:
+                "A cozy campsite with tents, campfire, marshmallow roasting, star-filled sky, and friendly forest animals",
+            },
+            ice_cream_truck: {
+              title: "Ice Cream Truck Delight",
+              description:
+                "A colorful ice cream truck surrounded by happy children, various ice cream treats, summer treats, and park setting",
+            },
+          }
+          : currentSeason === "autumn"
+            ? {
+              pumpkin_patch: {
+                title: "Pumpkin Patch",
+                description:
+                  "A festive pumpkin patch with various sized pumpkins, autumn leaves, and harvest decorations",
+              },
+              halloween_scene: {
+                title: "Halloween Night",
+                description:
+                  "A spooky but fun Halloween scene with jack-o'-lanterns, bats, and trick-or-treaters",
+              },
+              autumn_leaves: {
+                title: "Falling Autumn Leaves",
+                description:
+                  "Trees with colorful falling leaves, acorns, and woodland creatures preparing for winter",
+              },
+            }
+            : {
+              winter_wonderland: {
+                title: "Winter Wonderland",
+                description:
+                  "A magical winter scene with snow-covered trees, snowmen, and winter animals",
+              },
+              christmas_tree: {
+                title: "Christmas Tree",
+                description:
+                  "A decorated Christmas tree with ornaments, presents, and holiday decorations",
+              },
+              hot_cocoa: {
+                title: "Hot Cocoa Time",
+                description:
+                  "A cozy winter scene with hot cocoa, marshmallows, warm blankets, and snow outside",
+              },
+            };
+
+    return {
+      brand: {
+        name: "ColorVerse",
+        vision: "Inspiring creativity through AI-generated coloring pages for everyone.",
+      },
+      seasonal_gallery: {
+        title: seasonalTheme.name,
+        subtitle: seasonalTheme.description,
+        description: seasonalTheme.description,
+        items: seasonalItems,
+      },
+      categories: {
+        animals: {
+          title: "Animal Kingdom",
+          description: "Coloring pages featuring animals from around the world.",
+          keywords: ["animals", "wildlife", "creatures", "zoo", "pets"],
+          items: {
+            cute_cat: {
+              title: "Cute Cat",
+              description: "An adorable cat with big eyes sitting curled up, clean line art style",
+            },
+            playful_dog: {
+              title: "Playful Dog",
+              description: "A happy dog with floppy ears running in a field, clean line art style",
+            },
+            majestic_lion: {
+              title: "Majestic Lion",
+              description: "A regal lion with a full mane standing on a rock, clean line art style",
+            },
+            graceful_deer: {
+              title: "Graceful Deer",
+              description: "A deer with antlers in a forest clearing, clean line art style",
+            },
+            fluffy_rabbit: {
+              title: "Fluffy Rabbit",
+              description:
+                "A cute rabbit with long ears sitting among flowers, clean line art style",
+            },
+            wise_owl: {
+              title: "Wise Owl",
+              description:
+                "A detailed owl perched on a branch with intricate feather patterns, clean line art style",
+            },
+            jumping_kangaroo: {
+              title: "Jumping Kangaroo",
+              description:
+                "A kangaroo mid-jump with joey in pouch in Australian outback setting, clean line art style",
+            },
+            swimming_dolphin: {
+              title: "Swimming Dolphin",
+              description:
+                "A graceful dolphin leaping through ocean waves with splashing water, clean line art style",
+            },
+          },
+        },
+        fantasy: {
+          title: "Fantasy Worlds",
+          description: "Magical creatures and enchanted settings for your imagination.",
+          keywords: ["fantasy", "magic", "dragons", "unicorns", "fairies"],
+          items: {
+            mighty_dragon: {
+              title: "Mighty Dragon",
+              description:
+                "A powerful dragon with wings soaring over mountains, clean line art style",
+            },
+            graceful_unicorn: {
+              title: "Graceful Unicorn",
+              description:
+                "A unicorn with a spiraled horn in a magical forest, clean line art style",
+            },
+            fairy_queen: {
+              title: "Fairy Queen",
+              description:
+                "A fairy with delicate wings and a crown in a flower garden, clean line art style",
+            },
+            castle_wizard: {
+              title: "Wizard's Castle",
+              description:
+                "A mystical castle with towers and magical symbols, clean line art style",
+            },
+            enchanted_forest: {
+              title: "Enchanted Forest",
+              description:
+                "A forest with glowing mushrooms and magical creatures, clean line art style",
+            },
+            phoenix_rising: {
+              title: "Phoenix Rising",
+              description:
+                "A magnificent phoenix with spread wings surrounded by flames and mystical energy, clean line art style",
+            },
+            mermaid_palace: {
+              title: "Mermaid Palace",
+              description:
+                "An underwater palace with mermaids, sea horses, and coral decorations, clean line art style",
+            },
+          },
+        },
+        mandalas: {
+          title: "Mandalas",
+          description: "Intricate circular patterns for relaxation and focus.",
+          keywords: ["mandalas", "patterns", "zen", "meditation", "geometric"],
+          items: {
+            floral_mandala: {
+              title: "Floral Mandala",
+              description: "A circular pattern with intricate flower designs, clean line art style",
+            },
+            geometric_mandala: {
+              title: "Geometric Mandala",
+              description: "A symmetrical pattern with geometric shapes, clean line art style",
+            },
+            sacred_geometry: {
+              title: "Sacred Geometry",
+              description: "A mandala based on sacred geometric principles, clean line art style",
+            },
+            nature_mandala: {
+              title: "Nature Mandala",
+              description:
+                "A circular design with leaves, vines, and natural elements, clean line art style",
+            },
+            cosmic_mandala: {
+              title: "Cosmic Mandala",
+              description:
+                "A mandala with stars, planets, and celestial patterns, clean line art style",
+            },
+            butterfly_mandala: {
+              title: "Butterfly Mandala",
+              description:
+                "A symmetrical mandala featuring butterfly wings and flight patterns, clean line art style",
+            },
+            ocean_mandala: {
+              title: "Ocean Mandala",
+              description:
+                "A circular design with wave patterns, shells, and marine elements, clean line art style",
+            },
+          },
+        },
+        vehicles: {
+          title: "Vehicles",
+          description: "Cars, planes, boats, and other transportation for young enthusiasts.",
+          keywords: ["vehicles", "cars", "trucks", "planes", "trains"],
+          items: {
+            race_car: {
+              title: "Race Car",
+              description: "A sleek racing car with aerodynamic design, clean line art style",
+            },
+            airplane_sky: {
+              title: "Airplane in Sky",
+              description: "A commercial airplane flying through clouds, clean line art style",
+            },
+            sailboat_ocean: {
+              title: "Sailboat Ocean",
+              description: "A sailboat with billowing sails on calm waters, clean line art style",
+            },
+            fire_truck: {
+              title: "Fire Truck",
+              description: "An emergency fire truck with ladder and sirens, clean line art style",
+            },
+            train_journey: {
+              title: "Train Journey",
+              description:
+                "A locomotive with connected cars on railway tracks, clean line art style",
+            },
+            helicopter_rescue: {
+              title: "Helicopter Rescue",
+              description:
+                "A rescue helicopter with spinning rotors in mountain rescue scene, clean line art style",
+            },
+            motorcycle_adventure: {
+              title: "Motorcycle Adventure",
+              description: "A detailed motorcycle on a winding mountain road, clean line art style",
+            },
+          },
+        },
+        memes: {
+          title: "Internet Memes & Pop Culture",
+          description: "Fun and trendy internet memes and pop culture references.",
+          keywords: ["memes", "internet", "viral", "trending", "pop culture"],
+          items: {
+            grumpy_cat: {
+              title: "Grumpy Cat",
+              description:
+                "A cat with an annoyed expression sitting with crossed arms, internet meme style line art",
+            },
+            doge_wow: {
+              title: "Doge Wow",
+              description:
+                "A Shiba Inu dog with characteristic expression surrounded by comic text bubbles, clean line art style",
+            },
+            distracted_boyfriend: {
+              title: "Distracted Person",
+              description:
+                "Three people in the classic distracted boyfriend meme pose, clean line art style",
+            },
+            this_is_fine: {
+              title: "This Is Fine",
+              description:
+                "A dog sitting in a room with flames around saying this is fine, clean line art style",
+            },
+            success_kid: {
+              title: "Success Kid",
+              description:
+                "A toddler with fist pumped in victory pose on beach, clean line art style",
+            },
+          },
+        },
+        adult_zen: {
+          title: "Adult Zen & Sophistication",
+          description:
+            "Complex, sophisticated designs for adult colorists seeking detailed meditation.",
+          keywords: ["adult", "sophisticated", "complex", "detailed", "zen"],
+          items: {
+            wine_vineyard: {
+              title: "Wine Vineyard",
+              description:
+                "Intricate vineyard scene with wine bottles, grape vines, and wine glasses, sophisticated line art style",
+            },
+            coffee_culture: {
+              title: "Coffee Culture",
+              description:
+                "Detailed coffee shop scene with espresso machines, latte art, and coffee beans, sophisticated line art style",
+            },
+            zen_garden: {
+              title: "Zen Garden",
+              description:
+                "A peaceful zen garden with raked sand patterns, stones, and meditation elements, detailed line art style",
+            },
+            abstract_meditation: {
+              title: "Abstract Meditation",
+              description:
+                "Complex abstract patterns designed for meditative coloring, intricate line art style",
+            },
+            elegant_patterns: {
+              title: "Elegant Patterns",
+              description:
+                "Sophisticated geometric and floral patterns with fine details, complex line art style",
+            },
+          },
+        },
+        spicy_bold: {
+          title: "Bold & Spicy Designs",
+          description: "Edgy, bold patterns with attitude - skulls, tattoo-style, and rock themes.",
+          keywords: ["bold", "edgy", "skulls", "tattoo", "rock"],
+          items: {
+            sugar_skull: {
+              title: "Sugar Skull",
+              description:
+                "Ornate Day of the Dead sugar skull with intricate decorative patterns, bold line art style",
+            },
+            rock_guitar: {
+              title: "Rock Guitar",
+              description:
+                "Electric guitar with flames and rock music symbols, edgy line art style",
+            },
+            tribal_dragon: {
+              title: "Tribal Dragon",
+              description:
+                "Dragon design in tribal tattoo style with bold geometric patterns, strong line art style",
+            },
+            skull_roses: {
+              title: "Skull and Roses",
+              description:
+                "Gothic skull surrounded by detailed roses and thorns, dramatic line art style",
+            },
+            motorcycle_skull: {
+              title: "Motorcycle Skull",
+              description:
+                "Skull wearing motorcycle helmet with flames and bike elements, bold line art style",
+            },
+          },
+        },
+      },
+    };
+  }
 // Function to fetch fresh site data from the API (keep original for fallback)
 async function fetchFreshData() {
   // Get current season for dynamic content
@@ -4054,15 +4663,14 @@ The output MUST be a valid JSON object adhering strictly to the following struct
       "seasonal_item_2": { "title": "Seasonal Item Title 2", "description": "Detailed description for ${currentSeason} themed coloring page 2" },
       // ... continue to 12 ${currentSeason}-themed items total
       // Focus on ${seasonalTheme.prompt} themes
-      // Examples: ${
-        currentSeason === "spring"
-          ? "cherry blossoms, Easter, baby animals, garden flowers, rain showers"
-          : currentSeason === "summer"
-            ? "beaches, pools, ice cream, camping, outdoor activities"
-            : currentSeason === "autumn"
-              ? "Halloween, harvest, falling leaves, pumpkins, cozy scenes"
-              : "Christmas, snow, winter sports, hot cocoa, holiday celebrations"
-      }
+      // Examples: ${currentSeason === "spring"
+      ? "cherry blossoms, Easter, baby animals, garden flowers, rain showers"
+      : currentSeason === "summer"
+        ? "beaches, pools, ice cream, camping, outdoor activities"
+        : currentSeason === "autumn"
+          ? "Halloween, harvest, falling leaves, pumpkins, cozy scenes"
+          : "Christmas, snow, winter sports, hot cocoa, holiday celebrations"
+    }
       "seasonal_item_12": { "title": "Seasonal Item Title 12", "description": "Detailed description for ${currentSeason} themed coloring page 12" }
     }
   },
@@ -4376,7 +4984,7 @@ Constraints & Guidelines:
   const headers = {
     "Content-Type": "application/json",
     Accept: "application/json",
-    Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY}`,
+    Authorization: `Bearer ${window._env?.POLLINATIONS_API_KEY || ''}`,
   };
 
   try {
@@ -4479,356 +5087,6 @@ Constraints & Guidelines:
     return sampleData;
   }
 
-  // Sample data for fallback when AI service is unavailable
-  function getSampleSiteData() {
-    const currentSeason = getCurrentSeason();
-    const seasonalTheme = SEASONAL_THEMES[currentSeason];
-
-    // Create season-appropriate sample items
-    const seasonalItems =
-      currentSeason === "spring"
-        ? {
-            spring_flowers: {
-              title: "Spring Flower Garden",
-              description:
-                "A garden bursting with tulips, daffodils, and cherry blossoms with butterflies",
-            },
-            easter_bunny: {
-              title: "Easter Bunny",
-              description: "A cute bunny with Easter eggs and spring flowers in a meadow",
-            },
-            baby_animals: {
-              title: "Baby Farm Animals",
-              description: "Adorable baby chicks, lambs, and calves in a springtime farm setting",
-            },
-          }
-        : currentSeason === "summer"
-          ? {
-              beach_paradise: {
-                title: "Beach Paradise",
-                description:
-                  "A detailed beach scene with palm trees, surfboards, beach umbrellas, sandcastles, and playful dolphins jumping in the waves",
-              },
-              summer_camping: {
-                title: "Summer Camping Adventure",
-                description:
-                  "A cozy campsite with tents, campfire, marshmallow roasting, star-filled sky, and friendly forest animals",
-              },
-              ice_cream_truck: {
-                title: "Ice Cream Truck Delight",
-                description:
-                  "A colorful ice cream truck surrounded by happy children, various ice cream treats, summer treats, and park setting",
-              },
-            }
-          : currentSeason === "autumn"
-            ? {
-                pumpkin_patch: {
-                  title: "Pumpkin Patch",
-                  description:
-                    "A festive pumpkin patch with various sized pumpkins, autumn leaves, and harvest decorations",
-                },
-                halloween_scene: {
-                  title: "Halloween Night",
-                  description:
-                    "A spooky but fun Halloween scene with jack-o'-lanterns, bats, and trick-or-treaters",
-                },
-                autumn_leaves: {
-                  title: "Falling Autumn Leaves",
-                  description:
-                    "Trees with colorful falling leaves, acorns, and woodland creatures preparing for winter",
-                },
-              }
-            : {
-                winter_wonderland: {
-                  title: "Winter Wonderland",
-                  description:
-                    "A magical winter scene with snow-covered trees, snowmen, and winter animals",
-                },
-                christmas_tree: {
-                  title: "Christmas Tree",
-                  description:
-                    "A decorated Christmas tree with ornaments, presents, and holiday decorations",
-                },
-                hot_cocoa: {
-                  title: "Hot Cocoa Time",
-                  description:
-                    "A cozy winter scene with hot cocoa, marshmallows, warm blankets, and snow outside",
-                },
-              };
-
-    return {
-      brand: {
-        name: "ColorVerse",
-        vision: "Inspiring creativity through AI-generated coloring pages for everyone.",
-      },
-      seasonal_gallery: {
-        title: seasonalTheme.name,
-        subtitle: seasonalTheme.description,
-        description: seasonalTheme.description,
-        items: seasonalItems,
-      },
-      categories: {
-        animals: {
-          title: "Animal Kingdom",
-          description: "Coloring pages featuring animals from around the world.",
-          keywords: ["animals", "wildlife", "creatures", "zoo", "pets"],
-          items: {
-            cute_cat: {
-              title: "Cute Cat",
-              description: "An adorable cat with big eyes sitting curled up, clean line art style",
-            },
-            playful_dog: {
-              title: "Playful Dog",
-              description: "A happy dog with floppy ears running in a field, clean line art style",
-            },
-            majestic_lion: {
-              title: "Majestic Lion",
-              description: "A regal lion with a full mane standing on a rock, clean line art style",
-            },
-            graceful_deer: {
-              title: "Graceful Deer",
-              description: "A deer with antlers in a forest clearing, clean line art style",
-            },
-            fluffy_rabbit: {
-              title: "Fluffy Rabbit",
-              description:
-                "A cute rabbit with long ears sitting among flowers, clean line art style",
-            },
-            wise_owl: {
-              title: "Wise Owl",
-              description:
-                "A detailed owl perched on a branch with intricate feather patterns, clean line art style",
-            },
-            jumping_kangaroo: {
-              title: "Jumping Kangaroo",
-              description:
-                "A kangaroo mid-jump with joey in pouch in Australian outback setting, clean line art style",
-            },
-            swimming_dolphin: {
-              title: "Swimming Dolphin",
-              description:
-                "A graceful dolphin leaping through ocean waves with splashing water, clean line art style",
-            },
-          },
-        },
-        fantasy: {
-          title: "Fantasy Worlds",
-          description: "Magical creatures and enchanted settings for your imagination.",
-          keywords: ["fantasy", "magic", "dragons", "unicorns", "fairies"],
-          items: {
-            mighty_dragon: {
-              title: "Mighty Dragon",
-              description:
-                "A powerful dragon with wings soaring over mountains, clean line art style",
-            },
-            graceful_unicorn: {
-              title: "Graceful Unicorn",
-              description:
-                "A unicorn with a spiraled horn in a magical forest, clean line art style",
-            },
-            fairy_queen: {
-              title: "Fairy Queen",
-              description:
-                "A fairy with delicate wings and a crown in a flower garden, clean line art style",
-            },
-            castle_wizard: {
-              title: "Wizard's Castle",
-              description:
-                "A mystical castle with towers and magical symbols, clean line art style",
-            },
-            enchanted_forest: {
-              title: "Enchanted Forest",
-              description:
-                "A forest with glowing mushrooms and magical creatures, clean line art style",
-            },
-            phoenix_rising: {
-              title: "Phoenix Rising",
-              description:
-                "A magnificent phoenix with spread wings surrounded by flames and mystical energy, clean line art style",
-            },
-            mermaid_palace: {
-              title: "Mermaid Palace",
-              description:
-                "An underwater palace with mermaids, sea horses, and coral decorations, clean line art style",
-            },
-          },
-        },
-        mandalas: {
-          title: "Mandalas",
-          description: "Intricate circular patterns for relaxation and focus.",
-          keywords: ["mandalas", "patterns", "zen", "meditation", "geometric"],
-          items: {
-            floral_mandala: {
-              title: "Floral Mandala",
-              description: "A circular pattern with intricate flower designs, clean line art style",
-            },
-            geometric_mandala: {
-              title: "Geometric Mandala",
-              description: "A symmetrical pattern with geometric shapes, clean line art style",
-            },
-            sacred_geometry: {
-              title: "Sacred Geometry",
-              description: "A mandala based on sacred geometric principles, clean line art style",
-            },
-            nature_mandala: {
-              title: "Nature Mandala",
-              description:
-                "A circular design with leaves, vines, and natural elements, clean line art style",
-            },
-            cosmic_mandala: {
-              title: "Cosmic Mandala",
-              description:
-                "A mandala with stars, planets, and celestial patterns, clean line art style",
-            },
-            butterfly_mandala: {
-              title: "Butterfly Mandala",
-              description:
-                "A symmetrical mandala featuring butterfly wings and flight patterns, clean line art style",
-            },
-            ocean_mandala: {
-              title: "Ocean Mandala",
-              description:
-                "A circular design with wave patterns, shells, and marine elements, clean line art style",
-            },
-          },
-        },
-        vehicles: {
-          title: "Vehicles",
-          description: "Cars, planes, boats, and other transportation for young enthusiasts.",
-          keywords: ["vehicles", "cars", "trucks", "planes", "trains"],
-          items: {
-            race_car: {
-              title: "Race Car",
-              description: "A sleek racing car with aerodynamic design, clean line art style",
-            },
-            airplane_sky: {
-              title: "Airplane in Sky",
-              description: "A commercial airplane flying through clouds, clean line art style",
-            },
-            sailboat_ocean: {
-              title: "Sailboat Ocean",
-              description: "A sailboat with billowing sails on calm waters, clean line art style",
-            },
-            fire_truck: {
-              title: "Fire Truck",
-              description: "An emergency fire truck with ladder and sirens, clean line art style",
-            },
-            train_journey: {
-              title: "Train Journey",
-              description:
-                "A locomotive with connected cars on railway tracks, clean line art style",
-            },
-            helicopter_rescue: {
-              title: "Helicopter Rescue",
-              description:
-                "A rescue helicopter with spinning rotors in mountain rescue scene, clean line art style",
-            },
-            motorcycle_adventure: {
-              title: "Motorcycle Adventure",
-              description: "A detailed motorcycle on a winding mountain road, clean line art style",
-            },
-          },
-        },
-        memes: {
-          title: "Internet Memes & Pop Culture",
-          description: "Fun and trendy internet memes and pop culture references.",
-          keywords: ["memes", "internet", "viral", "trending", "pop culture"],
-          items: {
-            grumpy_cat: {
-              title: "Grumpy Cat",
-              description:
-                "A cat with an annoyed expression sitting with crossed arms, internet meme style line art",
-            },
-            doge_wow: {
-              title: "Doge Wow",
-              description:
-                "A Shiba Inu dog with characteristic expression surrounded by comic text bubbles, clean line art style",
-            },
-            distracted_boyfriend: {
-              title: "Distracted Person",
-              description:
-                "Three people in the classic distracted boyfriend meme pose, clean line art style",
-            },
-            this_is_fine: {
-              title: "This Is Fine",
-              description:
-                "A dog sitting in a room with flames around saying this is fine, clean line art style",
-            },
-            success_kid: {
-              title: "Success Kid",
-              description:
-                "A toddler with fist pumped in victory pose on beach, clean line art style",
-            },
-          },
-        },
-        adult_zen: {
-          title: "Adult Zen & Sophistication",
-          description:
-            "Complex, sophisticated designs for adult colorists seeking detailed meditation.",
-          keywords: ["adult", "sophisticated", "complex", "detailed", "zen"],
-          items: {
-            wine_vineyard: {
-              title: "Wine Vineyard",
-              description:
-                "Intricate vineyard scene with wine bottles, grape vines, and wine glasses, sophisticated line art style",
-            },
-            coffee_culture: {
-              title: "Coffee Culture",
-              description:
-                "Detailed coffee shop scene with espresso machines, latte art, and coffee beans, sophisticated line art style",
-            },
-            zen_garden: {
-              title: "Zen Garden",
-              description:
-                "A peaceful zen garden with raked sand patterns, stones, and meditation elements, detailed line art style",
-            },
-            abstract_meditation: {
-              title: "Abstract Meditation",
-              description:
-                "Complex abstract patterns designed for meditative coloring, intricate line art style",
-            },
-            elegant_patterns: {
-              title: "Elegant Patterns",
-              description:
-                "Sophisticated geometric and floral patterns with fine details, complex line art style",
-            },
-          },
-        },
-        spicy_bold: {
-          title: "Bold & Spicy Designs",
-          description: "Edgy, bold patterns with attitude - skulls, tattoo-style, and rock themes.",
-          keywords: ["bold", "edgy", "skulls", "tattoo", "rock"],
-          items: {
-            sugar_skull: {
-              title: "Sugar Skull",
-              description:
-                "Ornate Day of the Dead sugar skull with intricate decorative patterns, bold line art style",
-            },
-            rock_guitar: {
-              title: "Rock Guitar",
-              description:
-                "Electric guitar with flames and rock music symbols, edgy line art style",
-            },
-            tribal_dragon: {
-              title: "Tribal Dragon",
-              description:
-                "Dragon design in tribal tattoo style with bold geometric patterns, strong line art style",
-            },
-            skull_roses: {
-              title: "Skull and Roses",
-              description:
-                "Gothic skull surrounded by detailed roses and thorns, dramatic line art style",
-            },
-            motorcycle_skull: {
-              title: "Motorcycle Skull",
-              description:
-                "Skull wearing motorcycle helmet with flames and bike elements, bold line art style",
-            },
-          },
-        },
-      },
-    };
-  }
 }
 
 // Make the static content functions available globally for use in links

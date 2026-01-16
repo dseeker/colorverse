@@ -24,6 +24,27 @@ test.describe("Real Page Loading E2E Tests", () => {
     });
   });
 
+  test("should clear cache and reload", async ({ page }) => {
+    await page.goto("http://localhost:3000");
+    await page.evaluate(() => {
+      localStorage.clear();
+    });
+
+    await page.goto("http://localhost:3000");
+    await page.waitForLoadState("networkidle");
+
+    const consoleErrors: string[] = [];
+    page.on("console", msg => {
+      if (msg.type() === "error") {
+        consoleErrors.push(msg.text());
+      }
+    });
+
+    await page.waitForTimeout(2000);
+
+    expect(consoleErrors.length).toBe(0);
+  });
+
   test("should load homepage successfully", async ({ page }) => {
     await page.goto("http://localhost:3000");
     await page.waitForLoadState("networkidle");

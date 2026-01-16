@@ -812,11 +812,21 @@
         </svg>
     </div>
     <div class="paint-splash bottom-40 right-10 w-96 h-96" style="--rotation: -25deg;">
-        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
             <path fill="#64D1D0" d="M36.3,-48.8C51.1,-45.3,70,-39.9,76.1,-28.1C82.1,-16.4,75.5,1.7,68.3,17.5C61.1,33.3,53.3,46.8,41.6,57.3C29.9,67.8,14.9,75.3,0.9,74.1C-13.2,72.9,-26.4,63,-38.1,52.4C-49.8,41.8,-60,30.6,-63.5,17.7C-67,4.8,-63.8,-9.8,-58.2,-22.3C-52.6,-34.9,-44.7,-45.4,-34.2,-50.1C-23.7,-54.8,-11.9,-53.7,0.2,-54C12.2,-54.2,24.5,-55.6,36.3,-48.8Z" transform="translate(100 100)" />
         </svg>
     </div>
 
+    <script src="service-worker-register.js"></script>
+    <!-- Initialize environment variables for browser -->
+    <script>
+        // Initialize window._env object for environment variables
+        // This prevents "process is not defined" errors in browser
+        window._env = window._env || {
+            POLLINATIONS_API_KEY: '',
+            OPENROUTER_API_KEY: '',
+            GOOGLE_GEMINI_API_KEY: ''
+        };
+    </script>
     <!-- Load Site Data and App Logic -->
     <script src="app.js"></script>
     
