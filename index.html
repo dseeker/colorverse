@@ -1,19 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="ColorVerse offers free printable and online coloring pages, coloring tips, and AI art for all ages.">
-    <meta name="keywords" content="free coloring pages, coloring pages for kids, adult coloring pages, printable coloring pages, online coloring book, coloring games, coloring sheets, coloring pages pdf, color by number, coloring book app">
+    <meta name="description"
+        content="ColorVerse offers free printable and online coloring pages, coloring tips, and AI art for all ages.">
+    <meta name="keywords"
+        content="free coloring pages, coloring pages for kids, adult coloring pages, printable coloring pages, online coloring book, coloring games, coloring sheets, coloring pages pdf, color by number, coloring book app">
     <title>ColorVerse - Free Coloring Pages & AI Art</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Ensure full height for sticky footer */
-        html, body { height: 100%; }
-        body { display: flex; flex-direction: column; }
-        #page-container { flex: 1 0 auto; }
-        footer { flex-shrink: 0; }
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        #page-container {
+            flex: 1 0 auto;
+        }
+
+        footer {
+            flex-shrink: 0;
+        }
 
         /* Theme transitions */
         body {
@@ -21,10 +37,18 @@
         }
 
         /* Loading indicator */
-        #loading-indicator { display: none; }
-        body.loading #loading-indicator { display: block; }
-        body.loading #main-content { display: none; }
-        
+        #loading-indicator {
+            display: none;
+        }
+
+        body.loading #loading-indicator {
+            display: block;
+        }
+
+        body.loading #main-content {
+            display: none;
+        }
+
         /* Spinner animation */
         .spinner {
             border: 4px solid rgba(0, 0, 0, 0.1);
@@ -34,36 +58,42 @@
             border-left-color: #09f;
             animation: spin 1s ease infinite;
         }
-        
+
         .theme-dark .spinner {
             border: 4px solid rgba(255, 255, 255, 0.1);
             border-left-color: #38b2ff;
         }
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
-        
+
         /* Image loading styles */
         .image-loading-indicator {
             z-index: 10;
         }
-        
+
         .image-loading-indicator .spinner {
             width: 24px;
             height: 24px;
         }
-        
+
         .image-error-indicator {
             z-index: 10;
             background-color: rgba(255, 255, 255, 0.8);
             padding: 5px;
         }
-        
+
         img.loading {
             opacity: 0.5;
         }
-        
+
         img.error {
             opacity: 0.3;
         }
@@ -73,21 +103,21 @@
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
         }
-        
+
         #image-preview-overlay img {
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             transition: transform 0.3s ease;
         }
-        
+
         #image-preview-overlay:hover img {
             transform: scale(1.02);
         }
-        
+
         /* Hover effect for category cards */
         .category-card {
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        
+
         .category-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
@@ -100,7 +130,7 @@
             z-index: -1;
             transform: rotate(var(--rotation, 0deg));
         }
-        
+
         /* Theme styles */
         .theme-light {
             --bg-primary: #f9fafb;
@@ -108,14 +138,14 @@
             --accent-primary: linear-gradient(135deg, #90cdf4, #3182ce);
             --accent-secondary: linear-gradient(135deg, #fbd38d, #ed8936);
         }
-        
+
         .theme-dark {
             --bg-primary: #1a202c;
             --text-primary: #f7fafc;
             --accent-primary: linear-gradient(135deg, #2a4365, #2b6cb0);
             --accent-secondary: linear-gradient(135deg, #744210, #c05621);
         }
-        
+
         .theme-colorful {
             --bg-primary: #f0f9ff;
             --text-primary: #2d3748;
@@ -123,7 +153,7 @@
             --accent-secondary: linear-gradient(135deg, #faf089, #f6ad55, #fc8181);
             --page-bg-gradient: linear-gradient(135deg, #fdf2f8, #e0f2fe, #ecfdf5);
         }
-        
+
         /* Basic theme definitions - simple and clear */
         /* Light Theme (Default) */
         .theme-light {
@@ -136,12 +166,12 @@
             --accent-gradient: linear-gradient(135deg, #90cdf4, #3182ce);
             --header-text: #ffffff;
         }
-        
+
         .theme-light body {
             background-color: var(--bg-color);
             color: var(--text-color);
         }
-        
+
         /* Dark Theme */
         .theme-dark {
             --bg-color: #121826;
@@ -153,12 +183,12 @@
             --accent-gradient: linear-gradient(135deg, #2a4365, #2b6cb0);
             --header-text: #ffffff;
         }
-        
+
         .theme-dark body {
             background-color: var(--bg-color);
             color: var(--text-color);
         }
-        
+
         /* Colorful Theme */
         .theme-colorful {
             --bg-color: #f0f9ff;
@@ -171,53 +201,54 @@
             --header-text: #ffffff;
             --page-bg-gradient: linear-gradient(135deg, #fdf2f8, #e0f2fe, #ecfdf5);
         }
-        
+
         .theme-colorful body {
             background: var(--page-bg-gradient);
             color: var(--text-color);
         }
-        
+
         /* All theme header styling */
-        header h1 a, header p {
+        header h1 a,
+        header p {
             color: var(--header-text) !important;
         }
-        
+
         /* Theme-specific overrides */
         .theme-colorful .accent-panel {
             background-image: var(--accent-gradient);
         }
-        
+
         .theme-colorful header {
             background: linear-gradient(to right, #f687b3, #7f9cf5, #4fd1c5) !important;
         }
-        
+
         /* Theme-specific visual enhancements */
         .theme-colorful #page-container {
-            background-image: 
+            background-image:
                 radial-gradient(circle at 70% 20%, rgba(246, 135, 179, 0.1) 0%, transparent 20%),
                 radial-gradient(circle at 20% 40%, rgba(79, 209, 197, 0.15) 0%, transparent 30%),
                 radial-gradient(circle at 50% 70%, rgba(127, 156, 245, 0.1) 0%, transparent 25%);
         }
-        
+
         /* Section backgrounds */
         .colorful-section {
             border-radius: 1rem;
             margin: 1rem 0;
             padding: 1.5rem;
         }
-        
+
         /* Category card effects */
         .category-card {
             transition: transform 0.3s, box-shadow 0.3s;
             overflow: hidden;
             position: relative;
         }
-        
+
         .category-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
         }
-        
+
         .category-card::after {
             content: '';
             position: absolute;
@@ -230,20 +261,21 @@
             transform-origin: left;
             transition: transform 0.3s;
         }
-        
+
         .category-card:hover::after {
             transform: scaleX(1);
         }
-        
+
         /* Carousel */
         .carousel {
             scroll-behavior: smooth;
             scrollbar-width: none;
         }
+
         .carousel::-webkit-scrollbar {
             display: none;
         }
-        
+
         /* Accessibility enhancements */
         .sr-only {
             position: absolute;
@@ -256,23 +288,23 @@
             white-space: nowrap;
             border-width: 0;
         }
-        
+
         /* Style dropdown */
         #style-selector {
             background: rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(10px);
         }
-        
+
         #style-selector:hover {
             background: rgba(255, 255, 255, 0.25);
         }
-        
+
         #style-selector option {
             background: white;
             color: #333;
             padding: 8px;
         }
-        
+
         /* Accent panels */
         .accent-panel {
             background-image: var(--accent-primary);
@@ -280,7 +312,7 @@
             overflow: hidden;
             position: relative;
         }
-        
+
         .accent-panel::before {
             content: '';
             position: absolute;
@@ -316,449 +348,574 @@
         }
     </script>
 </head>
+
 <body class="theme-light bg-gray-100 text-gray-800 loading flex flex-col min-h-screen">
 
-<div id="page-container" class="flex-grow pt-20"> <!-- Increased padding-top to prevent breadcrumbs from being cut off -->
-    <header class="bg-gradient-to-r from-cyan-500 to-blue-500 p-4 shadow-md fixed top-0 left-0 right-0 z-50">
-        <div class="container mx-auto flex justify-between items-center">
-            <div class="flex items-center">
-                <div class="mr-3 hidden sm:block">
-                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="20" cy="20" r="18" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="2"/>
-                        <path d="M20 6C12.268 6 6 12.268 6 20C6 27.732 12.268 34 20 34C27.732 34 34 27.732 34 20C34 12.268 27.732 6 20 6ZM20 8C26.617 8 32 13.383 32 20C32 26.617 26.617 32 20 32C13.383 32 8 26.617 8 20C8 13.383 13.383 8 20 8Z" fill="#3182CE"/>
-                        <path d="M12 20C12 15.582 15.582 12 20 12V8C13.373 8 8 13.373 8 20H12Z" fill="#F56565"/>
-                        <path d="M20 12C24.418 12 28 15.582 28 20H32C32 13.373 26.627 8 20 8V12Z" fill="#48BB78"/>
-                        <path d="M28 20C28 24.418 24.418 28 20 28V32C26.627 32 32 26.627 32 20H28Z" fill="#ECC94B"/>
-                        <path d="M20 28C15.582 28 12 24.418 12 20H8C8 26.627 13.373 32 20 32V28Z" fill="#9F7AEA"/>
-                    </svg>
+    <div id="page-container" class="flex-grow pt-20">
+        <!-- Increased padding-top to prevent breadcrumbs from being cut off -->
+        <header class="bg-gradient-to-r from-cyan-500 to-blue-500 p-4 shadow-md fixed top-0 left-0 right-0 z-50">
+            <div class="container mx-auto flex justify-between items-center">
+                <div class="flex items-center">
+                    <div class="mr-3 hidden sm:block">
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="20" cy="20" r="18" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="2" />
+                            <path
+                                d="M20 6C12.268 6 6 12.268 6 20C6 27.732 12.268 34 20 34C27.732 34 34 27.732 34 20C34 12.268 27.732 6 20 6ZM20 8C26.617 8 32 13.383 32 20C32 26.617 26.617 32 20 32C13.383 32 8 26.617 8 20C8 13.383 13.383 8 20 8Z"
+                                fill="#3182CE" />
+                            <path d="M12 20C12 15.582 15.582 12 20 12V8C13.373 8 8 13.373 8 20H12Z" fill="#F56565" />
+                            <path d="M20 12C24.418 12 28 15.582 28 20H32C32 13.373 26.627 8 20 8V12Z" fill="#48BB78" />
+                            <path d="M28 20C28 24.418 24.418 28 20 28V32C26.627 32 32 26.627 32 20H28Z"
+                                fill="#ECC94B" />
+                            <path d="M20 28C15.582 28 12 24.418 12 20H8C8 26.627 13.373 32 20 32V28Z" fill="#9F7AEA" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-3xl font-bold">
+                            <a href="#" class="flex items-center">
+                                ColorVerse
+                                <span class="ml-2 text-xs bg-yellow-400 text-black px-2 py-0.5 rounded-full">Beta</span>
+                            </a>
+                        </h1>
+                        <p class="text-sm mt-1 opacity-90">Unlock Your Imagination: Endless Coloring Pages &
+                            AI-Generated Art</p>
+                    </div>
                 </div>
-                <div>
-                    <h1 class="text-3xl font-bold">
-                        <a href="#" class="flex items-center">
-                            ColorVerse
-                            <span class="ml-2 text-xs bg-yellow-400 text-black px-2 py-0.5 rounded-full">Beta</span>
+                <nav class="flex items-center">
+                    <div class="flex items-center mr-6">
+                        <button id="refresh-content"
+                            class="mr-3 p-2 rounded-lg text-white bg-yellow-500 hover:bg-yellow-600 transition-colors"
+                            title="Refresh Content">
+                            <i class="fas fa-dice"></i>
+                            <span class="sr-only">Refresh Content</span>
+                        </button>
+                        <div class="relative mr-3">
+                            <select id="style-selector"
+                                class="bg-white bg-opacity-20 text-white rounded-lg p-2 pr-8 border-none appearance-none focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all cursor-pointer"
+                                title="Coloring Style">
+                                <!-- Options will be dynamically populated by JavaScript from COLORING_STYLES -->
+                            </select>
+                            <i
+                                class="fas fa-chevron-down absolute right-2 top-1/2 transform -translate-y-1/2 text-white pointer-events-none"></i>
+                        </div>
+                        <div class="flex items-center bg-white bg-opacity-20 rounded-lg p-1">
+                            <button id="theme-light"
+                                class="p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-10 transition-colors"
+                                title="Light Mode">
+                                <i class="fas fa-sun"></i>
+                                <span class="sr-only">Light Mode</span>
+                            </button>
+                            <button id="theme-dark"
+                                class="p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-10 transition-colors"
+                                title="Dark Mode">
+                                <i class="fas fa-moon"></i>
+                                <span class="sr-only">Dark Mode</span>
+                            </button>
+                            <button id="theme-colorful"
+                                class="p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-10 transition-colors"
+                                title="Colorful Mode">
+                                <i class="fas fa-palette"></i>
+                                <span class="sr-only">Colorful Mode</span>
+                            </button>
+                        </div>
+                        <a href="#donate"
+                            class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center ml-4">
+                            <i class="fas fa-heart mr-2"></i> Donate
                         </a>
-                    </h1>
-                    <p class="text-sm mt-1 opacity-90">Unlock Your Imagination: Endless Coloring Pages & AI-Generated Art</p>
-                </div>
+                </nav>
             </div>
-            <nav class="flex items-center">
-                <div class="flex items-center mr-6">
-                <button id="refresh-content" class="mr-3 p-2 rounded-lg text-white bg-yellow-500 hover:bg-yellow-600 transition-colors" title="Refresh Content">
-                    <i class="fas fa-dice"></i>
-                    <span class="sr-only">Refresh Content</span>
-                </button>
-                <div class="relative mr-3">
-                    <select id="style-selector" class="bg-white bg-opacity-20 text-white rounded-lg p-2 pr-8 border-none appearance-none focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all cursor-pointer" title="Coloring Style">
-                        <!-- Options will be dynamically populated by JavaScript from COLORING_STYLES -->
-                    </select>
-                    <i class="fas fa-chevron-down absolute right-2 top-1/2 transform -translate-y-1/2 text-white pointer-events-none"></i>
-                </div>
-                <div class="flex items-center bg-white bg-opacity-20 rounded-lg p-1">
-                    <button id="theme-light" class="p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-10 transition-colors" title="Light Mode">
-                        <i class="fas fa-sun"></i>
-                        <span class="sr-only">Light Mode</span>
-                    </button>
-                    <button id="theme-dark" class="p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-10 transition-colors" title="Dark Mode">
-                        <i class="fas fa-moon"></i>
-                        <span class="sr-only">Dark Mode</span>
-                    </button>
-                    <button id="theme-colorful" class="p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-10 transition-colors" title="Colorful Mode">
-                        <i class="fas fa-palette"></i>
-                        <span class="sr-only">Colorful Mode</span>
-                    </button>
-                </div>
-                <a href="#donate" class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center ml-4">
-                    <i class="fas fa-heart mr-2"></i> Donate
+        </header>
+
+        <main class="container mx-auto p-4 flex-grow" id="main-content">
+            <!-- Content will be dynamically generated here -->
+        </main>
+
+        <!-- Static Content for Footer Pages - Hidden by default -->
+        <!-- About Page -->
+        <div id="static-about" class="container mx-auto p-4 hidden">
+            <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 py-2">
+                <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
+                    <i class="fas fa-home mr-1"></i> Home
                 </a>
+                <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
+                <span class="font-medium text-gray-800">About Us</span>
             </nav>
-        </div>
-    </header>
 
-    <main class="container mx-auto p-4 flex-grow" id="main-content">
-        <!-- Content will be dynamically generated here -->
-    </main>
+            <h1 class="text-3xl font-bold mb-6">About ColorVerse</h1>
 
-    <!-- Static Content for Footer Pages - Hidden by default -->
-    <!-- About Page -->
-    <div id="static-about" class="container mx-auto p-4 hidden">
-        <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 py-2">
-            <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
-                <i class="fas fa-home mr-1"></i> Home
-            </a>
-            <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
-            <span class="font-medium text-gray-800">About Us</span>
-        </nav>
-        
-        <h1 class="text-3xl font-bold mb-6">About ColorVerse</h1>
-        
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
-            <h2 class="text-2xl font-semibold mb-4">Our Mission</h2>
-            <p class="mb-4">Welcome to ColorVerse, where creativity meets technology to bring you endless coloring possibilities. Our mission is to harness the power of artificial intelligence to create unique, high-quality coloring pages that inspire creativity and provide a moment of mindful relaxation in today's fast-paced world.</p>
-            
-            <p class="mb-4">Founded in 2024, ColorVerse was born from a simple idea: to make custom coloring pages accessible to everyone, regardless of artistic ability. We believe in the therapeutic benefits of coloring and aim to provide an ever-expanding library of designs that appeal to colorists of all ages and interests.</p>
-        </div>
-        
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
-            <h2 class="text-2xl font-semibold mb-4">How ColorVerse Works</h2>
-            <p class="mb-4">ColorVerse uses cutting-edge AI technology to generate coloring pages on demand. Our platform transforms descriptive prompts into detailed line art that's perfect for coloring. Each design is optimized with clean, bold lines that print beautifully and provide an enjoyable coloring experience.</p>
-            
-            <p class="mb-4">Unlike traditional coloring books, our content is virtually limitless. We can create highly specific designs tailored to your interests, from realistic animals and intricate mandalas to fantastical scenes and seasonal themes. Our collection is constantly growing, with new categories and designs added regularly.</p>
-        </div>
-        
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
-            <h2 class="text-2xl font-semibold mb-4">The ColorVerse Team</h2>
-            <p class="mb-4">We're a small team of artists, developers, and AI enthusiasts passionate about making creative tools accessible to everyone. We combine our expertise in artificial intelligence, web development, and design to craft a seamless experience from generation to coloring.</p>
-            
-            <p>Our diverse backgrounds and shared love for creativity drive us to continually improve ColorVerse, adding new features and refining our generation technology to deliver the best possible coloring pages.</p>
-        </div>
-        
-        <div class="accent-panel p-6 text-white mb-8">
-            <h2 class="text-2xl font-semibold mb-4">Join Our Colorful Community</h2>
-            <p class="mb-4">ColorVerse is more than just a website—it's a growing community of coloring enthusiasts. We invite you to share your colored creations, suggest new categories, and connect with fellow colorists. Your feedback helps us improve and expand our offerings.</p>
-            
-            <p>Thank you for choosing ColorVerse as your destination for AI-generated coloring pages. We're excited to be part of your creative journey!</p>
-            
-            <div class="mt-6">
-                <a href="#contact" class="bg-white text-primary-600 hover:bg-gray-100 px-6 py-3 rounded-lg font-medium inline-flex items-center">
-                    <i class="fas fa-envelope mr-2"></i> Contact Us
-                </a>
-                <a href="#donate" class="bg-yellow-400 text-black hover:bg-yellow-500 px-6 py-3 rounded-lg font-medium inline-flex items-center ml-4">
-                    <i class="fas fa-heart mr-2"></i> Support Our Mission
-                </a>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
+                <h2 class="text-2xl font-semibold mb-4">Our Mission</h2>
+                <p class="mb-4">Welcome to ColorVerse, where creativity meets technology to bring you endless coloring
+                    possibilities. Our mission is to harness the power of artificial intelligence to create unique,
+                    high-quality coloring pages that inspire creativity and provide a moment of mindful relaxation in
+                    today's fast-paced world.</p>
+
+                <p class="mb-4">Founded in 2024, ColorVerse was born from a simple idea: to make custom coloring pages
+                    accessible to everyone, regardless of artistic ability. We believe in the therapeutic benefits of
+                    coloring and aim to provide an ever-expanding library of designs that appeal to colorists of all
+                    ages and interests.</p>
             </div>
-        </div>
-    </div>
 
-    <!-- Privacy Policy Page -->
-    <div id="static-privacy" class="container mx-auto p-4 hidden">
-        <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 py-2">
-            <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
-                <i class="fas fa-home mr-1"></i> Home
-            </a>
-            <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
-            <span class="font-medium text-gray-800">Privacy Policy</span>
-        </nav>
-        
-        <h1 class="text-3xl font-bold mb-6">Privacy Policy</h1>
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
-            <p class="text-sm text-gray-500 mb-6">Last Updated: April 12, 2025</p>
-            
-            <h2 class="text-2xl font-semibold mb-4">1. Introduction</h2>
-            <p class="mb-4">Welcome to ColorVerse ("we," "our," or "us"). We respect your privacy and are committed to protecting your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website, including any other media form, media channel, mobile website, or mobile application related or connected to ColorVerse (collectively, the "Site").</p>
-            
-            <p class="mb-4">Please read this Privacy Policy carefully. By accessing or using our Site, you acknowledge that you have read, understood, and agree to be bound by all the terms outlined in this policy. If you do not agree with our policies and practices, please do not use our Site.</p>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">2. Information We Collect</h2>
-            
-            <h3 class="text-xl font-semibold mb-3">2.1 Personal Information</h3>
-            <p class="mb-4">We may collect personal information that you voluntarily provide to us when you:</p>
-            <ul class="list-disc ml-6 mb-4 space-y-1">
-                <li>Subscribe to our newsletter</li>
-                <li>Submit a contact form</li>
-                <li>Provide feedback or testimonials</li>
-                <li>Make a donation</li>
-            </ul>
-            <p class="mb-4">This information may include your name, email address, and any other information you choose to provide.</p>
-            
-            <h3 class="text-xl font-semibold mb-3">2.2 Automatically Collected Information</h3>
-            <p class="mb-4">When you access our Site, we may automatically collect certain information about your device, including:</p>
-            <ul class="list-disc ml-6 mb-4 space-y-1">
-                <li>IP address</li>
-                <li>Browser type and version</li>
-                <li>Operating system</li>
-                <li>Referring website</li>
-                <li>Pages visited</li>
-                <li>Time and date of your visit</li>
-                <li>Time spent on pages</li>
-            </ul>
-            <p class="mb-4">We may also collect information about your interaction with our Site, including the actions you take and the features you use.</p>
-            
-            <h3 class="text-xl font-semibold mb-3">2.3 Local Storage</h3>
-            <p class="mb-4">We use local storage (including browser localStorage) to enhance your experience by storing preferences, theme choices, and cached images to improve performance. This data is stored on your device and is not transmitted to our servers unless specifically required for site functionality.</p>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">3. How We Use Your Information</h2>
-            <p class="mb-4">We may use the information we collect for various purposes, including to:</p>
-            <ul class="list-disc ml-6 mb-4 space-y-1">
-                <li>Provide, maintain, and improve our Site</li>
-                <li>Personalize your experience</li>
-                <li>Respond to your inquiries, comments, or questions</li>
-                <li>Send you updates, newsletters, and promotional materials</li>
-                <li>Analyze usage patterns to enhance our service</li>
-                <li>Protect against unauthorized access to our services</li>
-                <li>Fulfill any other purpose disclosed at the time you provide your information</li>
-            </ul>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">4. Sharing Your Information</h2>
-            <p class="mb-4">We may share information we collect as follows:</p>
-            <ul class="list-disc ml-6 mb-4 space-y-1">
-                <li><strong>Service Providers:</strong> We may share your information with third-party vendors, service providers, contractors, or agents who perform services for us.</li>
-                <li><strong>Analytics:</strong> We may use third-party analytics services to analyze site usage.</li>
-                <li><strong>Legal Requirements:</strong> We may disclose your information if required to do so by law or in response to valid requests by public authorities.</li>
-            </ul>
-            <p class="mb-4">We do not sell, trade, or otherwise transfer your personally identifiable information to third parties for marketing purposes.</p>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">5. Data Security</h2>
-            <p class="mb-4">We implement appropriate technical and organizational measures to maintain the safety of your personal information. However, no Internet transmission or electronic storage is ever completely secure, and we cannot guarantee absolute security.</p>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">6. Your Choices</h2>
-            <p class="mb-4">You have certain choices regarding the information you provide to us:</p>
-            <ul class="list-disc ml-6 mb-4 space-y-1">
-                <li><strong>Tracking Technologies:</strong> You can set your browser to refuse cookies or alert you when cookies are being sent.</li>
-                <li><strong>Email Communications:</strong> You may opt out of receiving our newsletter or promotional emails by following the unsubscribe instructions in any email we send.</li>
-                <li><strong>Local Storage:</strong> You can clear local storage through your browser settings, although this may affect site functionality.</li>
-            </ul>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">7. Children's Privacy</h2>
-            <p class="mb-4">Our Site is not directed to children under the age of 13. We do not knowingly collect personal information from children under 13. If you are a parent or guardian and believe that your child has provided us with personal information, please contact us so that we can delete such information.</p>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">8. Changes to This Privacy Policy</h2>
-            <p class="mb-4">We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last Updated" date. You are advised to review this Privacy Policy periodically for any changes.</p>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">9. Contact Us</h2>
-            <p class="mb-4">If you have any questions about this Privacy Policy, please contact us at:</p>
-            <p class="mb-4">
-                <a href="mailto:privacy@colorverse.com" class="text-primary-600 hover:underline">privacy@colorverse.com</a><br>
-                ColorVerse<br>
-                1234 Creative Lane<br>
-                Art District, CA 90210
-            </p>
-        </div>
-    </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
+                <h2 class="text-2xl font-semibold mb-4">How ColorVerse Works</h2>
+                <p class="mb-4">ColorVerse uses cutting-edge AI technology to generate coloring pages on demand. Our
+                    platform transforms descriptive prompts into detailed line art that's perfect for coloring. Each
+                    design is optimized with clean, bold lines that print beautifully and provide an enjoyable coloring
+                    experience.</p>
 
-    <!-- Terms of Service Page -->
-    <div id="static-terms" class="container mx-auto p-4 hidden">
-        <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 py-2">
-            <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
-                <i class="fas fa-home mr-1"></i> Home
-            </a>
-            <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
-            <span class="font-medium text-gray-800">Terms of Service</span>
-        </nav>
-        
-        <h1 class="text-3xl font-bold mb-6">Terms of Service</h1>
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
-            <p class="text-sm text-gray-500 mb-6">Last Updated: April 12, 2025</p>
-            
-            <h2 class="text-2xl font-semibold mb-4">1. Agreement to Terms</h2>
-            <p class="mb-4">These Terms of Service constitute a legally binding agreement made between you and ColorVerse ("we," "us," or "our"), concerning your access to and use of the ColorVerse website and services.</p>
-            
-            <p class="mb-4">By accessing or using ColorVerse, you agree to be bound by these Terms of Service. If you disagree with any part of these terms, then you may not access the service.</p>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">2. Intellectual Property Rights</h2>
-            
-            <h3 class="text-xl font-semibold mb-3">2.1 Our Content</h3>
-            <p class="mb-4">ColorVerse and its original content, features, and functionality are owned by ColorVerse and are protected by international copyright, trademark, patent, trade secret, and other intellectual property or proprietary rights laws.</p>
-            
-            <h3 class="text-xl font-semibold mb-3">2.2 User License</h3>
-            <p class="mb-4">Subject to these Terms of Service, we grant you a non-exclusive, non-transferable, revocable license to download and use the coloring pages generated through our service for personal, non-commercial use only. This license does not include the right to:</p>
-            <ul class="list-disc ml-6 mb-4 space-y-1">
-                <li>Modify or copy the materials</li>
-                <li>Use the materials for any commercial purpose</li>
-                <li>Remove any copyright or other proprietary notations from the materials</li>
-                <li>Transfer the materials to another person or "mirror" the materials on any other server</li>
-            </ul>
-            <p class="mb-4">This license shall automatically terminate if you violate any of these restrictions and may be terminated by ColorVerse at any time.</p>
-            
-            <h3 class="text-xl font-semibold mb-3">2.3 Commercial Use</h3>
-            <p class="mb-4">If you wish to use our coloring pages for commercial purposes (including but not limited to publishing in books, selling prints, or using in products for sale), please contact us to obtain a commercial license.</p>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">3. User Content</h2>
-            <p class="mb-4">Our service allows you to generate custom coloring pages based on prompts you provide. By submitting prompts or other content to our service, you:</p>
-            <ul class="list-disc ml-6 mb-4 space-y-1">
-                <li>Grant us the right to use your prompts to generate coloring pages</li>
-                <li>Represent that you own or have the necessary permissions to use and authorize us to use the content</li>
-                <li>Agree not to submit content that is illegal, offensive, or violates the rights of any third party</li>
-            </ul>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">4. Prohibited Uses</h2>
-            <p class="mb-4">You agree not to use ColorVerse:</p>
-            <ul class="list-disc ml-6 mb-4 space-y-1">
-                <li>In any way that violates any applicable federal, state, local, or international law or regulation</li>
-                <li>To generate content that is unlawful, harmful, threatening, abusive, harassing, defamatory, obscene, or otherwise objectionable</li>
-                <li>To generate content that infringes upon or violates the intellectual property rights or other rights of any person</li>
-                <li>To attempt to circumvent, disable, or interfere with security-related features of our service</li>
-                <li>To engage in any other conduct that restricts or inhibits anyone's use of our service</li>
-            </ul>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">5. Disclaimer of Warranties</h2>
-            <p class="mb-4">ColorVerse is provided on an "as-is" and "as available" basis, without any warranties of any kind, either express or implied. We do not guarantee that our service will be uninterrupted, timely, secure, or error-free.</p>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">6. Limitation of Liability</h2>
-            <p class="mb-4">In no event shall ColorVerse, its directors, employees, partners, agents, suppliers, or affiliates be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of or inability to access or use the service.</p>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">7. AI Generation Limitations</h2>
-            <p class="mb-4">Our service utilizes artificial intelligence to generate coloring pages. By using this service, you acknowledge and agree that:</p>
-            <ul class="list-disc ml-6 mb-4 space-y-1">
-                <li>AI-generated content may not always perfectly match your prompts</li>
-                <li>We use filtering systems to prevent the generation of inappropriate content, but these systems are not perfect</li>
-                <li>We reserve the right to refuse to process any prompt that we believe may violate our policies</li>
-            </ul>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">8. Termination</h2>
-            <p class="mb-4">We may terminate or suspend your access to our service immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach these Terms of Service.</p>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">9. Changes to Terms</h2>
-            <p class="mb-4">We reserve the right, at our sole discretion, to modify or replace these Terms at any time. By continuing to access or use our service after those revisions become effective, you agree to be bound by the revised terms.</p>
-            
-            <h2 class="text-2xl font-semibold mb-4 mt-8">10. Contact Us</h2>
-            <p class="mb-4">If you have any questions about these Terms, please contact us at:</p>
-            <p class="mb-4">
-                <a href="mailto:terms@colorverse.com" class="text-primary-600 hover:underline">terms@colorverse.com</a><br>
-                ColorVerse<br>
-                1234 Creative Lane<br>
-                Art District, CA 90210
-            </p>
-        </div>
-    </div>
-
-    <!-- Contact Page -->
-    <div id="static-contact" class="container mx-auto p-4 hidden">
-        <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 py-2">
-            <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
-                <i class="fas fa-home mr-1"></i> Home
-            </a>
-            <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
-            <span class="font-medium text-gray-800">Contact Us</span>
-        </nav>
-        
-        <h1 class="text-3xl font-bold mb-6">Contact Us</h1>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
-                <h2 class="text-2xl font-semibold mb-4">Get in Touch</h2>
-                <p class="mb-6">We'd love to hear from you! Whether you have a question about our coloring pages, need technical support, or want to share your ColorVerse creations, please fill out the form below or reach out via our contact information.</p>
-                
-                <form class="space-y-4">
-                    <div>
-                        <label for="name" class="block text-sm font-medium mb-1">Your Name</label>
-                        <input type="text" id="name" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter your name">
-                    </div>
-                    
-                    <div>
-                        <label for="email" class="block text-sm font-medium mb-1">Email Address</label>
-                        <input type="email" id="email" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter your email">
-                    </div>
-                    
-                    <div>
-                        <label for="subject" class="block text-sm font-medium mb-1">Subject</label>
-                        <select id="subject" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                            <option value="">Select a subject</option>
-                            <option value="general">General Inquiry</option>
-                            <option value="support">Technical Support</option>
-                            <option value="feedback">Feedback</option>
-                            <option value="business">Business/Partnerships</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-                    
-                    <div>
-                        <label for="message" class="block text-sm font-medium mb-1">Message</label>
-                        <textarea id="message" rows="5" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter your message"></textarea>
-                    </div>
-                    
-                    <div class="flex items-start">
-                        <input type="checkbox" id="privacy" class="mt-1">
-                        <label for="privacy" class="ml-2 text-sm">I agree to the <a href="#privacy" class="text-primary-600 hover:underline">Privacy Policy</a> and consent to being contacted regarding my inquiry.</label>
-                    </div>
-                    
-                    <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition-colors w-full md:w-auto">Send Message</button>
-                </form>
+                <p class="mb-4">Unlike traditional coloring books, our content is virtually limitless. We can create
+                    highly specific designs tailored to your interests, from realistic animals and intricate mandalas to
+                    fantastical scenes and seasonal themes. Our collection is constantly growing, with new categories
+                    and designs added regularly.</p>
             </div>
-            
-            <div>
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
-                    <h2 class="text-2xl font-semibold mb-4">Contact Information</h2>
-                    <div class="space-y-4">
-                        <div class="flex items-start">
-                            <div class="text-primary-600 mr-3 text-xl"><i class="fas fa-envelope"></i></div>
-                            <div>
-                                <h3 class="font-medium">Email Us</h3>
-                                <p class="text-gray-600 dark:text-gray-300">
-                                    <a href="mailto:hello@colorverse.com" class="hover:underline">hello@colorverse.com</a>
-                                </p>
-                                <p class="text-sm text-gray-500 mt-1">We typically respond within 1-2 business days.</p>
-                            </div>
-                        </div>
-                        
-                        <div class="flex items-start">
-                            <div class="text-primary-600 mr-3 text-xl"><i class="fas fa-map-marker-alt"></i></div>
-                            <div>
-                                <h3 class="font-medium">Our Address</h3>
-                                <p class="text-gray-600 dark:text-gray-300">
-                                    ColorVerse<br>
-                                    1234 Creative Lane<br>
-                                    Art District, CA 90210<br>
-                                    United States
-                                </p>
-                            </div>
-                        </div>
-                        
-                        <div class="flex items-start">
-                            <div class="text-primary-600 mr-3 text-xl"><i class="fas fa-clock"></i></div>
-                            <div>
-                                <h3 class="font-medium">Support Hours</h3>
-                                <p class="text-gray-600 dark:text-gray-300">
-                                    Monday - Friday: 9:00 AM - 6:00 PM (EST)<br>
-                                    Saturday & Sunday: Closed
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
+                <h2 class="text-2xl font-semibold mb-4">The ColorVerse Team</h2>
+                <p class="mb-4">We're a small team of artists, developers, and AI enthusiasts passionate about making
+                    creative tools accessible to everyone. We combine our expertise in artificial intelligence, web
+                    development, and design to craft a seamless experience from generation to coloring.</p>
+
+                <p>Our diverse backgrounds and shared love for creativity drive us to continually improve ColorVerse,
+                    adding new features and refining our generation technology to deliver the best possible coloring
+                    pages.</p>
+            </div>
+
+            <div class="accent-panel p-6 text-white mb-8">
+                <h2 class="text-2xl font-semibold mb-4">Join Our Colorful Community</h2>
+                <p class="mb-4">ColorVerse is more than just a website—it's a growing community of coloring enthusiasts.
+                    We invite you to share your colored creations, suggest new categories, and connect with fellow
+                    colorists. Your feedback helps us improve and expand our offerings.</p>
+
+                <p>Thank you for choosing ColorVerse as your destination for AI-generated coloring pages. We're excited
+                    to be part of your creative journey!</p>
+
+                <div class="mt-6">
+                    <a href="#contact"
+                        class="bg-white text-primary-600 hover:bg-gray-100 px-6 py-3 rounded-lg font-medium inline-flex items-center">
+                        <i class="fas fa-envelope mr-2"></i> Contact Us
+                    </a>
+                    <a href="#donate"
+                        class="bg-yellow-400 text-black hover:bg-yellow-500 px-6 py-3 rounded-lg font-medium inline-flex items-center ml-4">
+                        <i class="fas fa-heart mr-2"></i> Support Our Mission
+                    </a>
                 </div>
-                
+            </div>
+        </div>
+
+        <!-- Privacy Policy Page -->
+        <div id="static-privacy" class="container mx-auto p-4 hidden">
+            <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 py-2">
+                <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
+                    <i class="fas fa-home mr-1"></i> Home
+                </a>
+                <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
+                <span class="font-medium text-gray-800">Privacy Policy</span>
+            </nav>
+
+            <h1 class="text-3xl font-bold mb-6">Privacy Policy</h1>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
+                <p class="text-sm text-gray-500 mb-6">Last Updated: April 12, 2025</p>
+
+                <h2 class="text-2xl font-semibold mb-4">1. Introduction</h2>
+                <p class="mb-4">Welcome to ColorVerse ("we," "our," or "us"). We respect your privacy and are committed
+                    to protecting your personal information. This Privacy Policy explains how we collect, use, disclose,
+                    and safeguard your information when you visit our website, including any other media form, media
+                    channel, mobile website, or mobile application related or connected to ColorVerse (collectively, the
+                    "Site").</p>
+
+                <p class="mb-4">Please read this Privacy Policy carefully. By accessing or using our Site, you
+                    acknowledge that you have read, understood, and agree to be bound by all the terms outlined in this
+                    policy. If you do not agree with our policies and practices, please do not use our Site.</p>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">2. Information We Collect</h2>
+
+                <h3 class="text-xl font-semibold mb-3">2.1 Personal Information</h3>
+                <p class="mb-4">We may collect personal information that you voluntarily provide to us when you:</p>
+                <ul class="list-disc ml-6 mb-4 space-y-1">
+                    <li>Subscribe to our newsletter</li>
+                    <li>Submit a contact form</li>
+                    <li>Provide feedback or testimonials</li>
+                    <li>Make a donation</li>
+                </ul>
+                <p class="mb-4">This information may include your name, email address, and any other information you
+                    choose to provide.</p>
+
+                <h3 class="text-xl font-semibold mb-3">2.2 Automatically Collected Information</h3>
+                <p class="mb-4">When you access our Site, we may automatically collect certain information about your
+                    device, including:</p>
+                <ul class="list-disc ml-6 mb-4 space-y-1">
+                    <li>IP address</li>
+                    <li>Browser type and version</li>
+                    <li>Operating system</li>
+                    <li>Referring website</li>
+                    <li>Pages visited</li>
+                    <li>Time and date of your visit</li>
+                    <li>Time spent on pages</li>
+                </ul>
+                <p class="mb-4">We may also collect information about your interaction with our Site, including the
+                    actions you take and the features you use.</p>
+
+                <h3 class="text-xl font-semibold mb-3">2.3 Local Storage</h3>
+                <p class="mb-4">We use local storage (including browser localStorage) to enhance your experience by
+                    storing preferences, theme choices, and cached images to improve performance. This data is stored on
+                    your device and is not transmitted to our servers unless specifically required for site
+                    functionality.</p>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">3. How We Use Your Information</h2>
+                <p class="mb-4">We may use the information we collect for various purposes, including to:</p>
+                <ul class="list-disc ml-6 mb-4 space-y-1">
+                    <li>Provide, maintain, and improve our Site</li>
+                    <li>Personalize your experience</li>
+                    <li>Respond to your inquiries, comments, or questions</li>
+                    <li>Send you updates, newsletters, and promotional materials</li>
+                    <li>Analyze usage patterns to enhance our service</li>
+                    <li>Protect against unauthorized access to our services</li>
+                    <li>Fulfill any other purpose disclosed at the time you provide your information</li>
+                </ul>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">4. Sharing Your Information</h2>
+                <p class="mb-4">We may share information we collect as follows:</p>
+                <ul class="list-disc ml-6 mb-4 space-y-1">
+                    <li><strong>Service Providers:</strong> We may share your information with third-party vendors,
+                        service providers, contractors, or agents who perform services for us.</li>
+                    <li><strong>Analytics:</strong> We may use third-party analytics services to analyze site usage.
+                    </li>
+                    <li><strong>Legal Requirements:</strong> We may disclose your information if required to do so by
+                        law or in response to valid requests by public authorities.</li>
+                </ul>
+                <p class="mb-4">We do not sell, trade, or otherwise transfer your personally identifiable information to
+                    third parties for marketing purposes.</p>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">5. Data Security</h2>
+                <p class="mb-4">We implement appropriate technical and organizational measures to maintain the safety of
+                    your personal information. However, no Internet transmission or electronic storage is ever
+                    completely secure, and we cannot guarantee absolute security.</p>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">6. Your Choices</h2>
+                <p class="mb-4">You have certain choices regarding the information you provide to us:</p>
+                <ul class="list-disc ml-6 mb-4 space-y-1">
+                    <li><strong>Tracking Technologies:</strong> You can set your browser to refuse cookies or alert you
+                        when cookies are being sent.</li>
+                    <li><strong>Email Communications:</strong> You may opt out of receiving our newsletter or
+                        promotional emails by following the unsubscribe instructions in any email we send.</li>
+                    <li><strong>Local Storage:</strong> You can clear local storage through your browser settings,
+                        although this may affect site functionality.</li>
+                </ul>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">7. Children's Privacy</h2>
+                <p class="mb-4">Our Site is not directed to children under the age of 13. We do not knowingly collect
+                    personal information from children under 13. If you are a parent or guardian and believe that your
+                    child has provided us with personal information, please contact us so that we can delete such
+                    information.</p>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">8. Changes to This Privacy Policy</h2>
+                <p class="mb-4">We may update our Privacy Policy from time to time. We will notify you of any changes by
+                    posting the new Privacy Policy on this page and updating the "Last Updated" date. You are advised to
+                    review this Privacy Policy periodically for any changes.</p>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">9. Contact Us</h2>
+                <p class="mb-4">If you have any questions about this Privacy Policy, please contact us at:</p>
+                <p class="mb-4">
+                    <a href="mailto:privacy@colorverse.com"
+                        class="text-primary-600 hover:underline">privacy@colorverse.com</a><br>
+                    ColorVerse<br>
+                    1234 Creative Lane<br>
+                    Art District, CA 90210
+                </p>
+            </div>
+        </div>
+
+        <!-- Terms of Service Page -->
+        <div id="static-terms" class="container mx-auto p-4 hidden">
+            <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 py-2">
+                <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
+                    <i class="fas fa-home mr-1"></i> Home
+                </a>
+                <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
+                <span class="font-medium text-gray-800">Terms of Service</span>
+            </nav>
+
+            <h1 class="text-3xl font-bold mb-6">Terms of Service</h1>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
+                <p class="text-sm text-gray-500 mb-6">Last Updated: April 12, 2025</p>
+
+                <h2 class="text-2xl font-semibold mb-4">1. Agreement to Terms</h2>
+                <p class="mb-4">These Terms of Service constitute a legally binding agreement made between you and
+                    ColorVerse ("we," "us," or "our"), concerning your access to and use of the ColorVerse website and
+                    services.</p>
+
+                <p class="mb-4">By accessing or using ColorVerse, you agree to be bound by these Terms of Service. If
+                    you disagree with any part of these terms, then you may not access the service.</p>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">2. Intellectual Property Rights</h2>
+
+                <h3 class="text-xl font-semibold mb-3">2.1 Our Content</h3>
+                <p class="mb-4">ColorVerse and its original content, features, and functionality are owned by ColorVerse
+                    and are protected by international copyright, trademark, patent, trade secret, and other
+                    intellectual property or proprietary rights laws.</p>
+
+                <h3 class="text-xl font-semibold mb-3">2.2 User License</h3>
+                <p class="mb-4">Subject to these Terms of Service, we grant you a non-exclusive, non-transferable,
+                    revocable license to download and use the coloring pages generated through our service for personal,
+                    non-commercial use only. This license does not include the right to:</p>
+                <ul class="list-disc ml-6 mb-4 space-y-1">
+                    <li>Modify or copy the materials</li>
+                    <li>Use the materials for any commercial purpose</li>
+                    <li>Remove any copyright or other proprietary notations from the materials</li>
+                    <li>Transfer the materials to another person or "mirror" the materials on any other server</li>
+                </ul>
+                <p class="mb-4">This license shall automatically terminate if you violate any of these restrictions and
+                    may be terminated by ColorVerse at any time.</p>
+
+                <h3 class="text-xl font-semibold mb-3">2.3 Commercial Use</h3>
+                <p class="mb-4">If you wish to use our coloring pages for commercial purposes (including but not limited
+                    to publishing in books, selling prints, or using in products for sale), please contact us to obtain
+                    a commercial license.</p>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">3. User Content</h2>
+                <p class="mb-4">Our service allows you to generate custom coloring pages based on prompts you provide.
+                    By submitting prompts or other content to our service, you:</p>
+                <ul class="list-disc ml-6 mb-4 space-y-1">
+                    <li>Grant us the right to use your prompts to generate coloring pages</li>
+                    <li>Represent that you own or have the necessary permissions to use and authorize us to use the
+                        content</li>
+                    <li>Agree not to submit content that is illegal, offensive, or violates the rights of any third
+                        party</li>
+                </ul>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">4. Prohibited Uses</h2>
+                <p class="mb-4">You agree not to use ColorVerse:</p>
+                <ul class="list-disc ml-6 mb-4 space-y-1">
+                    <li>In any way that violates any applicable federal, state, local, or international law or
+                        regulation</li>
+                    <li>To generate content that is unlawful, harmful, threatening, abusive, harassing, defamatory,
+                        obscene, or otherwise objectionable</li>
+                    <li>To generate content that infringes upon or violates the intellectual property rights or other
+                        rights of any person</li>
+                    <li>To attempt to circumvent, disable, or interfere with security-related features of our service
+                    </li>
+                    <li>To engage in any other conduct that restricts or inhibits anyone's use of our service</li>
+                </ul>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">5. Disclaimer of Warranties</h2>
+                <p class="mb-4">ColorVerse is provided on an "as-is" and "as available" basis, without any warranties of
+                    any kind, either express or implied. We do not guarantee that our service will be uninterrupted,
+                    timely, secure, or error-free.</p>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">6. Limitation of Liability</h2>
+                <p class="mb-4">In no event shall ColorVerse, its directors, employees, partners, agents, suppliers, or
+                    affiliates be liable for any indirect, incidental, special, consequential, or punitive damages,
+                    including without limitation, loss of profits, data, use, goodwill, or other intangible losses,
+                    resulting from your access to or use of or inability to access or use the service.</p>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">7. AI Generation Limitations</h2>
+                <p class="mb-4">Our service utilizes artificial intelligence to generate coloring pages. By using this
+                    service, you acknowledge and agree that:</p>
+                <ul class="list-disc ml-6 mb-4 space-y-1">
+                    <li>AI-generated content may not always perfectly match your prompts</li>
+                    <li>We use filtering systems to prevent the generation of inappropriate content, but these systems
+                        are not perfect</li>
+                    <li>We reserve the right to refuse to process any prompt that we believe may violate our policies
+                    </li>
+                </ul>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">8. Termination</h2>
+                <p class="mb-4">We may terminate or suspend your access to our service immediately, without prior notice
+                    or liability, for any reason whatsoever, including without limitation if you breach these Terms of
+                    Service.</p>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">9. Changes to Terms</h2>
+                <p class="mb-4">We reserve the right, at our sole discretion, to modify or replace these Terms at any
+                    time. By continuing to access or use our service after those revisions become effective, you agree
+                    to be bound by the revised terms.</p>
+
+                <h2 class="text-2xl font-semibold mb-4 mt-8">10. Contact Us</h2>
+                <p class="mb-4">If you have any questions about these Terms, please contact us at:</p>
+                <p class="mb-4">
+                    <a href="mailto:terms@colorverse.com"
+                        class="text-primary-600 hover:underline">terms@colorverse.com</a><br>
+                    ColorVerse<br>
+                    1234 Creative Lane<br>
+                    Art District, CA 90210
+                </p>
+            </div>
+        </div>
+
+        <!-- Contact Page -->
+        <div id="static-contact" class="container mx-auto p-4 hidden">
+            <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 py-2">
+                <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
+                    <i class="fas fa-home mr-1"></i> Home
+                </a>
+                <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
+                <span class="font-medium text-gray-800">Contact Us</span>
+            </nav>
+
+            <h1 class="text-3xl font-bold mb-6">Contact Us</h1>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
-                    <h2 class="text-2xl font-semibold mb-4">Connect With Us</h2>
-                    <p class="mb-4">Follow us on social media for updates, coloring inspiration, and to connect with our community of coloring enthusiasts.</p>
-                    
-                    <div class="flex space-x-4 text-2xl">
-                        <a href="#" class="text-gray-700 dark:text-gray-300 hover:text-primary-600 transition-colors"><i class="fab fa-facebook"></i></a>
-                        <a href="#" class="text-gray-700 dark:text-gray-300 hover:text-primary-600 transition-colors"><i class="fab fa-instagram"></i></a>
-                        <a href="#" class="text-gray-700 dark:text-gray-300 hover:text-primary-600 transition-colors"><i class="fab fa-pinterest"></i></a>
-                        <a href="#" class="text-gray-700 dark:text-gray-300 hover:text-primary-600 transition-colors"><i class="fab fa-twitter"></i></a>
+                    <h2 class="text-2xl font-semibold mb-4">Get in Touch</h2>
+                    <p class="mb-6">We'd love to hear from you! Whether you have a question about our coloring pages,
+                        need technical support, or want to share your ColorVerse creations, please fill out the form
+                        below or reach out via our contact information.</p>
+
+                    <form class="space-y-4">
+                        <div>
+                            <label for="name" class="block text-sm font-medium mb-1">Your Name</label>
+                            <input type="text" id="name"
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                placeholder="Enter your name">
+                        </div>
+
+                        <div>
+                            <label for="email" class="block text-sm font-medium mb-1">Email Address</label>
+                            <input type="email" id="email"
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                placeholder="Enter your email">
+                        </div>
+
+                        <div>
+                            <label for="subject" class="block text-sm font-medium mb-1">Subject</label>
+                            <select id="subject"
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                                <option value="">Select a subject</option>
+                                <option value="general">General Inquiry</option>
+                                <option value="support">Technical Support</option>
+                                <option value="feedback">Feedback</option>
+                                <option value="business">Business/Partnerships</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="message" class="block text-sm font-medium mb-1">Message</label>
+                            <textarea id="message" rows="5"
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                placeholder="Enter your message"></textarea>
+                        </div>
+
+                        <div class="flex items-start">
+                            <input type="checkbox" id="privacy" class="mt-1">
+                            <label for="privacy" class="ml-2 text-sm">I agree to the <a href="#privacy"
+                                    class="text-primary-600 hover:underline">Privacy Policy</a> and consent to being
+                                contacted regarding my inquiry.</label>
+                        </div>
+
+                        <button type="submit"
+                            class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition-colors w-full md:w-auto">Send
+                            Message</button>
+                    </form>
+                </div>
+
+                <div>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+                        <h2 class="text-2xl font-semibold mb-4">Contact Information</h2>
+                        <div class="space-y-4">
+                            <div class="flex items-start">
+                                <div class="text-primary-600 mr-3 text-xl"><i class="fas fa-envelope"></i></div>
+                                <div>
+                                    <h3 class="font-medium">Email Us</h3>
+                                    <p class="text-gray-600 dark:text-gray-300">
+                                        <a href="mailto:hello@colorverse.com"
+                                            class="hover:underline">hello@colorverse.com</a>
+                                    </p>
+                                    <p class="text-sm text-gray-500 mt-1">We typically respond within 1-2 business days.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-start">
+                                <div class="text-primary-600 mr-3 text-xl"><i class="fas fa-map-marker-alt"></i></div>
+                                <div>
+                                    <h3 class="font-medium">Our Address</h3>
+                                    <p class="text-gray-600 dark:text-gray-300">
+                                        ColorVerse<br>
+                                        1234 Creative Lane<br>
+                                        Art District, CA 90210<br>
+                                        United States
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-start">
+                                <div class="text-primary-600 mr-3 text-xl"><i class="fas fa-clock"></i></div>
+                                <div>
+                                    <h3 class="font-medium">Support Hours</h3>
+                                    <p class="text-gray-600 dark:text-gray-300">
+                                        Monday - Friday: 9:00 AM - 6:00 PM (EST)<br>
+                                        Saturday & Sunday: Closed
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+                        <h2 class="text-2xl font-semibold mb-4">Connect With Us</h2>
+                        <p class="mb-4">Follow us on social media for updates, coloring inspiration, and to connect with
+                            our community of coloring enthusiasts.</p>
+
+                        <div class="flex space-x-4 text-2xl">
+                            <a href="#"
+                                class="text-gray-700 dark:text-gray-300 hover:text-primary-600 transition-colors"><i
+                                    class="fab fa-facebook"></i></a>
+                            <a href="#"
+                                class="text-gray-700 dark:text-gray-300 hover:text-primary-600 transition-colors"><i
+                                    class="fab fa-instagram"></i></a>
+                            <a href="#"
+                                class="text-gray-700 dark:text-gray-300 hover:text-primary-600 transition-colors"><i
+                                    class="fab fa-pinterest"></i></a>
+                            <a href="#"
+                                class="text-gray-700 dark:text-gray-300 hover:text-primary-600 transition-colors"><i
+                                    class="fab fa-twitter"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accent-panel p-6 text-white mt-8">
+                <h2 class="text-2xl font-semibold mb-4">Frequently Asked Questions</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-xl font-medium mb-2">Are the coloring pages free to download?</h3>
+                        <p>Yes, all coloring pages are free to download and use for personal, non-commercial purposes.
+                            We sustain our platform through donations and limited advertising.</p>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-medium mb-2">How do I request a specific coloring page?</h3>
+                        <p>While we don't currently offer a direct request feature, we're always adding new categories
+                            and designs. Let us know your suggestions via the contact form!</p>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-medium mb-2">Can I use ColorVerse pages for my class/school?</h3>
+                        <p>Yes, educational use is permitted. Teachers may print and distribute our coloring pages to
+                            students for educational purposes.</p>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-medium mb-2">What is the best way to print the coloring pages?</h3>
+                        <p>For optimal quality, use the Print button on each coloring page. We recommend using standard
+                            8.5x11 paper with your printer's "fit to page" setting.</p>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <div class="accent-panel p-6 text-white mt-8">
-            <h2 class="text-2xl font-semibold mb-4">Frequently Asked Questions</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <h3 class="text-xl font-medium mb-2">Are the coloring pages free to download?</h3>
-                    <p>Yes, all coloring pages are free to download and use for personal, non-commercial purposes. We sustain our platform through donations and limited advertising.</p>
-                </div>
-                
-                <div>
-                    <h3 class="text-xl font-medium mb-2">How do I request a specific coloring page?</h3>
-                    <p>While we don't currently offer a direct request feature, we're always adding new categories and designs. Let us know your suggestions via the contact form!</p>
-                </div>
-                
-                <div>
-                    <h3 class="text-xl font-medium mb-2">Can I use ColorVerse pages for my class/school?</h3>
-                    <p>Yes, educational use is permitted. Teachers may print and distribute our coloring pages to students for educational purposes.</p>
-                </div>
-                
-                <div>
-                    <h3 class="text-xl font-medium mb-2">What is the best way to print the coloring pages?</h3>
-                    <p>For optimal quality, use the Print button on each coloring page. We recommend using standard 8.5x11 paper with your printer's "fit to page" setting.</p>
-                </div>
-            </div>
+
+        <div id="loading-indicator" class="container mx-auto p-10 flex justify-center items-center flex-grow">
+            <div class="spinner"></div>
+            <p class="ml-4 text-gray-600">Loading Content...</p>
         </div>
     </div>
-
-    <div id="loading-indicator" class="container mx-auto p-10 flex justify-center items-center flex-grow">
-        <div class="spinner"></div>
-        <p class="ml-4 text-gray-600">Loading Content...</p>
-    </div>
-</div>
 
     <footer class="bg-gray-800 text-white p-4 mt-8">
         <div class="container mx-auto">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                 <div>
                     <h3 class="text-lg font-bold mb-3">ColorVerse</h3>
-                    <p class="text-sm text-gray-300">Bringing creativity and imagination to life with AI-generated coloring pages for everyone.</p>
+                    <p class="text-sm text-gray-300">Bringing creativity and imagination to life with AI-generated
+                        coloring pages for everyone.</p>
                 </div>
                 <div>
                     <h3 class="text-lg font-bold mb-3">Quick Links</h3>
@@ -771,22 +928,30 @@
                 <div>
                     <h3 class="text-lg font-bold mb-3">Categories</h3>
                     <ul class="text-sm space-y-2">
-                        <li><a href="#category/animals" class="hover:text-primary-300 transition-colors">Animals</a></li>
-                        <li><a href="#category/mandalas" class="hover:text-primary-300 transition-colors">Mandalas</a></li>
-                        <li><a href="#category/fantasy" class="hover:text-primary-300 transition-colors">Fantasy</a></li>
+                        <li><a href="#category/animals" class="hover:text-primary-300 transition-colors">Animals</a>
+                        </li>
+                        <li><a href="#category/mandalas" class="hover:text-primary-300 transition-colors">Mandalas</a>
+                        </li>
+                        <li><a href="#category/fantasy" class="hover:text-primary-300 transition-colors">Fantasy</a>
+                        </li>
                     </ul>
                 </div>
                 <div>
                     <h3 class="text-lg font-bold mb-3">Connect</h3>
                     <div class="flex space-x-3 text-xl">
-                        <a href="#" aria-label="Twitter" class="hover:text-primary-300 transition-colors"><i class="fab fa-twitter"></i></a>
-                        <a href="#" aria-label="Instagram" class="hover:text-primary-300 transition-colors"><i class="fab fa-instagram"></i></a>
-                        <a href="#" aria-label="Pinterest" class="hover:text-primary-300 transition-colors"><i class="fab fa-pinterest"></i></a>
-                        <a href="#" aria-label="Facebook" class="hover:text-primary-300 transition-colors"><i class="fab fa-facebook"></i></a>
+                        <a href="#" aria-label="Twitter" class="hover:text-primary-300 transition-colors"><i
+                                class="fab fa-twitter"></i></a>
+                        <a href="#" aria-label="Instagram" class="hover:text-primary-300 transition-colors"><i
+                                class="fab fa-instagram"></i></a>
+                        <a href="#" aria-label="Pinterest" class="hover:text-primary-300 transition-colors"><i
+                                class="fab fa-pinterest"></i></a>
+                        <a href="#" aria-label="Facebook" class="hover:text-primary-300 transition-colors"><i
+                                class="fab fa-facebook"></i></a>
                     </div>
                     <p class="text-sm mt-4">Subscribe for updates:</p>
                     <div class="flex mt-2">
-                        <input type="email" placeholder="Your email" class="px-3 py-1 text-sm text-black rounded-l-lg w-full" aria-label="Email for newsletter">
+                        <input type="email" placeholder="Your email"
+                            class="px-3 py-1 text-sm text-black rounded-l-lg w-full" aria-label="Email for newsletter">
                         <button class="bg-primary-500 hover:bg-primary-600 px-3 py-1 rounded-r-lg transition-colors">
                             <i class="fas fa-paper-plane"></i>
                         </button>
@@ -808,53 +973,73 @@
     <!-- Add paint splashes for artistic effect -->
     <div class="paint-splash top-20 left-5 w-64 h-64" style="--rotation: 15deg;">
         <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-            <path fill="#FF6B6B" d="M47.7,-61.5C62.4,-53.4,75.3,-39.5,79.7,-23.5C84.1,-7.5,80,10.6,71.5,25.8C63,41,50.1,53.2,35.1,61.3C20.1,69.5,3,73.5,-12.4,70.6C-27.8,67.6,-41.6,57.6,-53.2,45.1C-64.9,32.5,-74.4,17.5,-76.2,1.1C-78,-15.4,-72,-33.2,-60.4,-43.3C-48.8,-53.5,-31.5,-56,-16.3,-61.1C-1.1,-66.2,12.9,-73.9,28.5,-72.7C44.1,-71.6,60.3,-61.7,47.7,-61.5Z" transform="translate(100 100)" />
+            <path fill="#FF6B6B"
+                d="M47.7,-61.5C62.4,-53.4,75.3,-39.5,79.7,-23.5C84.1,-7.5,80,10.6,71.5,25.8C63,41,50.1,53.2,35.1,61.3C20.1,69.5,3,73.5,-12.4,70.6C-27.8,67.6,-41.6,57.6,-53.2,45.1C-64.9,32.5,-74.4,17.5,-76.2,1.1C-78,-15.4,-72,-33.2,-60.4,-43.3C-48.8,-53.5,-31.5,-56,-16.3,-61.1C-1.1,-66.2,12.9,-73.9,28.5,-72.7C44.1,-71.6,60.3,-61.7,47.7,-61.5Z"
+                transform="translate(100 100)" />
         </svg>
     </div>
     <div class="paint-splash bottom-40 right-10 w-96 h-96" style="--rotation: -25deg;">
-            <path fill="#64D1D0" d="M36.3,-48.8C51.1,-45.3,70,-39.9,76.1,-28.1C82.1,-16.4,75.5,1.7,68.3,17.5C61.1,33.3,53.3,46.8,41.6,57.3C29.9,67.8,14.9,75.3,0.9,74.1C-13.2,72.9,-26.4,63,-38.1,52.4C-49.8,41.8,-60,30.6,-63.5,17.7C-67,4.8,-63.8,-9.8,-58.2,-22.3C-52.6,-34.9,-44.7,-45.4,-34.2,-50.1C-23.7,-54.8,-11.9,-53.7,0.2,-54C12.2,-54.2,24.5,-55.6,36.3,-48.8Z" transform="translate(100 100)" />
+        <path fill="#64D1D0"
+            d="M36.3,-48.8C51.1,-45.3,70,-39.9,76.1,-28.1C82.1,-16.4,75.5,1.7,68.3,17.5C61.1,33.3,53.3,46.8,41.6,57.3C29.9,67.8,14.9,75.3,0.9,74.1C-13.2,72.9,-26.4,63,-38.1,52.4C-49.8,41.8,-60,30.6,-63.5,17.7C-67,4.8,-63.8,-9.8,-58.2,-22.3C-52.6,-34.9,-44.7,-45.4,-34.2,-50.1C-23.7,-54.8,-11.9,-53.7,0.2,-54C12.2,-54.2,24.5,-55.6,36.3,-48.8Z"
+            transform="translate(100 100)" />
         </svg>
     </div>
 
     <script src="service-worker-register.js"></script>
     <!-- Initialize environment variables for browser -->
     <script>
+        // Decoder for obfuscated API keys (Base64 + XOR cipher)
+        function _d(encoded, key) {
+            try {
+                const xored = atob(encoded);
+                let result = '';
+                for (let i = 0; i < xored.length; i++) {
+                    result += String.fromCharCode(xored.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+                }
+                return result;
+            } catch (e) {
+                console.error('Key decoding failed');
+                return '';
+            }
+        }
+
         // Initialize window._env object for environment variables
-        // This prevents "process is not defined" errors in browser
+        // Keys are obfuscated using Base64 + XOR cipher to deter casual copying
+        const _k = 'ColorVerse2025';
         window._env = window._env || {
-            POLLINATIONS_API_KEY: '',
-            OPENROUTER_API_KEY: '',
-            GOOGLE_GEMINI_API_KEY: ''
+            POLLINATIONS_API_KEY: _d('MAQzHRljJhoXAXlJSFMLWSsNKhEhGQQDB3EGeiIuKQY/ICY=', _k),
+            OPENROUTER_API_KEY: _d('MARBAAB7E0NeBwVWClR6DV1eSmEBQEZTVgADVCcMVApFZVBBEl0DBwMNIg5aWhFgVUJGBlQCBlAhCl9WRjMBS0tWCgUDB3UKCg==', _k),
+            GOOGLE_GEMINI_API_KEY: _d('AiYWDiEvJAMCVgRnBW0VNQEBBAEVK0ICdVsFdwBbIzwxIFMIMhFB', _k)
         };
     </script>
     <!-- Load Site Data and App Logic -->
     <script src="app.js"></script>
-    
+
     <!-- Theme Switcher and Refresh Script -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Theme switching functionality
             const themeLight = document.getElementById('theme-light');
             const themeDark = document.getElementById('theme-dark');
             const themeColorful = document.getElementById('theme-colorful');
             const refreshButton = document.getElementById('refresh-content');
             const body = document.body;
-            
+
             // Apply saved theme or default to light
             const savedTheme = localStorage.getItem('colorverse-theme') || 'light';
             body.className = body.className.replace(/theme-\w+/, '').trim() + ' theme-' + savedTheme;
-            
+
             // Add loading class to ensure proper loading state
             if (!body.classList.contains('loading')) {
                 body.classList.add('loading');
             }
-            
+
             // Set initial active state for the current theme button
             const currentThemeButton = document.getElementById(`theme-${savedTheme}`);
             if (currentThemeButton) {
                 currentThemeButton.classList.add('bg-white', 'bg-opacity-30', 'text-white', 'font-bold');
             }
-            
+
             // Set up refresh content button
             refreshButton.addEventListener('click', () => {
                 // Show confirmation dialog
@@ -863,7 +1048,7 @@
                     localStorage.removeItem('colorverse-site-data');
                     localStorage.removeItem('colorverse-cache-timestamp');
                     localStorage.removeItem('colorverse-image-urls');
-                    
+
                     // Clear all item-specific image caches
                     const itemCachePrefix = 'colorverse-item-cache-';
                     for (let i = 0; i < localStorage.length; i++) {
@@ -872,22 +1057,22 @@
                             localStorage.removeItem(key);
                         }
                     }
-                    
+
                     // Show loading state
                     body.classList.add('loading');
-                    
+
                     // Show toast notification
                     if (typeof showToast === 'function') {
                         showToast('Regenerating content...', 'info');
                     }
-                    
+
                     // Force reload the page
                     setTimeout(() => {
                         window.location.reload();
                     }, 500);
                 }
             });
-            
+
             // Set up theme switching
             themeLight.addEventListener('click', () => {
                 if (typeof applyTheme === 'function') {
@@ -896,7 +1081,7 @@
                     setTheme('light');
                 }
             });
-            
+
             themeDark.addEventListener('click', () => {
                 if (typeof applyTheme === 'function') {
                     applyTheme('dark');
@@ -904,7 +1089,7 @@
                     setTheme('dark');
                 }
             });
-            
+
             themeColorful.addEventListener('click', () => {
                 if (typeof applyTheme === 'function') {
                     applyTheme('colorful');
@@ -912,20 +1097,20 @@
                     setTheme('colorful');
                 }
             });
-            
+
             function setTheme(theme) {
                 body.className = body.className.replace(/theme-\w+/, '').trim() + ' theme-' + theme;
                 localStorage.setItem('colorverse-theme', theme);
-                
+
                 // No toast notification for theme changes
-                
+
                 // Announce theme change for screen readers
                 const announcement = document.createElement('div');
                 announcement.setAttribute('aria-live', 'polite');
                 announcement.classList.add('sr-only');
                 announcement.textContent = theme + ' theme applied';
                 document.body.appendChild(announcement);
-                
+
                 // Remove announcement after it's been read
                 setTimeout(() => {
                     if (announcement.parentNode) {
@@ -936,4 +1121,5 @@
         });
     </script>
 </body>
+
 </html>
