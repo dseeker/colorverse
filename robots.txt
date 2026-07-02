@@ -1,0 +1,49 @@
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://dseeker.github.io/colorverse/sitemap.xml
+
+# Optimize crawling
+Crawl-delay: 1
+
+# Disallow admin and private areas (if any)
+Disallow: /admin/
+Disallow: /private/
+Disallow: /api/
+
+# Allow search engines to index everything else
+Allow: /#category/
+Allow: /#item/
+Allow: /#search/
+Allow: /#favorites/
+
+# Block specific file types that shouldn't be indexed
+Disallow: /*.pdf$
+Disallow: /*.zip$
+
+# Rate limiting for bots
+# Note: Most major search engines respect these directives
+
+# Special rules for specific bots
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0.5
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 0.5
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 1
+
+# Block aggressive crawlers
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /

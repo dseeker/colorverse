@@ -11,7 +11,7 @@ The project is a client-side web application that renders AI-generated coloring 
 
 ## Running the App
 
-Use the `npm start` script to serve the site locally on port 3000:
+Use the `npm start` script to serve the site locally on port 4000:
 
 ```bash
 npm start

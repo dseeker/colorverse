@@ -1,20 +1,20 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
+const test = require("node:test");
+const assert = require("node:assert/strict");
 
 // Simple DOM and storage stubs used for testing
 class Element {
   constructor(tagName) {
     this.tagName = tagName;
     this.children = [];
-    this.innerHTML = '';
-    this.value = '';
-    this.textContent = '';
-    this.id = '';
+    this.innerHTML = "";
+    this.value = "";
+    this.textContent = "";
+    this.id = "";
     this._classSet = new Set();
     this.classList = {
       add: (...cls) => cls.forEach(c => this._classSet.add(c)),
       remove: (...cls) => cls.forEach(c => this._classSet.delete(c)),
-      contains: cls => this._classSet.has(cls)
+      contains: cls => this._classSet.has(cls),
     };
   }
 
@@ -37,8 +37,9 @@ function setupGlobals() {
     querySelectorAll() {
       return [];
     },
-    body: new Element('body'),
-    addEventListener() {}
+    body: new Element("body"),
+    documentElement: new Element("html"),
+    addEventListener() {},
   };
 
   const localStorageStub = {
@@ -54,38 +55,45 @@ function setupGlobals() {
     },
     clear() {
       this.store = {};
-    }
+    },
   };
 
   global.document = documentStub;
   global.localStorage = localStorageStub;
-  global.window = { location: { hostname: 'localhost' }, addEventListener() {}, imageLoadQueue: undefined };
+  global.window = {
+    location: { hostname: "localhost" },
+    addEventListener() {},
+    imageLoadQueue: undefined,
+  };
   global.reloadAllImages = () => {};
   global.showToast = () => {};
-  global.setTimeout = fn => { fn(); return 0; };
+  global.setTimeout = fn => {
+    fn();
+    return 0;
+  };
 
   return { documentStub, localStorageStub };
 }
 
 function loadApp() {
-  delete require.cache[require.resolve('../app.js')];
-  return require('../app.js');
+  delete require.cache[require.resolve("../app.js")];
+  return require("../app.js");
 }
 
-test('applyTheme updates classes and storage', () => {
+test("applyTheme updates classes and storage", () => {
   const { documentStub, localStorageStub } = setupGlobals();
 
-  const lightBtn = new Element('button');
-  const darkBtn = new Element('button');
-  const colorfulBtn = new Element('button');
-  documentStub.elements['theme-light'] = lightBtn;
-  documentStub.elements['theme-dark'] = darkBtn;
-  documentStub.elements['theme-colorful'] = colorfulBtn;
+  const lightBtn = new Element("button");
+  const darkBtn = new Element("button");
+  const colorfulBtn = new Element("button");
+  documentStub.elements["theme-light"] = lightBtn;
+  documentStub.elements["theme-dark"] = darkBtn;
+  documentStub.elements["theme-colorful"] = colorfulBtn;
 
-  const carouselPrev = new Element('button');
-  const carouselNext = new Element('button');
+  const carouselPrev = new Element("button");
+  const carouselNext = new Element("button");
   documentStub.querySelectorAll = sel => {
-    if (sel === '#carousel-prev, #carousel-next') {
+    if (sel === "#carousel-prev, #carousel-next") {
       return [carouselPrev, carouselNext];
     }
     return [];
@@ -93,44 +101,46 @@ test('applyTheme updates classes and storage', () => {
 
   const app = loadApp();
 
-  app.applyTheme('dark');
+  app.applyTheme("dark");
 
-  assert(documentStub.body.classList.contains('theme-dark'));
-  assert.equal(localStorageStub.getItem('colorverse-theme'), 'dark');
-  assert(darkBtn.classList.contains('bg-white'));
-  assert(!lightBtn.classList.contains('bg-white'));
-  assert(carouselPrev.classList.contains('bg-gray-700'));
+  // Check that 'dark' class is added to documentElement for Tailwind dark mode
+  assert(documentStub.documentElement.classList.contains("dark"));
+  assert.equal(localStorageStub.getItem("colorverse-theme"), "dark");
+  assert(darkBtn.classList.contains("bg-white"));
+  assert(!lightBtn.classList.contains("bg-white"));
+  assert(carouselPrev.classList.contains("bg-gray-700"));
 });
 
-test('applyTheme falls back to light theme on invalid input', () => {
+test("applyTheme falls back to light theme on invalid input", () => {
   const { documentStub, localStorageStub } = setupGlobals();
   const app = loadApp();
 
-  app.applyTheme('unknown');
+  app.applyTheme("unknown");
 
-  assert(documentStub.body.classList.contains('theme-light'));
-  assert.equal(localStorageStub.getItem('colorverse-theme'), 'light');
+  // Light theme means no 'dark' class and no 'theme-colorful' class
+  assert(!documentStub.documentElement.classList.contains("dark"));
+  assert(!documentStub.body.classList.contains("theme-colorful"));
+  assert.equal(localStorageStub.getItem("colorverse-theme"), "light");
 });
 
-test('loadCachedImageUrls loads cache from storage', () => {
+test("loadCachedImageUrls loads cache from storage", () => {
   const { localStorageStub } = setupGlobals();
   const app = loadApp();
 
-  localStorageStub.setItem('colorverse-image-urls', JSON.stringify({ a: 'url1' }));
+  localStorageStub.setItem("colorverse-image-urls", JSON.stringify({ a: "url1" }));
   const loaded = app.loadCachedImageUrls();
 
   assert.equal(loaded, true);
-  assert.equal(app.imageUrlCache.get('a'), 'url1');
+  assert.equal(app.imageUrlCache.get("a"), "url1");
 });
 
-test('loadCachedImageUrls handles invalid JSON', () => {
+test("loadCachedImageUrls handles invalid JSON", () => {
   const { localStorageStub } = setupGlobals();
   const app = loadApp();
 
-  localStorageStub.setItem('colorverse-image-urls', 'not-json');
+  localStorageStub.setItem("colorverse-image-urls", "not-json");
   const loaded = app.loadCachedImageUrls();
 
   assert.equal(loaded, false);
   assert.equal(app.imageUrlCache.size, 0);
 });
-

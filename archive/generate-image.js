@@ -154,7 +154,7 @@ const path = require("path");
 const sharp = require("sharp");
 const { ExifTool } = require("exiftool-vendored");
 
-const availableModels = ["flux", "kontext", "turbo", "nanobanana", "seedream"];
+const availableModels = ["zimage", "nanobanana", "flux", "kontext", "turbo", "seedream"];
 
 const ORIENTATIONS = {
   portrait: { width: 720, height: 1280 },
@@ -188,7 +188,7 @@ const parseArguments = () => {
   const testFileArg = args.find(arg => arg.startsWith("--testFile="));
   const orientationArg = args.find(arg => arg.startsWith("--orientation="));
 
-  const model = modelArg ? modelArg.split("=")[1] : "flux";
+  const model = modelArg ? modelArg.split("=")[1] : "zimage";
   const count = countArg ? parseInt(countArg.split("=")[1], 10) : 1;
   const inputFile = inputFileArg ? inputFileArg.split("=")[1] : null;
   const width = widthArg ? parseInt(widthArg.split("=")[1], 10) : null;

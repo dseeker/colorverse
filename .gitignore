@@ -27,6 +27,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+*.code-workspace
 
 # Test reports
 test-results/
@@ -54,3 +55,6 @@ variations.txt
 debug/*.bak
 # GitHub workflow secrets
 .github/workflows/*.json
+
+.claude/
+.playwright-mcp/

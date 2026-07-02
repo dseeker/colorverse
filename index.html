@@ -8,7 +8,50 @@
         content="ColorVerse offers free printable and online coloring pages, coloring tips, and AI art for all ages.">
     <meta name="keywords"
         content="free coloring pages, coloring pages for kids, adult coloring pages, printable coloring pages, online coloring book, coloring games, coloring sheets, coloring pages pdf, color by number, coloring book app">
-    <title>ColorVerse - Free Coloring Pages & AI Art</title>
+    <meta name="author" content="ColorVerse">
+    <meta name="robots" content="index, follow">
+    <meta name="googlebot" content="index, follow">
+    <meta name="bingbot" content="index, follow">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://dseeker.github.io/colorverse/">
+    <meta property="og:title" content="ColorVerse - Free Coloring Pages for Kids">
+    <meta property="og:description" content="Download free printable coloring pages for kids. Animals, fantasy, mandalas, and more! Perfect for parents and teachers.">
+    <meta property="og:image" content="https://dseeker.github.io/colorverse/assets/og-image.jpg">
+    <meta property="og:site_name" content="ColorVerse">
+    <meta property="og:locale" content="en_US">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://dseeker.github.io/colorverse/">
+    <meta property="twitter:title" content="ColorVerse - Free Coloring Pages for Kids">
+    <meta property="twitter:description" content="Download free printable coloring pages for kids. Animals, fantasy, mandalas, and more! Perfect for parents and teachers.">
+    <meta property="twitter:image" content="https://dseeker.github.io/colorverse/assets/og-image.jpg">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://dseeker.github.io/colorverse/">
+    
+    <!-- Resource Hints for Performance -->
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://gen.pollinations.ai" crossorigin>
+    
+    <!-- DNS Prefetch for faster resolution -->
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://gen.pollinations.ai">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="https://cdn.tailwindcss.com" as="script">
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" as="style">
+    
+    <!-- Prefetch likely next pages (search and favorites) -->
+    <link rel="prefetch" href="/src/services/searchManager.js" as="script">
+    <link rel="prefetch" href="/src/services/favoritesManager.js" as="script">
+    
+    <title>ColorVerse - Free Coloring Pages for Kids | Download & Print</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -71,6 +114,39 @@
 
             100% {
                 transform: rotate(360deg);
+            }
+        }
+
+        /* Cache status indicator */
+        #cache-status-indicator {
+            font-size: 0.75rem;
+            transition: all 0.3s ease-in-out;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        #cache-status-indicator.hidden {
+            animation: slideOut 0.3s ease-in;
+        }
+        
+        @keyframes slideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(10px);
             }
         }
 
@@ -146,71 +222,12 @@
             --accent-secondary: linear-gradient(135deg, #744210, #c05621);
         }
 
-        .theme-colorful {
-            --bg-primary: #f0f9ff;
-            --text-primary: #2d3748;
-            --accent-primary: linear-gradient(135deg, #f687b3, #7f9cf5, #4fd1c5);
+        /* Colorful Theme - Only custom theme with unique gradients */
+        body.theme-colorful {
+            --accent-gradient: linear-gradient(135deg, #f687b3, #7f9cf5, #4fd1c5);
             --accent-secondary: linear-gradient(135deg, #faf089, #f6ad55, #fc8181);
             --page-bg-gradient: linear-gradient(135deg, #fdf2f8, #e0f2fe, #ecfdf5);
-        }
-
-        /* Basic theme definitions - simple and clear */
-        /* Light Theme (Default) */
-        .theme-light {
-            --bg-color: #f9fafb;
-            --text-color: #333333;
-            --card-bg: #ffffff;
-            --card-text: #333333;
-            --border-color: #e5e7eb;
-            --accent-color: #3182ce;
-            --accent-gradient: linear-gradient(135deg, #90cdf4, #3182ce);
-            --header-text: #ffffff;
-        }
-
-        .theme-light body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-        }
-
-        /* Dark Theme */
-        .theme-dark {
-            --bg-color: #121826;
-            --text-color: #e2e8f0;
-            --card-bg: #1e293b;
-            --card-text: #e2e8f0;
-            --border-color: #374151;
-            --accent-color: #4299e1;
-            --accent-gradient: linear-gradient(135deg, #2a4365, #2b6cb0);
-            --header-text: #ffffff;
-        }
-
-        .theme-dark body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-        }
-
-        /* Colorful Theme */
-        .theme-colorful {
-            --bg-color: #f0f9ff;
-            --text-color: #2d3748;
-            --card-bg: #ffffff;
-            --card-text: #2d3748;
-            --border-color: #e2e8f0;
-            --accent-color: #8b5cf6;
-            --accent-gradient: linear-gradient(135deg, #f687b3, #7f9cf5, #4fd1c5);
-            --header-text: #ffffff;
-            --page-bg-gradient: linear-gradient(135deg, #fdf2f8, #e0f2fe, #ecfdf5);
-        }
-
-        .theme-colorful body {
-            background: var(--page-bg-gradient);
-            color: var(--text-color);
-        }
-
-        /* All theme header styling */
-        header h1 a,
-        header p {
-            color: var(--header-text) !important;
+            background: var(--page-bg-gradient) !important;
         }
 
         /* Theme-specific overrides */
@@ -305,6 +322,177 @@
             padding: 8px;
         }
 
+        /* Print-friendly styles */
+        @media print {
+            /* Hide non-essential elements */
+            header, footer, .no-print, #toast-container, .favorite-btn, 
+            .ad-container, .affiliate-banner, nav[aria-label="breadcrumb"],
+            button:not(.print-only) {
+                display: none !important;
+            }
+            
+            /* Reset background and text colors for printing */
+            body {
+                background: white !important;
+                color: black !important;
+                -webkit-print-color-adjust: economy;
+                print-color-adjust: economy;
+            }
+            
+            /* Show print-only elements */
+            .print-only {
+                display: block !important;
+            }
+            
+            /* Optimize images for printing */
+            img {
+                max-width: 100%;
+                page-break-inside: avoid;
+            }
+            
+            /* Ensure proper page breaks */
+            .page-break {
+                page-break-before: always;
+            }
+            
+            /* Print header */
+            .print-header {
+                text-align: center;
+                margin-bottom: 20px;
+                border-bottom: 2px solid #333;
+                padding-bottom: 10px;
+            }
+            
+            .print-header h1 {
+                font-size: 24px;
+                margin: 0;
+            }
+            
+            .print-header p {
+                font-size: 12px;
+                color: #666;
+                margin: 5px 0 0 0;
+            }
+            
+            /* Adjust layout for single column */
+            .container {
+                width: 100% !important;
+                max-width: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            
+            /* Remove shadows and decorative elements */
+            .shadow-md, .shadow-lg, .rounded-xl, .rounded-lg {
+                box-shadow: none !important;
+                border-radius: 0 !important;
+            }
+        }
+
+        /* Coloring Tips Tooltip */
+        .coloring-tip {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 90%;
+            width: 500px;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .coloring-tip.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .coloring-tip .tip-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .coloring-tip .tip-header i {
+            font-size: 20px;
+            margin-right: 10px;
+        }
+
+        .coloring-tip .tip-header h4 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .coloring-tip .tip-content {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .coloring-tip .tip-close {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 18px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .coloring-tip .tip-close:hover {
+            opacity: 1;
+        }
+
+        /* Ad Container Styles */
+        .ad-container {
+            background: #f8f9fa;
+            border: 1px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .ad-container .ad-label {
+            font-size: 10px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        /* Affiliate Banner Styles */
+        .affiliate-banner {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 24px 0;
+        }
+
+        .affiliate-banner a {
+            color: white;
+            text-decoration: underline;
+        }
+
+        .theme-dark .ad-container {
+            background: #2d3748;
+            border-color: #4a5568;
+        }
+
+        .theme-dark .ad-container .ad-label {
+            color: #a0aec0;
+        }
+
         /* Accent panels */
         .accent-panel {
             background-image: var(--accent-primary);
@@ -327,6 +515,7 @@
     <script>
         // Extend Tailwind config with our theme colors
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
@@ -347,9 +536,72 @@
             }
         }
     </script>
+    
+    <!-- Immediate theme application to prevent flash of wrong theme -->
+    <script>
+        (function() {
+            try {
+                const savedTheme = localStorage.getItem('colorverse-theme') || 'light';
+                const html = document.documentElement;
+                
+                // Apply dark mode immediately
+                if (savedTheme === 'dark') {
+                    html.classList.add('dark');
+                }
+                
+                // Store for body class application later
+                window.__initialTheme = savedTheme;
+            } catch (e) {
+                console.error('Theme initialization error:', e);
+            }
+        })();
+    </script>
+    
+    <!-- SEO Manager -->
+    <!-- Favorites Manager -->
+    <script type="module" src="src/services/favoritesManager.js?v=2"></script>
+    <!-- Search Manager -->
+    <script type="module" src="src/services/searchManager.js?v=2"></script>
+    <!-- Coloring Tips Manager -->
+    <script type="module" src="src/services/coloringTipsManager.js?v=2"></script>
+    <!-- Performance Monitor -->
+    <script type="module" src="src/services/performanceMonitor.js?v=2"></script>
+    <!-- Optimized Image Loader -->
+    <script type="module" src="src/services/imageLoader.js?v=2"></script>
+    <!-- Optimized Cache Manager -->
+    <script type="module" src="src/services/cacheManager.js?v=2"></script>
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "ColorVerse",
+        "url": "https://dseeker.github.io/colorverse",
+        "description": "Free AI-generated coloring pages for kids and adults. Download and print high-quality coloring sheets.",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://dseeker.github.io/colorverse/#search?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+        }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "ColorVerse",
+        "url": "https://dseeker.github.io/colorverse",
+        "logo": "https://dseeker.github.io/colorverse/assets/logo.png",
+        "sameAs": [
+            "https://www.facebook.com/colorverse",
+            "https://twitter.com/colorverse",
+            "https://www.pinterest.com/colorverse"
+        ]
+    }
+    </script>
 </head>
 
-<body class="theme-light bg-gray-100 text-gray-800 loading flex flex-col min-h-screen">
+<body class="bg-gray-50 text-gray-900 loading flex flex-col min-h-screen">
 
     <div id="page-container" class="flex-grow pt-20">
         <!-- Increased padding-top to prevent breadcrumbs from being cut off -->
@@ -381,6 +633,34 @@
                     </div>
                 </div>
                 <nav class="flex items-center">
+                    <!-- Search Bar -->
+                    <div class="relative mr-4 hidden md:block">
+                        <input type="text" id="search-input" 
+                            placeholder="Search coloring pages..." 
+                            class="bg-white bg-opacity-20 text-white placeholder-gray-200 rounded-lg px-4 py-2 pr-10 border-none focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all w-64"
+                            aria-label="Search coloring pages">
+                        <button id="search-btn" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-200">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Favorites Button -->
+                    <button id="favorites-toggle" 
+                        class="mr-3 p-2 rounded-lg text-white bg-pink-500 hover:bg-pink-600 transition-colors relative"
+                        title="My Favorites">
+                        <i class="fas fa-heart"></i>
+                        <span id="favorites-count" class="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
+                        <span class="sr-only">My Favorites</span>
+                    </button>
+                    
+                    <!-- Cache Status Indicator (non-blocking) -->
+                    <div id="cache-status-indicator" 
+                        class="mr-3 p-2 rounded-lg text-white bg-green-500 bg-opacity-80 transition-all hidden items-center text-xs"
+                        title="Content cache status">
+                        <i class="fas fa-database mr-1"></i>
+                        <span id="cache-status-text">Cached</span>
+                    </div>
+                    
                     <div class="flex items-center mr-6">
                         <button id="refresh-content"
                             class="mr-3 p-2 rounded-lg text-white bg-yellow-500 hover:bg-yellow-600 transition-colors"
@@ -909,6 +1189,64 @@
         </div>
     </div>
 
+    <!-- Affiliate Banner Section -->
+    <section class="container mx-auto px-4 py-8" aria-label="Recommended coloring books">
+        <div class="bg-gradient-to-r from-purple-600 via-pink-600 to-red-500 rounded-2xl p-8 text-white shadow-2xl">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="flex-1">
+                    <h2 class="text-2xl md:text-3xl font-bold mb-3">
+                        <i class="fas fa-book-open mr-3"></i>Love Our Free Pages?
+                    </h2>
+                    <p class="text-lg text-purple-100 mb-4">
+                        Get hundreds of premium coloring pages in beautiful printed books! Perfect for road trips, 
+                        restaurants, or when you need screen-free activities for the kids.
+                    </p>
+                    <div class="flex flex-wrap gap-3 text-sm">
+                        <span class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                            <i class="fas fa-check mr-1"></i> Hours of fun
+                        </span>
+                        <span class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                            <i class="fas fa-check mr-1"></i> No screens needed
+                        </span>
+                        <span class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                            <i class="fas fa-check mr-1"></i> Perfect for travel
+                        </span>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <a href="https://www.amazon.com/s?k=coloring+books+for+kids&tag=colorverse-20&ref=nb_sb_noss" 
+                       target="_blank" 
+                       rel="noopener noreferrer sponsored"
+                       class="bg-white text-purple-600 hover:bg-gray-100 px-8 py-4 rounded-xl font-bold text-lg transition-all hover:shadow-lg flex items-center justify-center">
+                        <i class="fas fa-shopping-cart mr-2"></i> Shop Kids' Books
+                    </a>
+                    <a href="https://www.amazon.com/s?k=adult+coloring+books&tag=colorverse-20&ref=nb_sb_noss" 
+                       target="_blank" 
+                       rel="noopener noreferrer sponsored"
+                       class="bg-transparent border-2 border-white text-white hover:bg-white hover:text-purple-600 px-8 py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center">
+                        <i class="fas fa-wine-glass mr-2"></i> Adult Books
+                    </a>
+                </div>
+            </div>
+            <p class="text-xs text-purple-200 mt-4 text-center">
+                <i class="fas fa-info-circle mr-1"></i> As an Amazon Associate, we earn from qualifying purchases. 
+                This helps us keep ColorVerse free for everyone!
+            </p>
+        </div>
+    </section>
+
+    <!-- Ad Container (Responsive) -->
+    <div class="container mx-auto px-4 py-4">
+        <div class="ad-container">
+            <div class="ad-label">Advertisement</div>
+            <p class="text-gray-500 text-sm">Support ColorVerse by viewing our sponsors</p>
+            <!-- Google AdSense or other ad code would go here -->
+            <div class="mt-4 p-8 bg-gray-200 rounded text-gray-400">
+                [Ad Space - 728x90 or Responsive]
+            </div>
+        </div>
+    </div>
+
     <footer class="bg-gray-800 text-white p-4 mt-8">
         <div class="container mx-auto">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
@@ -988,31 +1326,26 @@
     <script src="service-worker-register.js"></script>
     <!-- Initialize environment variables for browser -->
     <script>
-        // Decoder for obfuscated API keys (Base64 + XOR cipher)
-        function _d(encoded, key) {
+        // Key decode helper (Base64 + XOR) - deters casual key copying from view-source
+        function _cv(e, k) {
             try {
-                const xored = atob(encoded);
-                let result = '';
-                for (let i = 0; i < xored.length; i++) {
-                    result += String.fromCharCode(xored.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-                }
-                return result;
-            } catch (e) {
-                console.error('Key decoding failed');
-                return '';
-            }
+                const x = atob(e);
+                let r = '';
+                for (let i = 0; i < x.length; i++) r += String.fromCharCode(x.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+                return r;
+            } catch (_) { return ''; }
         }
-
-        // Initialize window._env object for environment variables
-        // Keys are obfuscated using Base64 + XOR cipher to deter casual copying
-        const _k = 'ColorVerse2025';
+        // API configuration
+        // Keys are obfuscated to deter casual copying - they are publishable client keys (pk_ prefix)
+        const _s = 'ColorVerse2025';
         window._env = window._env || {
-            POLLINATIONS_API_KEY: _d('MAQzHRljJhoXAXlJSFMLWSsNKhEhGQQDB3EGeiIuKQY/ICY=', _k),
-            OPENROUTER_API_KEY: _d('MARBAAB7E0NeBwVWClR6DV1eSmEBQEZTVgADVCcMVApFZVBBEl0DBwMNIg5aWhFgVUJGBlQCBlAhCl9WRjMBS0tWCgUDB3UKCg==', _k),
-            GOOGLE_GEMINI_API_KEY: _d('AiYWDiEvJAMCVgRnBW0VNQEBBAEVK0ICdVsFdwBbIzwxIFMIMhFB', _k)
+            POLLINATIONS_API_KEY: _cv('MwQzVgE0KUZCClRiamYsDiMsQA==', _s),
+            CONTENT_API_URL: '',
+            IMAGE_PROXY_URL: '',
         };
     </script>
     <!-- Load Site Data and App Logic -->
+    <script src="src/modules/aiProviders.js"></script>
     <script src="app.js"></script>
 
     <!-- Theme Switcher and Refresh Script -->
@@ -1027,7 +1360,26 @@
 
             // Apply saved theme or default to light
             const savedTheme = localStorage.getItem('colorverse-theme') || 'light';
-            body.className = body.className.replace(/theme-\w+/, '').trim() + ' theme-' + savedTheme;
+            const html = document.documentElement;
+            
+            // Handle Tailwind dark mode
+            if (savedTheme === 'dark') {
+                html.classList.add('dark');
+                body.classList.add('dark:bg-gray-900', 'dark:text-gray-100');
+                body.classList.remove('bg-gray-50', 'text-gray-900');
+            } else {
+                html.classList.remove('dark');
+                body.classList.remove('dark:bg-gray-900', 'dark:text-gray-100');
+                body.classList.add('bg-gray-50', 'text-gray-900');
+            }
+            
+            // Handle colorful theme
+            if (savedTheme === 'colorful') {
+                body.classList.add('theme-colorful');
+                body.classList.remove('bg-gray-50', 'dark:bg-gray-900');
+            } else {
+                body.classList.remove('theme-colorful');
+            }
 
             // Add loading class to ensure proper loading state
             if (!body.classList.contains('loading')) {
@@ -1099,7 +1451,24 @@
             });
 
             function setTheme(theme) {
-                body.className = body.className.replace(/theme-\w+/, '').trim() + ' theme-' + theme;
+                const html = document.documentElement;
+                
+                // Handle Tailwind dark mode
+                if (theme === 'dark') {
+                    html.classList.add('dark');
+                    body.classList.add('dark:bg-gray-900', 'dark:text-gray-100');
+                    body.classList.remove('bg-gray-50', 'text-gray-900', 'theme-colorful');
+                } else if (theme === 'colorful') {
+                    html.classList.remove('dark');
+                    body.classList.add('theme-colorful');
+                    body.classList.remove('bg-gray-50', 'dark:bg-gray-900', 'dark:text-gray-100');
+                } else {
+                    // Light theme
+                    html.classList.remove('dark');
+                    body.classList.add('bg-gray-50', 'text-gray-900');
+                    body.classList.remove('dark:bg-gray-900', 'dark:text-gray-100', 'theme-colorful');
+                }
+                
                 localStorage.setItem('colorverse-theme', theme);
 
                 // No toast notification for theme changes
@@ -1119,6 +1488,42 @@
                 }, 3000);
             }
         });
+    </script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then((registration) => {
+                        console.log('[SW] Service Worker registered:', registration.scope);
+                        
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New content available - show update notification
+                                    console.log('[SW] New version available');
+                                    if (confirm('New version available! Reload to update?')) {
+                                        window.location.reload();
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.log('[SW] Service Worker registration failed:', error);
+                    });
+                    
+                // Listen for messages from service worker
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data === 'CACHE_UPDATED') {
+                        console.log('[SW] Cache updated in background');
+                    }
+                });
+            });
+        }
     </script>
 </body>
 

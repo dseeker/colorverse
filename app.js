@@ -12,6 +12,36 @@ const DEFAULT_IMAGE_PARAMS = {
   nologo: true,
   // Removed model parameter to let API choose default
 };
+
+// Debug mode detection - enable with ?debug=true or #debug in URL
+const DEBUG_MODE = (() => {
+  const url = window.location.href;
+  return (
+    url.includes("?debug=true") ||
+    url.includes("?debug=1") ||
+    url.includes("#debug") ||
+    url.includes("?dev=true")
+  );
+})();
+
+// Debug logging utility - only logs when DEBUG_MODE is true
+const debug = {
+  log: (...args) => DEBUG_MODE && console.log(...args),
+  warn: (...args) => DEBUG_MODE && console.warn(...args),
+  error: (...args) => console.error(...args), // Always show errors
+  info: (...args) => DEBUG_MODE && console.info(...args),
+  table: (...args) => DEBUG_MODE && console.table(...args),
+  group: (...args) => DEBUG_MODE && console.group(...args),
+  groupEnd: () => DEBUG_MODE && console.groupEnd(),
+  time: (...args) => DEBUG_MODE && console.time(...args),
+  timeEnd: (...args) => DEBUG_MODE && console.timeEnd(...args),
+};
+
+if (DEBUG_MODE) {
+  console.log("%c🔧 DEBUG MODE ENABLED", "color: #00ff00; font-size: 14px; font-weight: bold;");
+  console.log("%cAdd ?debug=true to URL to see all logs", "color: #888;");
+}
+
 // Dynamic referrer based on domain name
 function getDynamicReferrer() {
   // Always use dseeker.github.io
@@ -21,6 +51,48 @@ function getDynamicReferrer() {
 const REFERRER_ID = getDynamicReferrer(); // Dynamic referrer for API usage tracking
 const PLACEHOLDER_IMAGE =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+// --- Static Build Mode ---
+// When served from dist/, window.__COLORVERSE_STATIC__ is true and content is pre-generated
+const STATIC_MODE = !!window.__COLORVERSE_STATIC__;
+const STATIC_DATA_URL = window.__COLORVERSE_DATA_URL__ || "./site-data.json";
+const STATIC_IMAGES_BASE = window.__COLORVERSE_IMAGES_BASE__ || "./images";
+
+// In static mode, map item keys to local image paths
+let staticImageMap = null; // Populated on load in static mode
+
+function sanitizeFilename(str) {
+  return str
+    .replace(/[^a-z0-9_-]/gi, "_")
+    .substring(0, 80)
+    .toLowerCase();
+}
+
+// Build image lookup map from static site data
+function buildStaticImageMap(data) {
+  const map = new Map();
+  for (const [catKey, catData] of Object.entries(data.categories || {})) {
+    let firstItemPath = null;
+    for (const itemKey of Object.keys(catData.items || {})) {
+      const filename = sanitizeFilename(itemKey) + ".jpg";
+      const path = `${STATIC_IMAGES_BASE}/${catKey}/${filename}`;
+      map.set(itemKey, path);
+      if (!firstItemPath) {
+        firstItemPath = path;
+      }
+    }
+    // Map category key to its first item's image (for category thumbnails)
+    if (firstItemPath) {
+      map.set(catKey, firstItemPath);
+    }
+  }
+  // Seasonal items
+  for (const itemKey of Object.keys(data.seasonal_gallery?.items || {})) {
+    const filename = sanitizeFilename(itemKey) + ".jpg";
+    map.set(itemKey, `${STATIC_IMAGES_BASE}/seasonal/${filename}`);
+  }
+  return map;
+}
 
 /**
  * Creates deterministic 32-bit integer hash from string
@@ -188,9 +260,15 @@ const THEMES = {
 // Get current season for seasonal content
 const getCurrentSeason = () => {
   const month = new Date().getMonth();
-  if (month >= 2 && month <= 4) return "spring";
-  if (month >= 5 && month <= 7) return "summer";
-  if (month >= 8 && month <= 10) return "autumn";
+  if (month >= 2 && month <= 4) {
+    return "spring";
+  }
+  if (month >= 5 && month <= 7) {
+    return "summer";
+  }
+  if (month >= 8 && month <= 10) {
+    return "autumn";
+  }
   return "winter";
 };
 
@@ -262,26 +340,26 @@ const CATEGORY_ICONS = {
 
 // --- Style Management Functions ---
 function changeColoringStyle(newStyle) {
-  if (IS_DEV_MODE) {
-    console.log(`[changeColoringStyle] Called with newStyle: "${newStyle}"`);
-    console.log(`[changeColoringStyle] Current currentColoringStyle: "${currentColoringStyle}"`);
-    console.log(`[changeColoringStyle] COLORING_STYLES["${newStyle}"]:`, COLORING_STYLES[newStyle]);
+  if (DEBUG_MODE) {
+    debug.log(`[changeColoringStyle] Called with newStyle: "${newStyle}"`);
+    debug.log(`[changeColoringStyle] Current currentColoringStyle: "${currentColoringStyle}"`);
+    debug.log(`[changeColoringStyle] COLORING_STYLES["${newStyle}"]:`, COLORING_STYLES[newStyle]);
   }
 
   // Cancel all pending image downloads and reset queue
   if (window.imageLoadQueue) {
     const canceledCount = window.imageLoadQueue.cancelAll();
-    if (IS_DEV_MODE) {
-      console.log(`[changeColoringStyle] Canceled ${canceledCount} pending image downloads`);
+    if (DEBUG_MODE) {
+      debug.log(`[changeColoringStyle] Canceled ${canceledCount} pending image downloads`);
     }
     showToast(`Canceled ${canceledCount} pending downloads`, "info", 1500);
   }
 
   // Update current style
   currentColoringStyle = newStyle;
-  if (IS_DEV_MODE) {
-    console.log(`[changeColoringStyle] Updated currentColoringStyle to: "${currentColoringStyle}"`);
-    console.log(
+  if (DEBUG_MODE) {
+    debug.log(`[changeColoringStyle] Updated currentColoringStyle to: "${currentColoringStyle}"`);
+    debug.log(
       `[changeColoringStyle] Verifying style config exists:`,
       COLORING_STYLES[currentColoringStyle]
     );
@@ -301,8 +379,8 @@ function changeColoringStyle(newStyle) {
 function reloadAllImages() {
   // Find all images with data-src (lazy loaded images)
   const lazyImages = document.querySelectorAll("img[data-src]");
-  if (IS_DEV_MODE) {
-    console.log(`Found ${lazyImages.length} lazy images to reset`);
+  if (DEBUG_MODE) {
+    debug.log(`Found ${lazyImages.length} lazy images to reset`);
   }
   lazyImages.forEach(img => {
     // Get the original prompt from the image's dataset
@@ -315,9 +393,9 @@ function reloadAllImages() {
         seed: img.dataset.seed,
       });
 
-      if (IS_DEV_MODE) {
-        console.log(`Updating lazy image data-src from old style to new style`);
-        console.log(`New data-src: ${newDataSrc.substring(0, 200)}...`);
+      if (DEBUG_MODE) {
+        debug.log(`Updating lazy image data-src from old style to new style`);
+        debug.log(`New data-src: ${newDataSrc.substring(0, 200)}...`);
       }
 
       // Update the data-src attribute with the new URL
@@ -349,8 +427,8 @@ function reloadAllImages() {
 
   // Find all images that are already loaded (have src but no data-src)
   const loadedImages = document.querySelectorAll("img[src]:not([data-src])");
-  if (IS_DEV_MODE) {
-    console.log(`Found ${loadedImages.length} loaded images to reload`);
+  if (DEBUG_MODE) {
+    debug.log(`Found ${loadedImages.length} loaded images to reload`);
   }
 
   // Process loaded images with a small delay to prevent burst loading
@@ -359,8 +437,8 @@ function reloadAllImages() {
       // Get the original prompt from the image's dataset if available
       const prompt = img.dataset.prompt;
       if (prompt) {
-        if (IS_DEV_MODE) {
-          console.log(`Reloading image with prompt: "${prompt}"`);
+        if (DEBUG_MODE) {
+          debug.log(`Reloading image with prompt: "${prompt}"`);
         }
         // Generate new URL with current style
         const newSrc = getImageUrl(prompt, {
@@ -369,8 +447,8 @@ function reloadAllImages() {
           seed: img.dataset.seed,
         });
 
-        if (IS_DEV_MODE) {
-          console.log(`New image URL: ${newSrc}`);
+        if (DEBUG_MODE) {
+          debug.log(`New image URL: ${newSrc}`);
         }
 
         // Show loading state
@@ -387,15 +465,15 @@ function reloadAllImages() {
         // Update src to trigger reload
         img.src = newSrc;
       } else {
-        if (IS_DEV_MODE) {
-          console.log("Image missing data-prompt attribute");
+        if (DEBUG_MODE) {
+          debug.log("Image missing data-prompt attribute");
         }
       }
     }, index * 100); // 100ms delay between each image reload
   });
 
-  if (IS_DEV_MODE) {
-    console.log(`Reloading ${lazyImages.length + loadedImages.length} images with new style`);
+  if (DEBUG_MODE) {
+    debug.log(`Reloading ${lazyImages.length + loadedImages.length} images with new style`);
   }
 }
 
@@ -484,7 +562,7 @@ class ImageLoadQueue {
 
   // Cancel all pending requests and clear the queue
   cancelAll() {
-    console.log(`Canceling ${this.queue.length} pending image requests`);
+    debug.log(`Canceling ${this.queue.length} pending image requests`);
 
     // Set cancellation flag
     this.shouldCancel = true;
@@ -501,7 +579,7 @@ class ImageLoadQueue {
     this.isProcessing = false;
     this.shouldCancel = false;
 
-    console.log(`Canceled ${canceledCount} pending image requests and cleared queue`);
+    debug.log(`Canceled ${canceledCount} pending image requests and cleared queue`);
     return canceledCount;
   }
 
@@ -510,7 +588,7 @@ class ImageLoadQueue {
     this.cancelAll();
     this.isProcessing = false;
     this.shouldCancel = false;
-    console.log("Queue reset and ready for new requests");
+    debug.log("Queue reset and ready for new requests");
   }
 
   async processQueue() {
@@ -555,7 +633,7 @@ class ImageLoadQueue {
 
       // Don't log errors if we're canceling
       if (error.name === "AbortError" || this.shouldCancel) {
-        console.log("Image request canceled:", src);
+        debug.log("Image request canceled:", src);
         this.isProcessing = false;
         return;
       }
@@ -586,18 +664,18 @@ class ImageLoadQueue {
         }
       }
     } finally {
-      // Don't continue if we're canceling
-      if (this.shouldCancel) {
-        this.isProcessing = false;
-        return;
-      }
-
       // Delay before next image regardless of success or failure
       await new Promise(resolve => setTimeout(resolve, this.delayBetweenLoads));
-
-      // Continue with the next item
-      this.processQueue();
     }
+
+    // Stop processing if cancel was requested
+    if (this.shouldCancel) {
+      this.isProcessing = false;
+      return;
+    }
+
+    // Continue with the next item
+    this.processQueue();
   }
 }
 
@@ -689,10 +767,12 @@ function hideImagePreview() {
 let isPreviewVisible = false;
 
 function setupImageHoverPreview(imageElement) {
-  if (!imageElement || imageElement.hasAttribute("data-hover-setup")) return;
+  if (!imageElement || imageElement.hasAttribute("data-hover-setup")) {
+    return;
+  }
 
-  let imageSrc = imageElement.getAttribute("data-src") || imageElement.src;
-  let imageAlt = imageElement.alt || "Preview";
+  const imageSrc = imageElement.getAttribute("data-src") || imageElement.src;
+  const imageAlt = imageElement.alt || "Preview";
 
   // Mark as setup to avoid duplicate listeners
   imageElement.setAttribute("data-hover-setup", "true");
@@ -814,7 +894,7 @@ function setupLazyLoading() {
           const src = lazyImage.getAttribute("data-src");
 
           if (src) {
-            console.log("Image intersecting viewport, loading:", src);
+            debug.log("Image intersecting viewport, loading:", src);
             // Add to the staggered loading queue
             imageLoadQueue.add(lazyImage, src);
 
@@ -882,8 +962,6 @@ const CACHE_DURATION = {
   HOURS: 6, // Cache expires after 6 hours in production
   DEV_MINUTES: 10, // Cache expires after 10 minutes in dev mode
 };
-const IS_DEV_MODE =
-  window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
 // --- DOM Elements ---
 const mainContent = document.getElementById("main-content");
@@ -900,7 +978,9 @@ class LRUCache {
   }
 
   get(key) {
-    if (!this.cache.has(key)) return undefined;
+    if (!this.cache.has(key)) {
+      return undefined;
+    }
     const value = this.cache.get(key);
     this.cache.delete(key);
     this.cache.set(key, value);
@@ -955,8 +1035,16 @@ const imageUrlCache = new LRUCache(MAX_CACHE_SIZE); // LRU Cache for image URLs 
 // --- API Functions ---
 function getImageUrl(prompt, params = {}) {
   try {
-    if (IS_DEV_MODE) {
-      console.log(`getImageUrl called with currentColoringStyle: "${currentColoringStyle}"`);
+    // Static mode: resolve to local image path if available
+    if (STATIC_MODE && staticImageMap && params.itemKey) {
+      const localPath = staticImageMap.get(params.itemKey);
+      if (localPath) {
+        return localPath;
+      }
+    }
+
+    if (DEBUG_MODE) {
+      debug.log(`getImageUrl called with currentColoringStyle: "${currentColoringStyle}"`);
     }
 
     // Include current style in cache key
@@ -964,8 +1052,8 @@ function getImageUrl(prompt, params = {}) {
 
     // Check if we have this URL cached
     if (imageUrlCache.has(cacheKey)) {
-      if (IS_DEV_MODE) {
-        console.log(`Using cached URL for style "${currentColoringStyle}"`);
+      if (DEBUG_MODE) {
+        debug.log(`Using cached URL for style "${currentColoringStyle}"`);
       }
       return imageUrlCache.get(cacheKey);
     }
@@ -978,8 +1066,8 @@ function getImageUrl(prompt, params = {}) {
       // Hash prompt to ensure consistency across all views (Q2-B)
       seed = stringToHash(prompt);
       fullParams.seed = seed;
-      if (IS_DEV_MODE) {
-        console.log(`[Seed] Using deterministic seed for prompt: ${seed}`);
+      if (DEBUG_MODE) {
+        debug.log(`[Seed] Using deterministic seed for prompt: ${seed}`);
       }
     } else {
       seed = typeof fullParams.seed === "function" ? fullParams.seed() : fullParams.seed;
@@ -995,11 +1083,11 @@ function getImageUrl(prompt, params = {}) {
 
     // Add current coloring style to the prompt with HIGH PRIORITY
     const styleConfig = COLORING_STYLES[currentColoringStyle];
-    if (IS_DEV_MODE) {
-      console.log(`[getImageUrl] currentColoringStyle: "${currentColoringStyle}"`);
-      console.log(`[getImageUrl] styleConfig:`, styleConfig);
-      console.log(`[getImageUrl] styleConfig.prompt:`, styleConfig?.prompt);
-      console.log(`[getImageUrl] enhancedPrompt BEFORE style:`, enhancedPrompt);
+    if (DEBUG_MODE) {
+      debug.log(`[getImageUrl] currentColoringStyle: "${currentColoringStyle}"`);
+      debug.log(`[getImageUrl] styleConfig:`, styleConfig);
+      debug.log(`[getImageUrl] styleConfig.prompt:`, styleConfig?.prompt);
+      debug.log(`[getImageUrl] enhancedPrompt BEFORE style:`, enhancedPrompt);
     }
 
     // Create coloring prompt with STYLE-FIRST approach for maximum effect
@@ -1008,27 +1096,27 @@ function getImageUrl(prompt, params = {}) {
       // Special handling for painted preview style - generate colored artwork instead of line art
       if (currentColoringStyle === "painted_preview") {
         coloringPrompt = `${styleConfig.prompt}, beautiful illustration of ${enhancedPrompt}, artistic watercolor painting, gentle shading and highlights, professional coloring technique, harmonious color scheme, painterly style`;
-        if (IS_DEV_MODE) {
-          console.log(`Applied PAINTED PREVIEW style - generating COLORED artwork`);
+        if (DEBUG_MODE) {
+          debug.log(`Applied PAINTED PREVIEW style - generating COLORED artwork`);
         }
       } else {
         // Put style at the BEGINNING for maximum priority and effect
         coloringPrompt = `${styleConfig.prompt}, coloring page of ${enhancedPrompt}, black and white line art, no color, no shading, no grayscale, pure outlines only, EMPHASIZE THE STYLE: ${styleConfig.prompt}`;
-        if (IS_DEV_MODE) {
-          console.log(`Applied DOMINANT style "${currentColoringStyle}": ${styleConfig.prompt}`);
+        if (DEBUG_MODE) {
+          debug.log(`Applied DOMINANT style "${currentColoringStyle}": ${styleConfig.prompt}`);
         }
       }
     } else {
       // For unstyled images, use the classic approach
       coloringPrompt = `high contrast black and white line art coloring page, ${enhancedPrompt}, pure outlines with no shading, no color, no grayscale, thick clean lines, simple contours only`;
-      if (IS_DEV_MODE) {
-        console.log(`No style applied - using classic approach`);
+      if (DEBUG_MODE) {
+        debug.log(`No style applied - using classic approach`);
       }
     }
 
-    if (IS_DEV_MODE) {
-      console.log(`Final coloring prompt: ${coloringPrompt.substring(0, 200)}...`);
-      console.log(
+    if (DEBUG_MODE) {
+      debug.log(`Final coloring prompt: ${coloringPrompt.substring(0, 200)}...`);
+      debug.log(
         `Style applied: ${styleConfig ? "YES" : "NO"} - Using ${styleConfig ? "style-aware" : "generic"} base prompt`
       );
     }
@@ -1039,11 +1127,21 @@ function getImageUrl(prompt, params = {}) {
       seed: seed,
       nologo: fullParams.nologo,
       referrer: REFERRER_ID,
-      model: 'flux', // Use flux model for high-quality coloring pages
-      key: window._env?.POLLINATIONS_API_KEY || '', // Client-side authentication
-      enhance: 'true', // Let AI improve the prompt
-      quality: 'medium', // Balance between quality and speed
+      model: "flux", // Use flux model for high-quality coloring pages
+      key: window._env?.POLLINATIONS_API_KEY || "", // Publishable client key for priority access
+      enhance: "true", // Let AI improve the prompt
+      quality: "medium", // Balance between quality and speed
     });
+
+    // If image proxy is configured, route through it (keeps API key server-side)
+    const imageProxyUrl = window._env?.IMAGE_PROXY_URL;
+    if (imageProxyUrl) {
+      const proxyParams = new URLSearchParams(query);
+      proxyParams.set("prompt", coloringPrompt);
+      const imageUrl = `${imageProxyUrl}?${proxyParams.toString()}`;
+      imageUrlCache.set(cacheKey, imageUrl);
+      return imageUrl;
+    }
 
     const imageUrl = `${API_BASE_URL}${encodeURIComponent(coloringPrompt)}?${query.toString()}`;
 
@@ -1072,16 +1170,18 @@ function getImageUrl(prompt, params = {}) {
 // --- Cache Utility Functions ---
 function isCacheValid() {
   const timestamp = localStorage.getItem(CACHE_KEY_TIMESTAMP);
-  if (!timestamp) return false;
+  if (!timestamp) {
+    return false;
+  }
 
   const cacheTime = new Date(parseInt(timestamp));
   const now = new Date();
 
   // Calculate expiration time based on environment
   let expirationTime;
-  if (IS_DEV_MODE) {
+  if (DEBUG_MODE) {
     expirationTime = new Date(cacheTime.getTime() + CACHE_DURATION.DEV_MINUTES * 60 * 1000);
-    console.log(`Dev mode: Cache expires in ${CACHE_DURATION.DEV_MINUTES} minutes`);
+    debug.log(`Dev mode: Cache expires in ${CACHE_DURATION.DEV_MINUTES} minutes`);
   } else {
     expirationTime = new Date(cacheTime.getTime() + CACHE_DURATION.HOURS * 60 * 60 * 1000);
   }
@@ -1110,7 +1210,7 @@ function saveToCache(data) {
 
     localStorage.setItem(CACHE_KEY_SITE_DATA, JSON.stringify(data));
     localStorage.setItem(CACHE_KEY_TIMESTAMP, Date.now().toString());
-    console.log("Site data cached successfully");
+    debug.log("Site data cached successfully");
     return true;
   } catch (error) {
     console.warn("Failed to cache site data:", error);
@@ -1119,7 +1219,7 @@ function saveToCache(data) {
       localStorage.clear();
       localStorage.setItem(CACHE_KEY_SITE_DATA, JSON.stringify(data));
       localStorage.setItem(CACHE_KEY_TIMESTAMP, Date.now().toString());
-      console.log("Site data cached successfully after clearing");
+      debug.log("Site data cached successfully after clearing");
       return true;
     } catch (e) {
       console.error("Still failed to cache after clearing localStorage:", e);
@@ -1147,7 +1247,7 @@ function loadFromCache() {
         return null;
       }
 
-      console.log(`Loaded valid cached data with ${categoryCount} categories`);
+      debug.log(`Loaded valid cached data with ${categoryCount} categories`);
       return parsedData;
     }
   } catch (error) {
@@ -1242,7 +1342,7 @@ function applyTheme(themeName) {
     el.classList.add(themeName === "dark" ? "bg-gray-700" : "bg-gray-100");
   });
 
-  console.log(`Theme switched to: ${themeName}`);
+  debug.log(`Theme switched to: ${themeName}`);
 }
 
 // --- Rendering Functions ---
@@ -1323,7 +1423,9 @@ function renderHomepage(data) {
   // Add featured categories
   featuredCategories.forEach(key => {
     const category = data.categories[key];
-    if (!category) return;
+    if (!category) {
+      return;
+    }
 
     const firstItemKey = Object.keys(category.items || {})[0];
     const firstItem = firstItemKey ? category.items[firstItemKey] : null;
@@ -1343,12 +1445,13 @@ function renderHomepage(data) {
     const thumbnailUrl = getImageUrl(itemDescription, {
       width: 400,
       height: 400,
+      itemKey: key,
       seed: getDeterministicSeedFromItemKey(key), // ✅ Deterministic seed for consistency
     });
 
     html += `
             <a href="#category/${key}" class="category-card block rounded-xl shadow-md overflow-hidden hover:shadow-xl transition duration-300 group">
-                <div class="relative">
+                <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
@@ -1427,16 +1530,17 @@ function renderHomepage(data) {
     const firstItem = category.items[firstItemKey];
     const thumbnailUrl = firstItem
       ? getImageUrl(firstItem.description, {
-        width: 400,
-        height: 400,
-        seed: getDeterministicSeedFromItemKey(key), // ✅ Deterministic
-      })
+          width: 400,
+          height: 400,
+          itemKey: key,
+          seed: getDeterministicSeedFromItemKey(key), // ✅ Deterministic
+        })
       : "placeholder.png";
     delay += 50; // Stagger the API requests
 
     html += `
             <a href="#category/${key}" class="category-card flex flex-col rounded-xl shadow-md overflow-hidden hover:shadow-xl transition duration-300 bg-white dark:bg-gray-800">
-                <div class="relative">
+                <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
@@ -1686,7 +1790,7 @@ function renderDailyPickPage(dailyPickData) {
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-                <div class="relative">
+                <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
@@ -1794,12 +1898,13 @@ function renderSeasonalGallery(data) {
     const thumbnailUrl = getImageUrl(item.description, {
       width: 300,
       height: 300,
+      itemKey: itemKey,
       seed: getDeterministicSeedFromItemKey(itemKey), // ✅ Strong deterministic hash
     });
 
     html += `
             <a href="#item/seasonal/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group">
-                <div class="relative">
+                <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
@@ -1851,12 +1956,13 @@ function renderRecentAdditions(data) {
     const thumbnailUrl = getImageUrl(item.description, {
       width: 300,
       height: 300,
+      itemKey: itemKey,
       seed: getDeterministicSeed(categoryKey, itemKey), // ✅ Consistent
     });
 
     html += `
             <a href="#item/${categoryKey}/${itemKey}" class="flex-shrink-0 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition duration-300">
-                <div class="relative">
+                <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
@@ -1879,7 +1985,9 @@ function renderRecentAdditions(data) {
 }
 
 function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "popular") {
-  if (!categoryData) return '<p class="text-center text-red-500">Category not found.</p>';
+  if (!categoryData) {
+    return '<p class="text-center text-red-500">Category not found.</p>';
+  }
 
   const categoryIcon = getCategoryIcon(categoryKey);
   const itemsPerPage = 20; // Show 20 items per page
@@ -1937,11 +2045,12 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
     const thumbnailUrl = getImageUrl(item.description, {
       width: 400,
       height: 400,
+      itemKey: itemKey,
       seed: getDeterministicSeed(categoryKey, itemKey), // ✅ Deterministic across pagination
     });
     html += `
             <a href="#item/${categoryKey}/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group">
-                <div class="relative">
+                <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
@@ -1971,10 +2080,11 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
   html += `
         <div class="mt-8 flex justify-center">
             <nav class="flex items-center space-x-2" aria-label="Pagination">
-                ${currentPage > 1
-      ? `<button onclick="goToPage('${categoryKey}', ${currentPage - 1}, '${sortBy}')" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">Previous</button>`
-      : `<span class="px-3 py-1 rounded-md bg-gray-200 text-gray-500 cursor-not-allowed">Previous</span>`
-    }
+                ${
+                  currentPage > 1
+                    ? `<button onclick="goToPage('${categoryKey}', ${currentPage - 1}, '${sortBy}')" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">Previous</button>`
+                    : `<span class="px-3 py-1 rounded-md bg-gray-200 text-gray-500 cursor-not-allowed">Previous</span>`
+                }
     `;
 
   // Page numbers
@@ -1993,10 +2103,11 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
   }
 
   html += `
-                ${currentPage < totalPages
-      ? `<button onclick="goToPage('${categoryKey}', ${currentPage + 1}, '${sortBy}')" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">Next</button>`
-      : `<span class="px-3 py-1 rounded-md bg-gray-200 text-gray-500 cursor-not-allowed">Next</span>`
-    }
+                ${
+                  currentPage < totalPages
+                    ? `<button onclick="goToPage('${categoryKey}', ${currentPage + 1}, '${sortBy}')" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">Next</button>`
+                    : `<span class="px-3 py-1 rounded-md bg-gray-200 text-gray-500 cursor-not-allowed">Next</span>`
+                }
             </nav>
         </div>
     `;
@@ -2023,7 +2134,7 @@ function generateCategoryPageItems(
   const endIndex = startIndex + itemsPerPage;
 
   // Get items for the current page
-  let pageItems = allItems.slice(startIndex, endIndex).map(([itemKey, item], index) => ({
+  const pageItems = allItems.slice(startIndex, endIndex).map(([itemKey, item], index) => ({
     itemKey,
     item,
     page,
@@ -2094,7 +2205,7 @@ window.goToPage = function (categoryKey, page, sortBy = "popular") {
   if (window.imageLoadQueue) {
     const canceledCount = window.imageLoadQueue.cancelAll();
     if (canceledCount > 0) {
-      console.log(`[Pagination] Canceled ${canceledCount} pending downloads for page change`);
+      debug.log(`[Pagination] Canceled ${canceledCount} pending downloads for page change`);
     }
   }
 
@@ -2108,7 +2219,7 @@ window.sortCategory = function (categoryKey, sortBy) {
   if (window.imageLoadQueue) {
     const canceledCount = window.imageLoadQueue.cancelAll();
     if (canceledCount > 0) {
-      console.log(`[Sort Change] Canceled ${canceledCount} pending downloads for sort change`);
+      debug.log(`[Sort Change] Canceled ${canceledCount} pending downloads for sort change`);
     }
   }
 
@@ -2132,7 +2243,9 @@ function getCurrentSortFromHash() {
 }
 
 function renderItem(itemData, categoryKey, itemKey) {
-  if (!itemData) return '<p class="text-center text-red-500">Item not found.</p>';
+  if (!itemData) {
+    return '<p class="text-center text-red-500">Item not found.</p>';
+  }
 
   const category = siteData.categories[categoryKey];
 
@@ -2151,18 +2264,20 @@ function renderItem(itemData, categoryKey, itemKey) {
         seed: parsedCache.seed,
         width: parsedCache.width,
         height: parsedCache.height,
+        itemKey: itemKey,
       };
       imageUrl = getImageUrl(itemData.description, generationParams);
-      console.log("Using cached image generation parameters");
+      debug.log("Using cached image generation parameters");
     } catch (e) {
       console.warn("Failed to parse cached item data:", e);
       // Fallback to default image generation
-      imageUrl = getImageUrl(itemData.description);
+      imageUrl = getImageUrl(itemData.description, { itemKey: itemKey });
     }
   } else {
     // Generate new image with deterministic seed
     const seed = getDeterministicSeed(categoryKey, itemKey); // ✅ Consistent every visit
     generationParams = {
+      itemKey: itemKey,
       seed: seed,
       width: 1024,
       height: 1024,
@@ -2191,7 +2306,7 @@ function renderItem(itemData, categoryKey, itemKey) {
   const prevItemKey = currentIndex > 0 ? itemKeys[currentIndex - 1] : null;
   const nextItemKey = currentIndex < itemKeys.length - 1 ? itemKeys[currentIndex + 1] : null;
 
-  let html = `
+  const html = `
         <nav aria-label="breadcrumb" class="mb-6 mt-2 text-sm py-2" style="color: var(--text-color);">
           <a href="#" class="hover:underline hover:text-primary-600">Home</a> &raquo;
           <a href="#category/${categoryKey}" class="hover:underline hover:text-primary-600 mx-1">${category.title}</a> &raquo;
@@ -2281,12 +2396,13 @@ function renderRelatedItems(category, categoryKey, currentItemKey) {
     const thumbnailUrl = getImageUrl(item.description, {
       width: 300,
       height: 300,
+      itemKey: itemKey,
       seed: getDeterministicSeed(categoryKey, itemKey), // ✅ Consistent
     });
 
     html += `
             <a href="#item/${categoryKey}/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300">
-                <div class="relative">
+                <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
@@ -2352,7 +2468,7 @@ async function loadImageWithRetry(imageElement, src, maxRetries = 3, abortContro
 
   // Check if request is already aborted
   if (abortController?.signal?.aborted) {
-    console.log("Request aborted before starting:", src);
+    debug.log("Request aborted before starting:", src);
     throw new Error("AbortError");
   }
 
@@ -2364,18 +2480,18 @@ async function loadImageWithRetry(imageElement, src, maxRetries = 3, abortContro
     try {
       // Check if request was aborted before each attempt
       if (abortController?.signal?.aborted) {
-        console.log(`Request aborted during attempt ${attempt}:`, src);
+        debug.log(`Request aborted during attempt ${attempt}:`, src);
         throw new Error("AbortError");
       }
 
-      console.log(`Image load attempt ${attempt} for ${src}`);
+      debug.log(`Image load attempt ${attempt} for ${src}`);
 
       await new Promise((resolve, reject) => {
         const img = new Image();
 
         // Set up abort handler
         const abortHandler = () => {
-          console.log(`Image load aborted on attempt ${attempt}:`, src);
+          debug.log(`Image load aborted on attempt ${attempt}:`, src);
           reject(new Error("AbortError"));
         };
 
@@ -2387,7 +2503,7 @@ async function loadImageWithRetry(imageElement, src, maxRetries = 3, abortContro
           if (abortController?.signal) {
             abortController.signal.removeEventListener("abort", abortHandler);
           }
-          console.log(`Image loaded successfully on attempt ${attempt}: ${src}`);
+          debug.log(`Image loaded successfully on attempt ${attempt}: ${src}`);
           resolve();
         };
 
@@ -2420,7 +2536,7 @@ async function loadImageWithRetry(imageElement, src, maxRetries = 3, abortContro
 
       // Check one more time before applying the image
       if (abortController?.signal?.aborted) {
-        console.log(`Request aborted before applying image:`, src);
+        debug.log(`Request aborted before applying image:`, src);
         throw new Error("AbortError");
       }
 
@@ -2441,7 +2557,7 @@ async function loadImageWithRetry(imageElement, src, maxRetries = 3, abortContro
     } catch (error) {
       // Handle abort errors specifically
       if (error.message === "AbortError" || error.name === "AbortError") {
-        console.log(`Image load aborted for ${src}`);
+        debug.log(`Image load aborted for ${src}`);
         throw error; // Re-throw abort errors
       }
 
@@ -2471,15 +2587,29 @@ async function loadImageWithRetry(imageElement, src, maxRetries = 3, abortContro
           );
         }
 
-        // Add error indication
+        // Add error indication with retry button
         const wrapper = imageElement.parentNode;
         if (wrapper && !wrapper.querySelector(".image-error-indicator")) {
           wrapper.classList.add("relative");
           const errorIndicator = document.createElement("div");
           errorIndicator.className =
             "image-error-indicator absolute inset-0 flex items-center justify-center bg-red-100 bg-opacity-50";
-          errorIndicator.innerHTML =
-            '<i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>';
+          errorIndicator.innerHTML = `
+            <div class="text-center p-4">
+              <i class="fas fa-exclamation-triangle text-red-400 text-3xl mb-2"></i>
+              <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">Image unavailable</p>
+              <button class="retry-image-btn px-3 py-1 bg-primary-500 text-white text-xs rounded-full hover:bg-primary-600 transition">
+                <i class="fas fa-redo mr-1"></i> Retry
+              </button>
+            </div>`;
+          // Add retry click handler
+          errorIndicator.querySelector(".retry-image-btn").addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            errorIndicator.remove();
+            imageElement.classList.remove("error");
+            loadImageWithRetry(imageElement, src, maxRetries);
+          });
           wrapper.appendChild(errorIndicator);
         }
 
@@ -2488,7 +2618,7 @@ async function loadImageWithRetry(imageElement, src, maxRetries = 3, abortContro
 
       // Wait before retrying with exponential backoff
       const delay = Math.min(2000 * Math.pow(1.5, attempt - 1), 8000); // Increased delays: 2s, 3s, 4.5s, max 8s
-      console.log(`Waiting ${delay}ms before retrying image load for ${src}`);
+      debug.log(`Waiting ${delay}ms before retrying image load for ${src}`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
@@ -2668,7 +2798,7 @@ async function sharePage(title, url) {
         text: `Check out this free coloring page: ${title}`,
         url: url,
       });
-      console.log("Page shared successfully");
+      debug.log("Page shared successfully");
     } catch (err) {
       console.error("Share failed:", err.message);
     }
@@ -2959,7 +3089,9 @@ function handleRouteChange() {
 function shouldRefreshCache() {
   // First check if we have cached data at all
   const cachedData = localStorage.getItem(CACHE_KEY_SITE_DATA);
-  if (!cachedData) return true;
+  if (!cachedData) {
+    return true;
+  }
 
   // Check if cached data has the expected structure with 25 categories
   try {
@@ -2986,7 +3118,7 @@ function shouldRefreshCache() {
       // Check if first item has proper structure
       const firstItem = items[0];
       if (!firstItem || !firstItem.title || !firstItem.description) {
-        console.log(`Category ${catKey} has improper item structure, forcing refresh`);
+        debug.log(`Category ${catKey} has improper item structure, forcing refresh`);
         hasProperStructure = false;
         break;
       }
@@ -2996,23 +3128,25 @@ function shouldRefreshCache() {
       return true;
     }
   } catch (e) {
-    console.log("Error parsing cached data, forcing refresh");
+    debug.log("Error parsing cached data, forcing refresh");
     return true;
   }
 
   // If we have good data, check timestamp
   const timestamp = localStorage.getItem(CACHE_KEY_TIMESTAMP);
-  if (!timestamp) return true;
+  if (!timestamp) {
+    return true;
+  }
 
   const cacheTime = new Date(parseInt(timestamp));
   const now = new Date();
 
   // Calculate expiration time based on environment
   let refreshInterval;
-  if (IS_DEV_MODE) {
+  if (DEBUG_MODE) {
     // Dev mode: Refresh every 10 minutes
     refreshInterval = CACHE_DURATION.DEV_MINUTES * 60 * 1000;
-    console.log(`Dev mode: Cache refresh interval is ${CACHE_DURATION.DEV_MINUTES} minutes`);
+    debug.log(`Dev mode: Cache refresh interval is ${CACHE_DURATION.DEV_MINUTES} minutes`);
   } else {
     // Production mode: Refresh 4 times a day (every 6 hours)
     refreshInterval = CACHE_DURATION.HOURS * 60 * 60 * 1000;
@@ -3023,15 +3157,37 @@ function shouldRefreshCache() {
 }
 
 async function generateSiteData() {
-  console.log("Initializing site data...");
+  debug.log("Initializing site data...");
   showLoading(true); // Ensure loading is shown during generation
+
+  // --- Static mode: load pre-generated data from JSON ---
+  if (STATIC_MODE) {
+    debug.log("[Static] Loading pre-generated site data...");
+    try {
+      const response = await fetch(STATIC_DATA_URL);
+      if (!response.ok) {
+        throw new Error(`Failed to load ${STATIC_DATA_URL}: ${response.status}`);
+      }
+      const data = await response.json();
+      siteData = data;
+      staticImageMap = buildStaticImageMap(data);
+      debug.log(
+        `[Static] Loaded ${Object.keys(data.categories || {}).length} categories, ${staticImageMap.size} images`
+      );
+      showLoading(false);
+      return data;
+    } catch (err) {
+      console.error("[Static] Failed to load site-data.json:", err);
+      // Fall through to live generation as fallback
+    }
+  }
 
   // FORCE CACHE CLEAR: Remove this after one successful load with 25 categories
   const cachedData = loadFromCache();
   if (cachedData) {
     const categoryCount = Object.keys(cachedData.categories || {}).length;
     if (categoryCount < 25) {
-      console.log(`Clearing old cache with only ${categoryCount} categories`);
+      debug.log(`Clearing old cache with only ${categoryCount} categories`);
       localStorage.removeItem(CACHE_KEY_SITE_DATA);
       localStorage.removeItem(CACHE_KEY_TIMESTAMP);
       localStorage.removeItem(CACHE_KEY_IMAGE_URLS);
@@ -3043,7 +3199,7 @@ async function generateSiteData() {
   const needsRefresh = shouldRefreshCache();
 
   if (validCachedData && !needsRefresh) {
-    console.log("Loading site data from cache...");
+    debug.log("Loading site data from cache...");
     siteData = validCachedData;
 
     // Load cached image URLs if available
@@ -3054,7 +3210,7 @@ async function generateSiteData() {
         for (const [key, value] of Object.entries(urlMap)) {
           imageUrlCache.set(key, value);
         }
-        console.log(`Loaded ${imageUrlCache.size} cached image URLs`);
+        debug.log(`Loaded ${imageUrlCache.size} cached image URLs`);
       }
     } catch (e) {
       console.warn("Failed to load cached image URLs:", e);
@@ -3067,7 +3223,7 @@ async function generateSiteData() {
   // If we have cached data but need a refresh, use the cached data first
   // and update in the background
   if (validCachedData && needsRefresh) {
-    console.log("Using cached data while refreshing in background...");
+    debug.log("Using cached data while refreshing in background...");
     siteData = validCachedData;
     showLoading(false);
 
@@ -3076,7 +3232,7 @@ async function generateSiteData() {
       fetchFreshData()
         .then(newData => {
           if (newData) {
-            console.log("Background refresh complete");
+            debug.log("Background refresh complete");
             siteData = newData;
             saveToCache(newData);
             // Don't force a page reload here, let natural navigation handle it
@@ -3091,12 +3247,12 @@ async function generateSiteData() {
     return validCachedData;
   }
 
-  console.log("Cache invalid or not found, generating front page data first...");
+  debug.log("Cache invalid or not found, generating front page data first...");
   return fetchFrontPageData();
 }
 
 // Progressive loading state
-let categoryLoadingState = {
+const categoryLoadingState = {
   isComplete: false,
   loadedCategories: new Set(),
   loadingPromises: new Map(),
@@ -3194,14 +3350,15 @@ The output MUST be a valid JSON object with this EXACT structure:
 }
 
 Focus on ${seasonalTheme.prompt} themes for seasonal items.
-Examples: ${currentSeason === "spring"
+Examples: ${
+    currentSeason === "spring"
       ? "cherry blossoms, Easter, baby animals, garden flowers, rain showers"
       : currentSeason === "summer"
         ? "beaches, pools, ice cream, camping, outdoor activities"
         : currentSeason === "autumn"
           ? "Halloween, harvest, falling leaves, pumpkins, cozy scenes"
           : "Christmas, snow, winter sports, hot cocoa, holiday celebrations"
-    }
+  }
 
 CRITICAL TITLE REQUIREMENTS:
 - ALL seasonal item titles must be unique, creative, and evocative
@@ -3227,7 +3384,7 @@ Create 12 unique, engaging titles that capture the magic of ${currentSeason} col
 Output ONLY the JSON object, no explanations.`;
 
   try {
-    console.log("Generating front page data...");
+    debug.log("Generating front page data...");
     showToast("Loading homepage content...", "info", 3000);
 
     const frontPageData = await callAIAPI(prompt);
@@ -3286,7 +3443,7 @@ async function loadCategoriesInBackground() {
     "tribal_ethnic",
   ];
 
-  console.log("Starting parallel category loading (concurrency: 2)...");
+  debug.log("Starting parallel category loading (concurrency: 2)...");
   showToast("Loading additional categories in parallel...", "info", 2000);
 
   let loadedCount = 0;
@@ -3296,7 +3453,7 @@ async function loadCategoriesInBackground() {
   // Load categories in parallel batches of 2
   for (let i = 0; i < categoryList.length; i += CONCURRENCY_LIMIT) {
     const batch = categoryList.slice(i, i + CONCURRENCY_LIMIT);
-    console.log(`Loading batch ${Math.ceil(i / CONCURRENCY_LIMIT) + 1}: ${batch.join(", ")}`);
+    debug.log(`Loading batch ${Math.ceil(i / CONCURRENCY_LIMIT) + 1}: ${batch.join(", ")}`);
 
     try {
       // Load 2 categories in PARALLEL (75-80% faster!)
@@ -3326,7 +3483,7 @@ async function loadCategoriesInBackground() {
 
       // Short delay between batches (2 seconds instead of 5)
       if (i + CONCURRENCY_LIMIT < categoryList.length) {
-        console.log("Waiting 2 seconds before next batch...");
+        debug.log("Waiting 2 seconds before next batch...");
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     } catch (error) {
@@ -3334,7 +3491,7 @@ async function loadCategoriesInBackground() {
 
       // Slightly longer delay after batch failure
       if (i + CONCURRENCY_LIMIT < categoryList.length) {
-        console.log("Waiting 3 seconds after batch error...");
+        debug.log("Waiting 3 seconds after batch error...");
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
@@ -3347,7 +3504,7 @@ async function loadCategoriesInBackground() {
   // Save complete data to cache
   saveToCache(siteData);
 
-  console.log("Background category loading complete!");
+  debug.log("Background category loading complete!");
   showToast("All categories loaded successfully!", "success", 3000);
 }
 
@@ -3401,7 +3558,7 @@ Output ONLY the JSON object, no explanations.`;
 
   const loadingPromise = (async () => {
     try {
-      console.log(`Loading category: ${categoryKey}`);
+      debug.log(`Loading category: ${categoryKey}`);
       const categoryData = await callAIAPI(prompt);
 
       // Update the site data
@@ -3606,604 +3763,7 @@ function getCategoryInfo(categoryKey) {
   return categoryMap[categoryKey] || null;
 }
 
-// =============================================================================
-// MULTI-PROVIDER AI CONFIGURATION
-// =============================================================================
-
-// Provider configuration for multi-provider fallback
-const AI_PROVIDERS = {
-  pollinations: {
-    name: 'Pollinations',
-    baseURL: 'https://gen.pollinations.ai/v1/chat/completions',
-    getApiKey: () => window._env?.POLLINATIONS_API_KEY || null,
-    requiresAuth: false,
-    models: ['openai', 'openai-fast', 'openai-large', 'mistral', 'gemini-fast', 'llamascout', 'phi'],
-  },
-  openrouter: {
-    name: 'OpenRouter',
-    baseURL: 'https://openrouter.ai/api/v1/chat/completions',
-    getApiKey: () => window._env?.OPENROUTER_API_KEY || null,
-    requiresAuth: true,
-    models: [
-      'meta-llama/llama-3.3-8b-instruct:free',
-      'mistralai/mistral-7b-instruct:free',
-      'google/gemma-2-9b-it:free',
-    ],
-    extraHeaders: {
-      'HTTP-Referer': 'https://dseeker.github.io',
-      'X-Title': 'ColorVerse',
-    },
-  },
-  gemini: {
-    name: 'Google Gemini',
-    baseURL: 'https://generativelanguage.googleapis.com/v1beta/models',
-    getApiKey: () => window._env?.GOOGLE_GEMINI_API_KEY || null,
-    requiresAuth: true,
-    models: ['gemini-2.0-flash', 'gemini-1.5-flash'],
-  },
-};
-
-// Provider priority for fallback
-const PROVIDER_PRIORITY = ['pollinations', 'openrouter', 'gemini'];
-
-// Provider status tracking
-let providerStatusTracker = {
-  pollinations: { available: true, lastFailure: null, consecutiveFailures: 0 },
-  openrouter: { available: true, lastFailure: null, consecutiveFailures: 0 },
-  gemini: { available: true, lastFailure: null, consecutiveFailures: 0 },
-};
-
-// Get available providers (filters out unavailable and those without API keys)
-function getAvailableProviders() {
-  const now = Date.now();
-  const recoveryTime = 10 * 60 * 1000; // 10 minutes
-
-  return PROVIDER_PRIORITY.filter(providerName => {
-    const provider = AI_PROVIDERS[providerName];
-    const status = providerStatusTracker[providerName];
-
-    // Reset unavailable status after recovery time
-    if (!status.available && status.lastFailure) {
-      if (now - status.lastFailure > recoveryTime) {
-        status.available = true;
-        status.consecutiveFailures = 0;
-        console.log(`[MultiProvider] 🔄 Resetting ${providerName} availability after recovery`);
-      }
-    }
-
-    // Skip if provider requires auth and doesn't have API key
-    if (provider.requiresAuth && !provider.getApiKey()) {
-      return false;
-    }
-
-    return status.available;
-  });
-}
-
-// Update provider status after success/failure
-function updateProviderStatus(providerName, success) {
-  const status = providerStatusTracker[providerName];
-  if (success) {
-    status.consecutiveFailures = 0;
-    status.available = true;
-  } else {
-    status.lastFailure = Date.now();
-    status.consecutiveFailures++;
-    if (status.consecutiveFailures >= 3) {
-      status.available = false;
-      console.warn(`[MultiProvider] 🚫 Marking ${providerName} as temporarily unavailable`);
-    }
-  }
-}
-
-// Call OpenRouter API
-async function callOpenRouterAPI(prompt) {
-  const provider = AI_PROVIDERS.openrouter;
-  const apiKey = provider.getApiKey();
-
-  if (!apiKey) {
-    throw new Error('OpenRouter API key not configured');
-  }
-
-  const models = provider.models;
-  let lastError = null;
-
-  for (const model of models) {
-    try {
-      console.log(`[MultiProvider] 💬 Trying OpenRouter/${model}`);
-
-      const response = await fetch(provider.baseURL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          ...provider.extraHeaders,
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            { role: 'system', content: 'You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.' },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0.5,
-          max_tokens: 4096,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`OpenRouter API Error ${response.status}: ${errorText}`);
-      }
-
-      const result = await response.json();
-      const content = result?.choices?.[0]?.message?.content;
-
-      if (!content) {
-        throw new Error('OpenRouter response empty');
-      }
-
-      const parsedData = JSON.parse(content);
-      console.log(`[MultiProvider] ✅ Success with OpenRouter/${model}`);
-      return parsedData;
-    } catch (error) {
-      console.warn(`[MultiProvider] ❌ OpenRouter/${model} failed:`, error.message);
-      lastError = error;
-    }
-  }
-
-  throw lastError || new Error('All OpenRouter models failed');
-}
-
-// Call Gemini API
-async function callGeminiAPI(prompt) {
-  const provider = AI_PROVIDERS.gemini;
-  const apiKey = provider.getApiKey();
-
-  if (!apiKey) {
-    throw new Error('Gemini API key not configured');
-  }
-
-  const models = provider.models;
-  let lastError = null;
-
-  for (const model of models) {
-    try {
-      console.log(`[MultiProvider] 💬 Trying Gemini/${model}`);
-
-      const url = `${provider.baseURL}/${model}:generateContent?key=${apiKey}`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            { role: 'user', parts: [{ text: prompt }] },
-          ],
-          systemInstruction: {
-            parts: [{ text: 'You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.' }],
-          },
-          generationConfig: {
-            temperature: 0.5,
-            maxOutputTokens: 4096,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini API Error ${response.status}: ${errorText}`);
-      }
-
-      const result = await response.json();
-      const content = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (!content) {
-        throw new Error('Gemini response empty');
-      }
-
-      // Try to parse JSON from response
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsedData = JSON.parse(jsonMatch[0]);
-        console.log(`[MultiProvider] ✅ Success with Gemini/${model}`);
-        return parsedData;
-      }
-
-      throw new Error('Gemini response does not contain valid JSON');
-    } catch (error) {
-      console.warn(`[MultiProvider] ❌ Gemini/${model} failed:`, error.message);
-      lastError = error;
-    }
-  }
-
-  throw lastError || new Error('All Gemini models failed');
-}
-
-// Model success tracking
-let modelSuccessTracker = {
-  lastSuccessfulModel: "openai",
-  failedModels: new Set(),
-  successCount: {},
-  lastUpdateTime: Date.now(),
-};
-
-// Reset failed models after 10 minutes (models might recover)
-function resetFailedModelsIfNeeded() {
-  const now = Date.now();
-  const resetInterval = 10 * 60 * 1000; // 10 minutes
-
-  if (now - modelSuccessTracker.lastUpdateTime > resetInterval) {
-    console.log("Resetting failed models tracker after 10 minutes");
-    modelSuccessTracker.failedModels.clear();
-    modelSuccessTracker.lastUpdateTime = now;
-  }
-}
-
-// Update model success tracking
-function updateModelSuccess(modelName, success) {
-  modelSuccessTracker.lastUpdateTime = Date.now();
-
-  if (success) {
-    modelSuccessTracker.lastSuccessfulModel = modelName;
-    modelSuccessTracker.successCount[modelName] =
-      (modelSuccessTracker.successCount[modelName] || 0) + 1;
-    // Remove from failed models if it was there
-    modelSuccessTracker.failedModels.delete(modelName);
-    console.log(
-      `✅ Model ${modelName} marked as successful (total successes: ${modelSuccessTracker.successCount[modelName]})`
-    );
-  } else {
-    modelSuccessTracker.failedModels.add(modelName);
-    console.log(`❌ Model ${modelName} marked as failed`);
-  }
-}
-
-// Get optimized model order based on success history
-function getOptimizedModelOrder(preferredModel = "openai") {
-  resetFailedModelsIfNeeded();
-
-  // Define model fallback chain based on tier and capability
-  const allModels = [
-    "openai", // GPT-4o Mini (primary)
-    "openai-fast", // GPT-4.1 Nano (fast fallback)
-    "mistral", // Mistral Small 3.1 24B (reliable)
-    "llamascout", // Llama 4 Scout 17B (new option)
-    "llama-roblox", // Llama 3.1 8B (stable)
-    "gemma-roblox", // Gemma 2 9B (lightweight)
-    "glm", // GLM-4 9B (alternative)
-    "phi", // Phi-4 Mini (fallback)
-    "mistral-nemo-roblox", // Final fallback
-  ];
-
-  // Filter out recently failed models and sort by success
-  const availableModels = allModels.filter(model => !modelSuccessTracker.failedModels.has(model));
-
-  // If last successful model is available and different from preferred, prioritize it
-  const lastSuccessful = modelSuccessTracker.lastSuccessfulModel;
-  if (
-    lastSuccessful &&
-    lastSuccessful !== preferredModel &&
-    availableModels.includes(lastSuccessful)
-  ) {
-    // Put last successful model first, then preferred, then others
-    const orderedModels = [lastSuccessful];
-    if (availableModels.includes(preferredModel) && preferredModel !== lastSuccessful) {
-      orderedModels.push(preferredModel);
-    }
-    // Add remaining models
-    availableModels.forEach(model => {
-      if (!orderedModels.includes(model)) {
-        orderedModels.push(model);
-      }
-    });
-    return orderedModels;
-  }
-
-  // Otherwise start with preferred model, then use success-based ordering
-  const modelsToTry =
-    preferredModel !== "openai"
-      ? [preferredModel, ...availableModels.filter(m => m !== preferredModel)]
-      : availableModels;
-
-  return modelsToTry;
-}
-
-// Unified AI API calling function with intelligent model fallback
-async function callAIAPI(prompt, preferredModel = "openai") {
-  // Check if we should delay the API call due to rate limiting
-  const suggestedDelay = getSuggestedDelay();
-  if (suggestedDelay > 0) {
-    console.log(`Rate limiting: waiting ${suggestedDelay}ms before API call`);
-    await new Promise(resolve => setTimeout(resolve, suggestedDelay));
-  }
-
-  // Track this API call
-  trackApiCall();
-
-  const modelsToTry = getOptimizedModelOrder(preferredModel);
-
-  const url = "https://gen.pollinations.ai/v1/chat/completions";
-  const basePayload = {
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are an AI assistant that generates structured JSON data based on user requirements. Output ONLY the requested JSON object.",
-      },
-      { role: "user", content: prompt },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.5,
-    referrer: REFERRER_ID,
-  };
-
-  const headers = {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-    Authorization: `Bearer ${window._env?.POLLINATIONS_API_KEY || ''}`,
-  };
-
-  let lastError = null;
-
-  for (let i = 0; i < modelsToTry.length; i++) {
-    const currentModel = modelsToTry[i];
-
-    try {
-      console.log(
-        `Attempting API call with model: ${currentModel} (attempt ${i + 1}/${modelsToTry.length})`
-      );
-
-      const payload = {
-        ...basePayload,
-        model: currentModel,
-      };
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        const error = new Error(`API Error ${response.status}: ${errorText}`);
-
-        // Log the error details
-        console.warn(`Model ${currentModel} failed with status ${response.status}:`, errorText);
-
-        // Mark model as failed
-        updateModelSuccess(currentModel, false);
-
-        // Check if this is a temporary rate limit or content policy issue
-        if (response.status === 403 || response.status === 429) {
-          lastError = error;
-
-          // If we have more models to try, add delay before next attempt
-          if (i < modelsToTry.length - 1) {
-            console.log(`Waiting 5 seconds before trying next model...`);
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            console.log(`Trying next model in fallback chain...`);
-            continue;
-          }
-        }
-
-        // For other errors, add shorter delay and try next model
-        lastError = error;
-        if (i < modelsToTry.length - 1) {
-          console.log(`Waiting 2 seconds before trying next model...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-        continue;
-      }
-
-      const result = await response.json();
-      const generatedContent = result?.choices?.[0]?.message?.content;
-
-      if (!generatedContent) {
-        const error = new Error("AI response did not contain expected content structure.");
-        console.warn(`Model ${currentModel} returned empty content`);
-        updateModelSuccess(currentModel, false);
-        lastError = error;
-        continue;
-      }
-
-      // Parse JSON response
-      try {
-        const parsedData = JSON.parse(generatedContent);
-        console.log(`✅ Successfully generated data using model: ${currentModel}`);
-
-        // Mark model as successful
-        updateModelSuccess(currentModel, true);
-
-        // Show success toast if we had to fallback
-        if (i > 0 && typeof showToast === "function") {
-          showToast(`Generated content using ${currentModel} model`, "info", 3000);
-        }
-
-        return parsedData;
-      } catch (parseError) {
-        // Try to extract JSON from response
-        const jsonMatch = generatedContent.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          try {
-            const extractedData = JSON.parse(jsonMatch[0]);
-            console.log(`✅ Successfully extracted JSON from ${currentModel} response`);
-
-            // Mark model as successful
-            updateModelSuccess(currentModel, true);
-
-            if (i > 0 && typeof showToast === "function") {
-              showToast(`Generated content using ${currentModel} model`, "info", 3000);
-            }
-
-            return extractedData;
-          } catch (extractError) {
-            console.warn(`Model ${currentModel} JSON extraction failed:`, extractError.message);
-            updateModelSuccess(currentModel, false);
-            lastError = new Error(`Could not extract valid JSON from ${currentModel} response`);
-
-            // Add delay before trying next model for parsing errors
-            if (i < modelsToTry.length - 1) {
-              console.log(`Waiting 2 seconds before trying next model due to parsing error...`);
-              await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-            continue;
-          }
-        } else {
-          console.warn(`Model ${currentModel} response does not contain valid JSON`);
-          updateModelSuccess(currentModel, false);
-          lastError = new Error(`${currentModel} response does not contain valid JSON`);
-
-          // Add delay before trying next model for JSON format errors
-          if (i < modelsToTry.length - 1) {
-            console.log(`Waiting 2 seconds before trying next model due to JSON format error...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          }
-          continue;
-        }
-      }
-    } catch (networkError) {
-      console.warn(`Network error with model ${currentModel}:`, networkError.message);
-      updateModelSuccess(currentModel, false);
-      lastError = networkError;
-
-      // Add delay before trying next model for network errors
-      if (i < modelsToTry.length - 1) {
-        console.log(`Waiting 3 seconds before trying next model due to network error...`);
-        await new Promise(resolve => setTimeout(resolve, 3000));
-      }
-      continue;
-    }
-  }
-
-  // If all models failed, throw the last error
-  console.error("All AI models failed. Last error:", lastError);
-  console.log("Current model status:", {
-    lastSuccessful: modelSuccessTracker.lastSuccessfulModel,
-    failedModels: Array.from(modelSuccessTracker.failedModels),
-    successCounts: modelSuccessTracker.successCount,
-  });
-
-  // =========================================================================
-  // MULTI-PROVIDER FALLBACK: Try OpenRouter and Gemini if Pollinations fails
-  // =========================================================================
-  console.log("[MultiProvider] 🔄 Pollinations failed, trying fallback providers...");
-  updateProviderStatus('pollinations', false);
-
-  // Try OpenRouter
-  const openRouterKey = AI_PROVIDERS.openrouter.getApiKey();
-  if (openRouterKey) {
-    try {
-      console.log("[MultiProvider] 📡 Attempting OpenRouter fallback...");
-      const result = await callOpenRouterAPI(prompt);
-      updateProviderStatus('openrouter', true);
-
-      if (typeof showToast === "function") {
-        showToast("Generated content using OpenRouter fallback", "info", 3000);
-      }
-
-      return result;
-    } catch (openRouterError) {
-      console.warn("[MultiProvider] ❌ OpenRouter fallback failed:", openRouterError.message);
-      updateProviderStatus('openrouter', false);
-    }
-  }
-
-  // Try Gemini
-  const geminiKey = AI_PROVIDERS.gemini.getApiKey();
-  if (geminiKey) {
-    try {
-      console.log("[MultiProvider] 📡 Attempting Gemini fallback...");
-      const result = await callGeminiAPI(prompt);
-      updateProviderStatus('gemini', true);
-
-      if (typeof showToast === "function") {
-        showToast("Generated content using Gemini fallback", "info", 3000);
-      }
-
-      return result;
-    } catch (geminiError) {
-      console.warn("[MultiProvider] ❌ Gemini fallback failed:", geminiError.message);
-      updateProviderStatus('gemini', false);
-    }
-  }
-
-  // All providers failed
-  console.error("[MultiProvider] ❌ All providers exhausted (Pollinations, OpenRouter, Gemini)");
-
-  if (typeof showToast === "function") {
-    showToast("All AI providers are currently unavailable. Please try again later.", "error", 5000);
-  }
-
-  throw lastError || new Error("All AI providers failed to generate content");
-}
-
-// Get current model status for debugging
-function getModelStatus() {
-  return {
-    lastSuccessful: modelSuccessTracker.lastSuccessfulModel,
-    failedModels: Array.from(modelSuccessTracker.failedModels),
-    successCounts: { ...modelSuccessTracker.successCount },
-    lastUpdate: new Date(modelSuccessTracker.lastUpdateTime).toLocaleString(),
-  };
-}
-
-// Manually reset model tracking (useful for debugging)
-function resetModelTracking() {
-  modelSuccessTracker = {
-    lastSuccessfulModel: "openai",
-    failedModels: new Set(),
-    successCount: {},
-    lastUpdateTime: Date.now(),
-  };
-  console.log("Model tracking reset to defaults");
-}
-
-// Make these functions available globally for debugging
-window.getModelStatus = getModelStatus;
-window.resetModelTracking = resetModelTracking;
-
-// API call rate limiting tracking
-let apiCallTracker = {
-  calls: [],
-  maxCallsPerMinute: 20, // Adjust based on API limits
-};
-
-// Function to check if we should delay API calls
-function shouldDelayApiCall() {
-  const now = Date.now();
-  const oneMinuteAgo = now - 60000;
-
-  // Remove calls older than 1 minute
-  apiCallTracker.calls = apiCallTracker.calls.filter(time => time > oneMinuteAgo);
-
-  return apiCallTracker.calls.length >= apiCallTracker.maxCallsPerMinute;
-}
-
-// Function to track API calls
-function trackApiCall() {
-  apiCallTracker.calls.push(Date.now());
-}
-
-// Function to get suggested delay based on current call rate
-function getSuggestedDelay() {
-  if (apiCallTracker.calls.length >= apiCallTracker.maxCallsPerMinute) {
-    return 3000; // 3 second delay if approaching limit
-  } else if (apiCallTracker.calls.length >= apiCallTracker.maxCallsPerMinute * 0.8) {
-    return 1000; // 1 second delay if at 80% of limit
-  }
-  return 0; // No delay needed
-}
-
-// Make rate limiting functions available for debugging
-window.getApiCallStatus = () => ({
-  recentCalls: apiCallTracker.calls.length,
-  maxCallsPerMinute: apiCallTracker.maxCallsPerMinute,
-  shouldDelay: shouldDelayApiCall(),
-  suggestedDelay: getSuggestedDelay(),
-});
+// --- Multi-provider AI configuration loaded from src/modules/aiProviders.js ---
 
 async function renderCategoryWithProgressiveLoading(
   categoryKey,
@@ -4288,7 +3848,7 @@ async function ensureCategoryLoaded(categoryKey) {
   }
 
   // Load this specific category immediately
-  console.log(`Loading category on demand: ${categoryKey}`);
+  debug.log(`Loading category on demand: ${categoryKey}`);
   showToast(`Loading ${categoryKey} category...`, "info", 2000);
 
   return await loadSingleCategory(categoryKey);
@@ -4303,73 +3863,73 @@ function getSampleSiteData() {
   const seasonalItems =
     currentSeason === "spring"
       ? {
-        spring_flowers: {
-          title: "Spring Flower Garden",
-          description:
-            "A garden bursting with tulips, daffodils, and cherry blossoms with butterflies",
-        },
-        easter_bunny: {
-          title: "Easter Bunny",
-          description: "A cute bunny with Easter eggs and spring flowers in a meadow",
-        },
-        baby_animals: {
-          title: "Baby Farm Animals",
-          description: "Adorable baby chicks, lambs, and calves in a springtime farm setting",
-        },
-      }
-      : currentSeason === "summer"
-        ? {
-          beach_paradise: {
-            title: "Beach Paradise",
+          spring_flowers: {
+            title: "Spring Flower Garden",
             description:
-              "A detailed beach scene with palm trees, surfboards, beach umbrellas, sandcastles, and playful dolphins jumping in the waves",
+              "A garden bursting with tulips, daffodils, and cherry blossoms with butterflies",
           },
-          summer_camping: {
-            title: "Summer Camping Adventure",
-            description:
-              "A cozy campsite with tents, campfire, marshmallow roasting, star-filled sky, and friendly forest animals",
+          easter_bunny: {
+            title: "Easter Bunny",
+            description: "A cute bunny with Easter eggs and spring flowers in a meadow",
           },
-          ice_cream_truck: {
-            title: "Ice Cream Truck Delight",
-            description:
-              "A colorful ice cream truck surrounded by happy children, various ice cream treats, summer treats, and park setting",
+          baby_animals: {
+            title: "Baby Farm Animals",
+            description: "Adorable baby chicks, lambs, and calves in a springtime farm setting",
           },
         }
-        : currentSeason === "autumn"
-          ? {
-            pumpkin_patch: {
-              title: "Pumpkin Patch",
+      : currentSeason === "summer"
+        ? {
+            beach_paradise: {
+              title: "Beach Paradise",
               description:
-                "A festive pumpkin patch with various sized pumpkins, autumn leaves, and harvest decorations",
+                "A detailed beach scene with palm trees, surfboards, beach umbrellas, sandcastles, and playful dolphins jumping in the waves",
             },
-            halloween_scene: {
-              title: "Halloween Night",
+            summer_camping: {
+              title: "Summer Camping Adventure",
               description:
-                "A spooky but fun Halloween scene with jack-o'-lanterns, bats, and trick-or-treaters",
+                "A cozy campsite with tents, campfire, marshmallow roasting, star-filled sky, and friendly forest animals",
             },
-            autumn_leaves: {
-              title: "Falling Autumn Leaves",
+            ice_cream_truck: {
+              title: "Ice Cream Truck Delight",
               description:
-                "Trees with colorful falling leaves, acorns, and woodland creatures preparing for winter",
+                "A colorful ice cream truck surrounded by happy children, various ice cream treats, summer treats, and park setting",
             },
           }
+        : currentSeason === "autumn"
+          ? {
+              pumpkin_patch: {
+                title: "Pumpkin Patch",
+                description:
+                  "A festive pumpkin patch with various sized pumpkins, autumn leaves, and harvest decorations",
+              },
+              halloween_scene: {
+                title: "Halloween Night",
+                description:
+                  "A spooky but fun Halloween scene with jack-o'-lanterns, bats, and trick-or-treaters",
+              },
+              autumn_leaves: {
+                title: "Falling Autumn Leaves",
+                description:
+                  "Trees with colorful falling leaves, acorns, and woodland creatures preparing for winter",
+              },
+            }
           : {
-            winter_wonderland: {
-              title: "Winter Wonderland",
-              description:
-                "A magical winter scene with snow-covered trees, snowmen, and winter animals",
-            },
-            christmas_tree: {
-              title: "Christmas Tree",
-              description:
-                "A decorated Christmas tree with ornaments, presents, and holiday decorations",
-            },
-            hot_cocoa: {
-              title: "Hot Cocoa Time",
-              description:
-                "A cozy winter scene with hot cocoa, marshmallows, warm blankets, and snow outside",
-            },
-          };
+              winter_wonderland: {
+                title: "Winter Wonderland",
+                description:
+                  "A magical winter scene with snow-covered trees, snowmen, and winter animals",
+              },
+              christmas_tree: {
+                title: "Christmas Tree",
+                description:
+                  "A decorated Christmas tree with ornaments, presents, and holiday decorations",
+              },
+              hot_cocoa: {
+                title: "Hot Cocoa Time",
+                description:
+                  "A cozy winter scene with hot cocoa, marshmallows, warm blankets, and snow outside",
+              },
+            };
 
   return {
     brand: {
@@ -4406,8 +3966,7 @@ function getSampleSiteData() {
           },
           fluffy_rabbit: {
             title: "Fluffy Rabbit",
-            description:
-              "A cute rabbit with long ears sitting among flowers, clean line art style",
+            description: "A cute rabbit with long ears sitting among flowers, clean line art style",
           },
           wise_owl: {
             title: "Wise Owl",
@@ -4438,8 +3997,7 @@ function getSampleSiteData() {
           },
           graceful_unicorn: {
             title: "Graceful Unicorn",
-            description:
-              "A unicorn with a spiraled horn in a magical forest, clean line art style",
+            description: "A unicorn with a spiraled horn in a magical forest, clean line art style",
           },
           fairy_queen: {
             title: "Fairy Queen",
@@ -4448,8 +4006,7 @@ function getSampleSiteData() {
           },
           castle_wizard: {
             title: "Wizard's Castle",
-            description:
-              "A mystical castle with towers and magical symbols, clean line art style",
+            description: "A mystical castle with towers and magical symbols, clean line art style",
           },
           enchanted_forest: {
             title: "Enchanted Forest",
@@ -4530,8 +4087,7 @@ function getSampleSiteData() {
           },
           train_journey: {
             title: "Train Journey",
-            description:
-              "A locomotive with connected cars on railway tracks, clean line art style",
+            description: "A locomotive with connected cars on railway tracks, clean line art style",
           },
           helicopter_rescue: {
             title: "Helicopter Rescue",
@@ -4621,8 +4177,7 @@ function getSampleSiteData() {
           },
           rock_guitar: {
             title: "Rock Guitar",
-            description:
-              "Electric guitar with flames and rock music symbols, edgy line art style",
+            description: "Electric guitar with flames and rock music symbols, edgy line art style",
           },
           tribal_dragon: {
             title: "Tribal Dragon",
@@ -4667,14 +4222,15 @@ The output MUST be a valid JSON object adhering strictly to the following struct
       "seasonal_item_2": { "title": "Seasonal Item Title 2", "description": "Detailed description for ${currentSeason} themed coloring page 2" },
       // ... continue to 12 ${currentSeason}-themed items total
       // Focus on ${seasonalTheme.prompt} themes
-      // Examples: ${currentSeason === "spring"
-      ? "cherry blossoms, Easter, baby animals, garden flowers, rain showers"
-      : currentSeason === "summer"
-        ? "beaches, pools, ice cream, camping, outdoor activities"
-        : currentSeason === "autumn"
-          ? "Halloween, harvest, falling leaves, pumpkins, cozy scenes"
-          : "Christmas, snow, winter sports, hot cocoa, holiday celebrations"
-    }
+      // Examples: ${
+        currentSeason === "spring"
+          ? "cherry blossoms, Easter, baby animals, garden flowers, rain showers"
+          : currentSeason === "summer"
+            ? "beaches, pools, ice cream, camping, outdoor activities"
+            : currentSeason === "autumn"
+              ? "Halloween, harvest, falling leaves, pumpkins, cozy scenes"
+              : "Christmas, snow, winter sports, hot cocoa, holiday celebrations"
+      }
       "seasonal_item_12": { "title": "Seasonal Item Title 12", "description": "Detailed description for ${currentSeason} themed coloring page 12" }
     }
   },
@@ -4988,11 +4544,10 @@ Constraints & Guidelines:
   const headers = {
     "Content-Type": "application/json",
     Accept: "application/json",
-    Authorization: `Bearer ${window._env?.POLLINATIONS_API_KEY || ''}`,
   };
 
   try {
-    console.log("Calling Pollinations AI with intelligent fallback system");
+    debug.log("Calling Pollinations AI with intelligent fallback system");
 
     // Show a toast notification about data loading
     if (typeof showToast === "function") {
@@ -5042,9 +4597,9 @@ Constraints & Guidelines:
       }
     }
 
-    console.log(`Validated categories: ${validCategories}/${totalCategories}`);
+    debug.log(`Validated categories: ${validCategories}/${totalCategories}`);
 
-    console.log("Site data generated and parsed successfully");
+    debug.log("Site data generated and parsed successfully");
     siteData = parsedData; // Store globally
 
     // Cache the data
@@ -5071,7 +4626,7 @@ Constraints & Guidelines:
     // Try to load from cache as a fallback
     const cachedData = loadFromCache();
     if (cachedData) {
-      console.log("Using cached data as fallback");
+      debug.log("Using cached data as fallback");
       if (typeof showToast === "function") {
         showToast("Showing cached content.", "info");
       }
@@ -5081,7 +4636,7 @@ Constraints & Guidelines:
     }
 
     // If no cached data, use sample data as last resort
-    console.log("Using sample data as last resort");
+    debug.log("Using sample data as last resort");
     if (typeof showToast === "function") {
       showToast("Showing sample content.", "warning");
     }
@@ -5090,7 +4645,6 @@ Constraints & Guidelines:
     showLoading(false);
     return sampleData;
   }
-
 }
 
 // Make the static content functions available globally for use in links
@@ -5116,7 +4670,7 @@ window.addEventListener("beforeunload", () => {
   if (window.imageLoadQueue) {
     const canceledCount = window.imageLoadQueue.cancelAll();
     if (canceledCount > 0) {
-      console.log(`[Page Unload] Canceled ${canceledCount} pending downloads before page unload`);
+      debug.log(`[Page Unload] Canceled ${canceledCount} pending downloads before page unload`);
     }
   }
 });
@@ -5171,7 +4725,7 @@ function initStyleSelector() {
     // Add change event listener
     styleSelector.addEventListener("change", event => {
       const newStyle = event.target.value;
-      console.log(`Style selector changed to: "${newStyle}"`);
+      debug.log(`Style selector changed to: "${newStyle}"`);
 
       // Save to localStorage
       localStorage.setItem("colorverse-style", newStyle);
@@ -5197,7 +4751,7 @@ function loadCachedImageUrls() {
       for (const [key, value] of Object.entries(urlMap)) {
         imageUrlCache.set(key, value);
       }
-      console.log(`Loaded ${imageUrlCache.size} cached image URLs`);
+      debug.log(`Loaded ${imageUrlCache.size} cached image URLs`);
       return true;
     }
   } catch (e) {
@@ -5209,7 +4763,7 @@ function loadCachedImageUrls() {
 // --- Initialization ---
 document.addEventListener("DOMContentLoaded", async () => {
   try {
-    console.log("Initializing ColorVerse app...");
+    debug.log("Initializing ColorVerse app...");
 
     // Pre-load cached image URLs to speed up initial render
     loadCachedImageUrls();
@@ -5225,7 +4779,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Set up seasonal themes based on current date
     currentSeason = getCurrentSeason();
-    console.log(`Setting up seasonal theme for: ${currentSeason}`);
+    debug.log(`Setting up seasonal theme for: ${currentSeason}`);
 
     // Generate site data (this will use cache if available)
     await generateSiteData();
@@ -5234,7 +4788,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     handleRouteChange();
 
     // Additional initialization for image loading
-    console.log("Setting up lazy loading for images");
+    debug.log("Setting up lazy loading for images");
     // Will be called again after route changes, but ensure it's also set up initially
     setTimeout(() => {
       setupLazyLoading();
@@ -5242,13 +4796,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Simplified window load handler
     window.addEventListener("load", () => {
-      console.log("Window fully loaded");
+      debug.log("Window fully loaded");
       document.body.classList.remove("loading");
     });
 
     // MutationObserver removed as it was causing performance issues
 
-    console.log("Initialization complete");
+    debug.log("Initialization complete");
   } catch (error) {
     console.error("Initialization failed:", error);
 
@@ -5267,7 +4821,7 @@ function clearAllCache() {
   localStorage.removeItem("colorverse-site-data");
   localStorage.removeItem("colorverse-cache-timestamp");
   localStorage.removeItem("colorverse-image-urls");
-  console.log("All cache cleared!");
+  debug.log("All cache cleared!");
 }
 
 // Make functions accessible from HTML
