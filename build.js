@@ -536,6 +536,7 @@ async function build() {
     "service-worker.js",
     "service-worker-register.js",
     "robots.txt",
+    "favicon.svg",
   ];
 
   // Copy src/ folder

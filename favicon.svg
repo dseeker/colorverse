@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="32" fill="#7C3AED"/>
+  <!-- Palette shape -->
+  <ellipse cx="32" cy="34" rx="18" ry="15" fill="white" opacity="0.95"/>
+  <!-- Thumb hole -->
+  <circle cx="42" cy="28" r="4.5" fill="#7C3AED"/>
+  <!-- Color dots -->
+  <circle cx="20" cy="30" r="4" fill="#F97316"/>
+  <circle cx="28" cy="24" r="4" fill="#EAB308"/>
+  <circle cx="37" cy="24" r="4" fill="#22C55E"/>
+  <circle cx="44" cy="34" r="4" fill="#3B82F6"/>
+  <circle cx="37" cy="42" r="4" fill="#EC4899"/>
+  <circle cx="26" cy="42" r="4" fill="#EF4444"/>
+</svg>
