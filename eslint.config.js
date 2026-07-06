@@ -1,5 +1,6 @@
 import js from "@eslint/js";
 import globals from "globals";
+import tsParser from "@typescript-eslint/parser";
 
 export default [
   js.configs.recommended,
@@ -27,12 +28,56 @@ export default [
       "no-debugger": "warn",
     },
   },
+  // Cross-file globals shared between app.js ↔ src/modules/aiProviders.js
   {
-    files: ["src/tests/**/*.ts"],
+    files: ["app.js", "src/modules/aiProviders.js", "src/services/*.js"],
+    languageOptions: {
+      globals: {
+        debug: "readonly",
+        REFERRER_ID: "readonly",
+        showToast: "readonly",
+        callAIAPI: "readonly",
+        callOpenRouterAPI: "readonly",
+        callGeminiAPI: "readonly",
+        getAvailableProviders: "readonly",
+        updateProviderStatus: "readonly",
+        updateModelSuccess: "readonly",
+        getOptimizedModelOrder: "readonly",
+        trackApiCall: "readonly",
+        getSuggestedDelay: "readonly",
+        shouldDelayApiCall: "readonly",
+        AI_PROVIDERS: "readonly",
+        PROVIDER_PRIORITY: "readonly",
+        PLACEHOLDER_IMAGE: "readonly",
+      },
+    },
+  },
+  // Service worker has its own global scope
+  {
+    files: ["service-worker.js"],
+    languageOptions: {
+      globals: {
+        ...globals.serviceworker,
+        clients: "readonly",
+      },
+    },
+  },
+  // Workers run in Cloudflare Workers runtime
+  {
+    files: ["workers/**/*.js"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  {
+    files: ["src/tests/**/*.ts", "**/*.ts"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
+      parser: tsParser,
       globals: {
+        ...globals.browser,
+        ...globals.node,
         describe: "readonly",
         it: "readonly",
         expect: "readonly",
@@ -45,6 +90,7 @@ export default [
     },
     rules: {
       "no-unused-vars": "off",
+      "no-undef": "off",
     },
   },
   {
@@ -56,6 +102,9 @@ export default [
       "*.min.js",
       "eslint.config.js",
       "vitest.config.ts",
+      "playwright.config.ts",
+      "openrouter.js",
+      "archive/**",
     ],
   },
 ];

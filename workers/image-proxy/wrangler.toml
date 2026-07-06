@@ -1,0 +1,9 @@
+name = "colorverse-image-proxy"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+ALLOWED_ORIGINS = "*"
+
+# API key set as a secret via:
+#   npx wrangler secret put POLLINATIONS_API_KEY

@@ -17,7 +17,7 @@ export const getTestUrl = (path: string) => {
   }
 
   if (isDevelopment) {
-    return `http://localhost:3000${path}`;
+    return `http://localhost:4000${path}`;
   }
 
   return `https://your-production-site.com${path}`;

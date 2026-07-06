@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🎨 ColorVerse Model Test - zimage/nanobanana</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+      }
+      .container {
+        background: white;
+        border-radius: 16px;
+        padding: 30px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+      h1 {
+        color: #333;
+        margin-bottom: 10px;
+      }
+      .subtitle {
+        color: #666;
+        margin-bottom: 30px;
+      }
+      .test-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 30px;
+      }
+      .test-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 20px;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+      }
+      .test-card:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+      }
+      .test-card h3 {
+        margin-top: 0;
+        color: #667eea;
+      }
+      .image-container {
+        width: 100%;
+        aspect-ratio: 1;
+        background: #e9ecef;
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 15px 0;
+        position: relative;
+      }
+      .image-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .image-container .loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #666;
+      }
+      .image-container .error {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #dc3545;
+        text-align: center;
+      }
+      .status {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+      .status.pending {
+        background: #ffc107;
+        color: #000;
+      }
+      .status.loading {
+        background: #17a2b8;
+        color: #fff;
+      }
+      .status.success {
+        background: #28a745;
+        color: #fff;
+      }
+      .status.error {
+        background: #dc3545;
+        color: #fff;
+      }
+      .controls {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+      }
+      .controls label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+      }
+      .controls input,
+      .controls select {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        font-size: 14px;
+        margin-bottom: 15px;
+      }
+      .btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: transform 0.2s;
+        font-weight: 600;
+      }
+      .btn:hover {
+        transform: scale(1.05);
+      }
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-top: 20px;
+      }
+      .stat-box {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+      }
+      .stat-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #667eea;
+      }
+      .stat-label {
+        font-size: 12px;
+        color: #666;
+        text-transform: uppercase;
+      }
+      .log {
+        background: #000;
+        color: #0f0;
+        padding: 15px;
+        border-radius: 8px;
+        font-family: "Courier New", monospace;
+        font-size: 12px;
+        height: 200px;
+        overflow-y: auto;
+        margin-top: 20px;
+      }
+      .log-entry {
+        margin: 2px 0;
+      }
+      .log-entry.error {
+        color: #ff6b6b;
+      }
+      .log-entry.success {
+        color: #51cf66;
+      }
+      .log-entry.info {
+        color: #74c0fc;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎨 ColorVerse Model Test</h1>
+      <p class="subtitle">Testing zimage (primary) and nanobanana (fallback) models</p>
+
+      <div class="controls">
+        <label for="prompt">Test Prompt:</label>
+        <input
+          type="text"
+          id="prompt"
+          value="a cute cat coloring page, black and white line art"
+          placeholder="Enter a prompt..."
+        />
+
+        <label for="apiKey">Pollinations API Key (optional):</label>
+        <input type="text" id="apiKey" value="" placeholder="Leave empty to use default" />
+
+        <button class="btn" id="testAllBtn" onclick="testAllModels()">🚀 Test All Models</button>
+        <button
+          class="btn"
+          id="clearBtn"
+          onclick="clearAll()"
+          style="background: #6c757d; margin-left: 10px"
+        >
+          Clear
+        </button>
+      </div>
+
+      <div class="stats">
+        <div class="stat-box">
+          <div class="stat-value" id="totalTests">0</div>
+          <div class="stat-label">Total Tests</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="successCount">0</div>
+          <div class="stat-label">Successful</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="failCount">0</div>
+          <div class="stat-label">Failed</div>
+        </div>
+        <div class="stat-box" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%)">
+          <div class="stat-value" id="totalCost" style="color: #856404">0</div>
+          <div class="stat-label">💰 Total Pollens</div>
+        </div>
+      </div>
+
+      <div
+        id="modelsInfo"
+        style="
+          margin: 20px 0;
+          padding: 15px;
+          background: #e9ecef;
+          border-radius: 8px;
+          display: none;
+        "
+      >
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+          "
+        >
+          <strong>📊 Available Models:</strong>
+          <div>
+            <button
+              onclick="selectAllModels()"
+              style="
+                background: #28a745;
+                color: white;
+                border: none;
+                padding: 4px 12px;
+                border-radius: 4px;
+                cursor: pointer;
+                margin-right: 8px;
+                font-size: 12px;
+              "
+            >
+              Select All
+            </button>
+            <button
+              onclick="deselectAllModels()"
+              style="
+                background: #dc3545;
+                color: white;
+                border: none;
+                padding: 4px 12px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+              "
+            >
+              Deselect All
+            </button>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: #666; margin-bottom: 10px">
+          💡 Click on a model tag to toggle selection. Selected models (✓) will be tested.
+          Deselected models (✗) are hidden.
+        </div>
+        <div id="modelTags" style="margin-top: 10px"></div>
+      </div>
+
+      <div class="test-grid" id="testGrid">
+        <!-- Models will be dynamically inserted here -->
+      </div>
+
+      <div class="log" id="log">
+        <div class="log-entry">🚀 Ready to test! Click "Test All Models" to begin.</div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE_URL = "https://gen.pollinations.ai/image";
+      const DEFAULT_API_KEY = "pk_YOUR_KEY_HERE";
+
+      let testResults = {
+        total: 0,
+        success: 0,
+        failed: 0,
+        totalCost: 0,
+      };
+
+      function log(message, type = "info") {
+        const logEl = document.getElementById("log");
+        const entry = document.createElement("div");
+        entry.className = `log-entry ${type}`;
+        entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        logEl.appendChild(entry);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function updateStats() {
+        document.getElementById("totalTests").textContent = testResults.total;
+        document.getElementById("successCount").textContent = testResults.success;
+        document.getElementById("failCount").textContent = testResults.failed;
+        document.getElementById("totalCost").textContent = testResults.totalCost.toFixed(2);
+      }
+
+      function getModelCost(model) {
+        const metadata = modelMetadata[model] || {};
+        if (metadata.pricing) {
+          const pricing = metadata.pricing;
+          // API uses completionImageTokens for images, completionVideoTokens/completionVideoSeconds for videos
+          return (
+            pricing["completionImageTokens"] ||
+            pricing["completionVideoTokens"] ||
+            pricing["completionVideoSeconds"] ||
+            pricing["completionAudioSeconds"] ||
+            0
+          );
+        }
+        return 0;
+      }
+
+      function setStatus(model, status, message = "") {
+        const statusEl = document.getElementById(`${model}-status`);
+        const infoEl = document.getElementById(`${model}-info`);
+
+        statusEl.className = `status ${status}`;
+        statusEl.textContent = status;
+
+        if (message) {
+          infoEl.innerHTML = `<small>${message}</small>`;
+        }
+      }
+
+      function setLoading(model) {
+        const container = document.getElementById(`${model}-container`);
+        container.innerHTML = '<div class="loading">⏳ Generating image...</div>';
+        setStatus(model, "loading");
+      }
+
+      function setError(model, error) {
+        const container = document.getElementById(`${model}-container`);
+        container.innerHTML = `<div class="error">❌ ${error}</div>`;
+        setStatus(model, "error");
+        testResults.failed++;
+        testResults.total++;
+        updateStats();
+        log(`${model}: FAILED - ${error}`, "error");
+      }
+
+      function setSuccess(model, duration, size) {
+        testResults.success++;
+        testResults.total++;
+        const cost = getModelCost(model);
+        testResults.totalCost += cost;
+        updateStats();
+        setStatus(model, "success", `⏱️ ${duration}ms | 📦 ${size} | 💰 ${cost} pollens`);
+        log(`${model}: SUCCESS in ${duration}ms (cost: ${cost} pollens)`, "success");
+      }
+
+      async function testModel(model) {
+        const prompt = document.getElementById("prompt").value || "a simple cat coloring page";
+        const apiKey = document.getElementById("apiKey").value || DEFAULT_API_KEY;
+
+        setLoading(model);
+
+        const startTime = performance.now();
+
+        try {
+          const url = `${API_BASE_URL}/${encodeURIComponent(prompt)}?width=400&height=400&model=${model}&nologo=true&referrer=dseeker.github.io&key=${apiKey}`;
+
+          log(`Testing ${model}...`);
+
+          const response = await fetch(url);
+          const duration = Math.round(performance.now() - startTime);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
+          }
+
+          const contentType = response.headers.get("content-type");
+          if (!contentType || !contentType.includes("image")) {
+            throw new Error(`Invalid content type: ${contentType}`);
+          }
+
+          const blob = await response.blob();
+          const imageUrl = URL.createObjectURL(blob);
+          const size = (blob.size / 1024).toFixed(1) + " KB";
+
+          const container = document.getElementById(`${model}-container`);
+          container.innerHTML = `<img src="${imageUrl}" alt="${model} result" onclick="window.open('${imageUrl}', '_blank')" style="cursor: zoom-in;">`;
+
+          setSuccess(model, duration, size);
+        } catch (error) {
+          setError(model, error.message);
+        }
+      }
+
+      async function testAllModels() {
+        // Reset
+        testResults = { total: 0, success: 0, failed: 0 };
+        updateStats();
+        document.getElementById("log").innerHTML = "";
+
+        log("🚀 Starting model tests...", "info");
+        document.getElementById("testAllBtn").disabled = true;
+        document.getElementById("testAllBtn").textContent = "⏳ Testing...";
+
+        // Test all models in parallel
+        await Promise.all([testModel("zimage"), testModel("nanobanana"), testModel("flux")]);
+
+        document.getElementById("testAllBtn").disabled = false;
+        document.getElementById("testAllBtn").textContent = "🚀 Test All Models";
+
+        log(
+          `✅ Testing complete! ${testResults.success}/${testResults.total} successful`,
+          "success"
+        );
+      }
+
+      let availableModels = [];
+      let modelMetadata = {};
+      let selectedModels = new Set();
+
+      function renderModelTags() {
+        const tagsContainer = document.getElementById("modelTags");
+        tagsContainer.innerHTML = availableModels
+          .map(model => {
+            const isSelected = selectedModels.has(model);
+            return `<span 
+              onclick="toggleModel('${model}')" 
+              style="display: inline-block; background: ${isSelected ? "#667eea" : "#ccc"}; color: white; padding: 4px 12px; border-radius: 20px; margin: 4px; font-size: 12px; cursor: pointer; user-select: none; text-decoration: ${isSelected ? "none" : "line-through"}; opacity: ${isSelected ? "1" : "0.6"};"
+              title="Click to ${isSelected ? "deselect" : "select"}"
+            >
+              ${isSelected ? "✓" : "✗"} ${model}
+            </span>`;
+          })
+          .join("");
+
+        // Note: selected count is shown in the log
+        const selectedCount = selectedModels.size;
+        log(`${selectedCount}/${availableModels.length} models selected`, "info");
+      }
+
+      function toggleModel(model) {
+        if (selectedModels.has(model)) {
+          selectedModels.delete(model);
+          log(`➖ Deselected: ${model}`, "info");
+        } else {
+          selectedModels.add(model);
+          log(`➕ Selected: ${model}`, "success");
+        }
+        renderModelTags();
+        generateTestCards();
+      }
+
+      async function loadModelsFromAPI() {
+        const loadingEl = document.getElementById("modelsLoading");
+        if (loadingEl) loadingEl.style.display = "inline";
+
+        log("🔍 Fetching available models from API...", "info");
+
+        try {
+          const response = await fetch("https://gen.pollinations.ai/image/models");
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const models = await response.json();
+          availableModels = models.map(m => m.name || m.id).filter(Boolean);
+
+          // Store metadata
+          models.forEach(model => {
+            if (model.name) {
+              modelMetadata[model.name] = model;
+            }
+          });
+
+          log(`✅ Loaded ${availableModels.length} models from API`, "success");
+
+          // Update UI
+          document.getElementById("modelsInfo").style.display = "block";
+
+          // Initialize all models as selected
+          selectedModels = new Set(availableModels);
+
+          // Create toggleable model tags
+          renderModelTags();
+
+          // Generate test cards
+          generateTestCards();
+        } catch (error) {
+          log(`❌ Failed to load models: ${error.message}`, "error");
+          // Fall back to default models
+          availableModels = ["zimage", "nanobanana", "flux"];
+          selectedModels = new Set(availableModels);
+          renderModelTags();
+          generateTestCards();
+        } finally {
+          if (loadingEl) loadingEl.style.display = "none";
+        }
+      }
+
+      function generateTestCards() {
+        const grid = document.getElementById("testGrid");
+        // NOTE: We do NOT clear grid.innerHTML here to preserve existing cards/images
+
+        // Generate cards for ALL models, but hide deselected ones
+        availableModels.forEach(model => {
+          const isSelected = selectedModels.has(model);
+          const metadata = modelMetadata[model] || {};
+          const isPrimary = model === "zimage";
+          const isFallback = model === "nanobanana";
+          const badge = isPrimary ? "🎯 Primary" : isFallback ? "🔄 Fallback" : "⚡";
+          const description = metadata.description
+            ? `<p style="font-size: 12px; color: #666; margin: 5px 0;">${metadata.description.substring(0, 100)}...</p>`
+            : "";
+
+          // Parse pricing info
+          let pricingHtml = "";
+          if (metadata.pricing) {
+            const pricing = metadata.pricing;
+            const cost =
+              pricing["completionImageTokens"] ||
+              pricing["completionVideoTokens"] ||
+              pricing["completionVideoSeconds"] ||
+              pricing["completionAudioSeconds"] ||
+              0;
+
+            // Determine what type of content this model generates
+            const outputModalities = metadata.output_modalities || [];
+            const isVideo = outputModalities.includes("video");
+            const isImage = outputModalities.includes("image");
+            const unit = pricing["completionVideoSeconds"]
+              ? "seconds"
+              : pricing["completionVideoTokens"]
+                ? "video tokens"
+                : pricing["completionAudioSeconds"]
+                  ? "audio seconds"
+                  : "tokens";
+            const contentType = isVideo ? "video" : isImage ? "image" : "content";
+
+            if (cost > 0) {
+              pricingHtml = `<div style="margin-top: 10px; padding: 8px; background: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;">
+                <strong style="color: #856404;">💰 Cost: ${cost} pollens</strong>
+              </div>`;
+            }
+          }
+
+          // Add metadata badges
+          let badgesHtml = "";
+          if (metadata.paid_only) {
+            badgesHtml += `<span style="display: inline-block; background: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-right: 4px;">💎 PAID</span>`;
+          } else {
+            badgesHtml += `<span style="display: inline-block; background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-right: 4px;">✓ FREE</span>`;
+          }
+
+          if (metadata.input_modalities && metadata.input_modalities.includes("image")) {
+            badgesHtml += `<span style="display: inline-block; background: #17a2b8; color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-right: 4px;">🖼️ Image Input</span>`;
+          }
+
+          if (metadata.output_modalities && metadata.output_modalities.includes("video")) {
+            badgesHtml += `<span style="display: inline-block; background: #6f42c1; color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-right: 4px;">🎥 Video</span>`;
+          }
+
+          const existingCard = document.getElementById(`${model}-card`);
+
+          if (existingCard) {
+            // Card already exists, just toggle visibility
+            existingCard.style.display = isSelected ? "block" : "none";
+            return;
+          }
+
+          // Create new card
+          const card = document.createElement("div");
+          card.className = "test-card";
+          card.id = `${model}-card`;
+          card.style.display = isSelected ? "block" : "none";
+          card.style.cursor = "pointer";
+          card.style.position = "relative";
+          card.title = "Click to deselect this model";
+
+          // Add click handler to deselect
+          card.onclick = e => {
+            // Don't deselect if clicking on a generated image
+            if (e.target.tagName === "IMG") return;
+            toggleModel(model);
+          };
+
+          // Add deselect button overlay
+          const deselectBtn = `
+            <div style="position: absolute; top: 8px; right: 8px; background: rgba(220, 53, 69, 0.9); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.2s;" 
+                 onmouseover="this.style.transform='scale(1.1)'" 
+                 onmouseout="this.style.transform='scale(1)'"
+                 title="Deselect"
+                 onclick="event.stopPropagation(); toggleModel('${model}');"
+            >×</div>
+          `;
+
+          card.innerHTML = `
+            ${deselectBtn}
+            <h3>${badge} ${model}</h3>
+            <div style="margin-bottom: 8px;">${badgesHtml}</div>
+            ${description}
+            ${pricingHtml}
+            <span class="status pending" id="${model}-status">Pending</span>
+            <div class="image-container" id="${model}-container">
+              <div class="loading">Click "Test All Models" to start</div>
+            </div>
+            <div id="${model}-info"></div>
+          `;
+          grid.appendChild(card);
+        });
+
+        log(
+          `🎨 Generated ${availableModels.length} cards (${selectedModels.size} visible, ${availableModels.length - selectedModels.size} hidden)`,
+          "info"
+        );
+      }
+
+      function clearAll() {
+        // Clear ALL model cards (both visible and hidden)
+        availableModels.forEach(model => {
+          const container = document.getElementById(`${model}-container`);
+          if (container) {
+            container.innerHTML = '<div class="loading">Click "Test All Models" to start</div>';
+          }
+          const infoEl = document.getElementById(`${model}-info`);
+          if (infoEl) infoEl.innerHTML = "";
+          const statusEl = document.getElementById(`${model}-status`);
+          if (statusEl) {
+            statusEl.className = "status pending";
+            statusEl.textContent = "Pending";
+          }
+        });
+        testResults = { total: 0, success: 0, failed: 0, totalCost: 0 };
+        updateStats();
+        document.getElementById("log").innerHTML =
+          '<div class="log-entry">🚀 Ready to test! Click "Test All Models" to begin.</div>';
+      }
+
+      function selectAllModels() {
+        availableModels.forEach(model => selectedModels.add(model));
+        renderModelTags();
+        generateTestCards();
+        log("✅ All models selected", "success");
+      }
+
+      function deselectAllModels() {
+        selectedModels.clear();
+        renderModelTags();
+        generateTestCards();
+        log("➖ All models deselected", "info");
+      }
+
+      async function testAllModels() {
+        if (availableModels.length === 0) {
+          await loadModelsFromAPI();
+        }
+
+        // Reset
+        testResults = { total: 0, success: 0, failed: 0, totalCost: 0 };
+        updateStats();
+        document.getElementById("log").innerHTML = "";
+
+        // Check if any models are selected
+        if (selectedModels.size === 0) {
+          log("⚠️ No models selected! Please select at least one model to test.", "error");
+          document.getElementById("testAllBtn").disabled = false;
+          return;
+        }
+
+        log(`🚀 Starting tests for ${selectedModels.size} selected models...`, "info");
+
+        // Calculate estimated total cost for selected models only
+        const estimatedCost = Array.from(selectedModels).reduce(
+          (sum, model) => sum + getModelCost(model),
+          0
+        );
+        log(`💰 Estimated cost: ${estimatedCost.toFixed(2)} pollens for selected models`, "info");
+
+        // Warn if cost is high
+        if (estimatedCost > 50) {
+          log(
+            `⚠️  High cost warning: Testing will consume ${estimatedCost.toFixed(2)} pollens!`,
+            "error"
+          );
+        }
+        document.getElementById("testAllBtn").disabled = true;
+        document.getElementById("testAllBtn").textContent = "⏳ Testing...";
+
+        // Test only selected models in parallel
+        await Promise.all(Array.from(selectedModels).map(model => testModel(model)));
+
+        document.getElementById("testAllBtn").disabled = false;
+        document.getElementById("testAllBtn").textContent = "🚀 Test All Models";
+
+        log(
+          `✅ Testing complete! ${testResults.success}/${testResults.total} successful`,
+          "success"
+        );
+      }
+
+      // Auto-load models on page load
+      window.addEventListener("DOMContentLoaded", () => {
+        loadModelsFromAPI();
+      });
+
+      // Auto-test on load if URL has ?autotest
+      if (window.location.search.includes("autotest")) {
+        setTimeout(testAllModels, 2000);
+      }
+    </script>
+  </body>
+</html>

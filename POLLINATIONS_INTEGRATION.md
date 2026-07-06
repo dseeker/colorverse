@@ -7,7 +7,7 @@
 1. Create a `.env` file in the project root (if not already exists)
 2. Add the following line to the `.env` file:
    ```
-   POLLINATIONS_API_KEY=pk_9sbL41ofRXSoaOC2
+   POLLINATIONS_API_KEY=your_pollinations_api_key_here
    ```
 
 ### Security Recommendations

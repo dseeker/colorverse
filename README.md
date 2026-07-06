@@ -26,8 +26,8 @@ ColorVerse is a web application that provides free, AI-generated coloring pages.
    ```
 
 4. **Access the application**:
-   - **Local URL**: http://localhost:3000
-   - **Network URL**: http://192.168.8.196:3000 (your local IP may vary)
+   - **Local URL**: http://localhost:4000
+   - **Network URL**: http://192.168.8.196:4000 (your local IP may vary)
 
 ### Verification Steps
 
@@ -38,8 +38,8 @@ After starting the server, you should see:
    │                                              │
    │   Serving!                                   │
    │                                              │
-   │   - Local:    http://localhost:3000          │
-   │   - Network:  http://192.168.8.196:3000      │
+   │   - Local:    http://localhost:4000          │
+   │   - Network:  http://192.168.8.196:4000      │
    │                                              │
    └──────────────────────────────────────────────┘
 ```
@@ -51,14 +51,14 @@ If you're using Puppeteer for automated testing or screenshots:
 1. **Ensure the server is running** (see steps above)
 
 2. **Use the correct URL format**:
-   - ✅ **Correct**: `http://localhost:3000`
-   - ❌ **Avoid**: `http://127.0.0.1:3000` (may cause connection issues in containers)
+   - ✅ **Correct**: `http://localhost:4000`
+   - ❌ **Avoid**: `http://127.0.0.1:4000` (may cause connection issues in containers)
 
 3. **Example Puppeteer usage**:
    puppeteer_navigate
    Navigate to a URL
    {
-   "url": "http://host.docker.internal:3000",
+   "url": "http://host.docker.internal:4000",
    "allowDangerous": true
    }
 
@@ -67,7 +67,7 @@ If you're using Puppeteer for automated testing or screenshots:
 **If you see "Connection refused" errors:**
 
 - Ensure the server is running (`npm start`)
-- Check that port 3000 is not already in use
+- Check that port 4000 is not already in use
 - Try refreshing the page after a few seconds
 
 **If images don't load:**
@@ -111,7 +111,7 @@ This project uses Pollinations.ai API v3 for AI-powered image and text generatio
 2. **Add your API key** to `.env`:
 
    ```
-   POLLINATIONS_API_KEY=pk_9sbL41ofRXSoaOC2
+   POLLINATIONS_API_KEY=your_pollinations_api_key_here
    ```
 
    The API key is pre-configured in `.env.example`.
@@ -130,7 +130,7 @@ For detailed API documentation, see [POLLINATIONS_INTEGRATION.md](./POLLINATIONS
 
 | Command                    | Description                                |
 | -------------------------- | ------------------------------------------ |
-| `npm start`                | Start development server on localhost:3000 |
+| `npm start`                | Start development server on localhost:4000 |
 | `npm test`                 | Run all tests (watch mode with Vitest)     |
 | `npm run test:run`         | Run all tests (single run)                 |
 | `npm run test:unit`        | Run unit tests only                        |
