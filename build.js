@@ -38,7 +38,8 @@ const CONFIG = {
   imageHeight: 1024,
   thumbWidth: 400,
   thumbHeight: 400,
-  concurrency: 3,
+  concurrency: 2, // Conservative default — reduce to stay under rate limits
+  delayBetweenImages: 1500, // ms between requests within a batch (Seed tier = 1req/5s)
   model: "openai",
   imageModel: "flux",
 };
@@ -266,14 +267,53 @@ async function downloadImage(prompt, seed, outputPath, width, height) {
 
   const url = `${CONFIG.imageApiUrl}/${encodeURIComponent(coloringPrompt)}?${params}`;
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Image API ${response.status} for: ${prompt.substring(0, 60)}`);
+  const MAX_RETRIES = 5;
+  let lastError;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const response = await fetch(url);
+
+    if (response.ok) {
+      const buffer = Buffer.from(await response.arrayBuffer());
+      fs.writeFileSync(outputPath, buffer);
+      return buffer.length;
+    }
+
+    const status = response.status;
+    const body = await response.text().catch(() => "");
+
+    if (status === 429) {
+      // Rate limited — respect Retry-After header or use exponential backoff
+      const retryAfter =
+        response.headers.get("retry-after") || response.headers.get("x-ratelimit-reset-after");
+      const waitMs = retryAfter
+        ? parseFloat(retryAfter) * 1000
+        : Math.min(5000 * Math.pow(2, attempt - 1), 60000); // 5s, 10s, 20s, 40s, 60s
+      process.stdout.write(
+        `\n  ⏳ Rate limited (429). Waiting ${(waitMs / 1000).toFixed(0)}s before retry ${attempt}/${MAX_RETRIES}...`
+      );
+      await sleep(waitMs);
+    } else if (status === 402) {
+      // Balance exhausted — wait longer, balance may refill over time
+      const waitMs = Math.min(60000 * attempt, 300000); // 1min, 2min, 3min, 4min, 5min
+      process.stdout.write(
+        `\n  💸 Balance exhausted (402). Waiting ${(waitMs / 1000).toFixed(0)}s before retry ${attempt}/${MAX_RETRIES}... [${body.substring(0, 80)}]`
+      );
+      await sleep(waitMs);
+    } else {
+      // Other error — short backoff, fewer retries
+      lastError = new Error(`Image API ${status} for: ${prompt.substring(0, 60)}`);
+      if (attempt < 3) {
+        await sleep(2000 * attempt);
+      } else {
+        throw lastError;
+      }
+    }
+
+    lastError = new Error(`Image API ${status} (attempt ${attempt}/${MAX_RETRIES})`);
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer());
-  fs.writeFileSync(outputPath, buffer);
-  return buffer.length;
+  throw lastError || new Error(`Image API failed after ${MAX_RETRIES} retries`);
 }
 
 // --- Generate category content ---
@@ -302,7 +342,7 @@ Output ONLY the JSON object.`;
 }
 
 // --- Parallel download with concurrency limit ---
-async function downloadImagesParallel(tasks, concurrency) {
+async function downloadImagesParallel(tasks, concurrency, delayMs) {
   let completed = 0;
   const total = tasks.length;
   const results = [];
@@ -310,7 +350,11 @@ async function downloadImagesParallel(tasks, concurrency) {
   for (let i = 0; i < tasks.length; i += concurrency) {
     const batch = tasks.slice(i, i + concurrency);
     const batchResults = await Promise.allSettled(
-      batch.map(async task => {
+      batch.map(async (task, batchIndex) => {
+        // Stagger requests within a batch to avoid burst rate limiting
+        if (batchIndex > 0) {
+          await sleep(delayMs * batchIndex);
+        }
         try {
           const size = await downloadImage(
             task.prompt,
@@ -336,9 +380,9 @@ async function downloadImagesParallel(tasks, concurrency) {
     );
     results.push(...batchResults.map(r => r.value));
 
-    // Small delay between batches
+    // Delay between batches to stay under rate limits
     if (i + concurrency < tasks.length) {
-      await sleep(500);
+      await sleep(delayMs);
     }
   }
   console.log(""); // newline after progress
@@ -356,6 +400,9 @@ async function build() {
   const concurrency = args.includes("--concurrency")
     ? parseInt(args[args.indexOf("--concurrency") + 1])
     : CONFIG.concurrency;
+  const delayMs = args.includes("--delay")
+    ? parseInt(args[args.indexOf("--delay") + 1])
+    : CONFIG.delayBetweenImages;
 
   console.log("╔══════════════════════════════════════════╗");
   console.log("║   ColorVerse Static Build                ║");
@@ -366,7 +413,7 @@ async function build() {
     ) + "║"
   );
   console.log(`║  Season: ${getCurrentSeason()}`.padEnd(43) + "║");
-  console.log(`║  Image concurrency: ${concurrency}`.padEnd(43) + "║");
+  console.log(`║  Image concurrency: ${concurrency}, delay: ${delayMs}ms`.padEnd(43) + "║");
   console.log("╚══════════════════════════════════════════╝");
 
   // Ensure dist directories exist
@@ -519,7 +566,7 @@ async function build() {
       console.log("  All images already downloaded. Nothing to do.");
     } else {
       console.log(`  ${imageTasks.length} images to download (concurrency: ${concurrency})...\n`);
-      const results = await downloadImagesParallel(imageTasks, concurrency);
+      const results = await downloadImagesParallel(imageTasks, concurrency, delayMs);
       const totalSize = results.reduce((sum, r) => sum + (r?.size || 0), 0);
       console.log(
         `  ✅ Downloaded ${results.length} images (${(totalSize / 1024 / 1024).toFixed(1)} MB)`
