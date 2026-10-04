@@ -50,8 +50,8 @@
     <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" as="style">
     
     <!-- Prefetch likely next pages (search and favorites) -->
-    <link rel="prefetch" href="/src/services/searchManager.js" as="script">
-    <link rel="prefetch" href="/src/services/favoritesManager.js" as="script">
+    <link rel="prefetch" href="src/services/searchManager.js" as="script">
+    <link rel="prefetch" href="src/services/favoritesManager.js" as="script">
     
     <title>ColorVerse - Free Coloring Pages for Kids | Download & Print</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -1504,7 +1504,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
+                navigator.serviceWorker.register('service-worker.js')
                     .then((registration) => {
                         console.log('[SW] Service Worker registered:', registration.scope);
                         

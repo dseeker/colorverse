@@ -96,18 +96,28 @@ test.describe("Live site end-to-end", () => {
     const tries = imageRequests.length;
     expect(tries).toBeGreaterThan(0);
 
-    // The image element should have a non-empty src pointing at the worker
-    const src = await coloringImage.getAttribute("src");
-    expect(src).toBeTruthy();
-    expect(src).toContain(WORKER_HOST);
+    // The image element uses lazy loading: src is a 1x1 placeholder, and the
+    // real worker URL lives in data-src. Check both.
+    const dataSrc = await coloringImage.getAttribute("data-src");
+    expect(dataSrc).toBeTruthy();
+    expect(dataSrc).toContain(WORKER_HOST);
   });
 
   test("no console errors on home load", async ({ page }) => {
     const errors: string[] = [];
+    const failedRequests: string[] = [];
     page.on("console", msg => {
       if (msg.type() === "error") errors.push(msg.text());
     });
     page.on("pageerror", err => errors.push(err.message));
+    page.on("requestfailed", req => {
+      failedRequests.push(`${req.url()} (${req.failure()?.errorText || "unknown"})`);
+    });
+    page.on("response", res => {
+      if (res.status() >= 400) {
+        failedRequests.push(`${res.url()} (HTTP ${res.status()})`);
+      }
+    });
 
     await page.goto(LIVE_URL);
     await page.waitForLoadState("networkidle");
@@ -118,14 +128,22 @@ test.describe("Live site end-to-end", () => {
     //   SW is registered with an absolute /service-worker.js path that lands
     //   outside the project scope. Pre-existing.
     // - favicon, third-party cookie, deprecation noise.
+    const swPattern = /service-worker\.js|Service Worker registration failed|fetching the script/;
     const realErrors = errors.filter(
       e =>
         !e.includes("favicon") &&
         !e.includes("third-party cookie") &&
         !e.includes("Deprecation") &&
-        !e.includes("service-worker.js") &&
-        !e.includes("Service Worker registration failed")
+        !swPattern.test(e)
     );
+
+    // Tolerate only the pre-existing SW 404s. Any other failed request is a
+    // regression. Log what failed so the test output is actionable.
+    const nonSwFailures = failedRequests.filter(url => !swPattern.test(url));
+    if (nonSwFailures.length > 0) {
+      console.error("Unexpected failed requests:\n" + nonSwFailures.join("\n"));
+    }
+    expect(nonSwFailures).toEqual([]);
     expect(realErrors).toEqual([]);
   });
 });
