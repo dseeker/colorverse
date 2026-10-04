@@ -1128,10 +1128,15 @@ function getImageUrl(prompt, params = {}) {
       nologo: fullParams.nologo,
       referrer: REFERRER_ID,
       model: "flux", // Use flux model for high-quality coloring pages
-      key: window._env?.POLLINATIONS_API_KEY || "", // Publishable client key for priority access
       enhance: "true", // Let AI improve the prompt
       quality: "medium", // Balance between quality and speed
     });
+    // Only send a key when the feature flag is on AND a key is configured.
+    // NOTE: anonymous tier 401s on fresh flux requests as of Oct 2026 — flip flag with a valid
+    // pk_* key, or set IMAGE_PROXY_URL to the deployed worker (sk_* server-side, no key in client).
+    if (window._env?.USE_POLLINATIONS_API_KEY && window._env?.POLLINATIONS_API_KEY) {
+      query.set("key", window._env.POLLINATIONS_API_KEY);
+    }
 
     // If image proxy is configured, route through it (keeps API key server-side)
     const imageProxyUrl = window._env?.IMAGE_PROXY_URL;

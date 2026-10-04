@@ -17,9 +17,9 @@ describe("Pollinations API Integration Tests", () => {
         },
       });
 
-      // API may return 200 (success), 400 (bad request), 401 (auth failure), 429 (rate limit)
-      // Accept all valid API responses - we're testing connectivity, not specific behavior
-      expect([200, 400, 401, 429]).toContain(response.status);
+      // 401 = invalid key (regression, not transient). Tolerate 200/400 (success/bad prompt),
+      // 429 (rate limit), 500 (server error).
+      expect([200, 400, 429, 500]).toContain(response.status);
 
       if (response.ok) {
         const contentType = response.headers.get("content-type");
@@ -50,8 +50,8 @@ describe("Pollinations API Integration Tests", () => {
 
       const response = await fetch(url);
 
-      // May get 200 (success), 400 (bad request), or 401 (invalid key)
-      expect([200, 400, 401, 429]).toContain(response.status);
+      // 401 = invalid key (regression). Tolerate 200/400/429/500 as transient/valid.
+      expect([200, 400, 429, 500]).toContain(response.status);
     }, 60000);
 
     it("should handle model parameter correctly", async () => {
@@ -81,9 +81,9 @@ describe("Pollinations API Integration Tests", () => {
         headers: { Authorization: `Bearer ${API_KEY}` },
       });
 
-      // Accept either success, auth errors, rate limits, or server errors (500)
-      expect([200, 400, 401, 429, 500]).toContain(response1.status);
-      expect([200, 400, 401, 429, 500]).toContain(response2.status);
+      // 401 = invalid key (regression). Tolerate 200/400/429/500 as transient/valid.
+      expect([200, 400, 429, 500]).toContain(response1.status);
+      expect([200, 400, 429, 500]).toContain(response2.status);
     }, 60000);
   });
 

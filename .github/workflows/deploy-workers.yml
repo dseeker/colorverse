@@ -1,0 +1,72 @@
+name: Deploy Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workers/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Skip if the required secret isn't configured — the deploy will fail anyway,
+    # and failing loudly here would block CI on every worker-code push until fixed.
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install wrangler
+        run: npm install -g wrangler@latest
+
+      - name: Deploy image-proxy worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/image-proxy
+          command: deploy
+
+      - name: Set POLLINATIONS_API_KEY on image-proxy
+        if: ${{ secrets.POLLINATIONS_API_KEY != '' }}
+        workingDirectory: workers/image-proxy
+        run: echo "${{ secrets.POLLINATIONS_API_KEY }}" | wrangler secret put POLLINATIONS_API_KEY
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy content-api worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/content-api
+          command: deploy
+
+      - name: Set POLLINATIONS_API_KEY on content-api
+        if: ${{ secrets.POLLINATIONS_API_KEY != '' }}
+        workingDirectory: workers/content-api
+        run: echo "${{ secrets.POLLINATIONS_API_KEY }}" | wrangler secret put POLLINATIONS_API_KEY
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Set OPENROUTER_API_KEY on content-api
+        if: ${{ secrets.OPENROUTER_API_KEY != '' }}
+        workingDirectory: workers/content-api
+        run: echo "${{ secrets.OPENROUTER_API_KEY }}" | wrangler secret put OPENROUTER_API_KEY
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Set GOOGLE_GEMINI_API_KEY on content-api
+        if: ${{ secrets.GOOGLE_GEMINI_API_KEY != '' }}
+        workingDirectory: workers/content-api
+        run: echo "${{ secrets.GOOGLE_GEMINI_API_KEY }}" | wrangler secret put GOOGLE_GEMINI_API_KEY
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

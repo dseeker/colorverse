@@ -1338,12 +1338,17 @@
             } catch (_) { return ''; }
         }
         // API configuration
-        // Keys are obfuscated to deter casual copying - they are publishable client keys (pk_ prefix)
-        const _s = 'ColorVerse2025';
+        // Image generation routes through the deployed Cloudflare Worker (workers/image-proxy)
+        // via IMAGE_PROXY_URL. The worker injects the sk_* server-side, so no key ships to the
+        // client. The POLLINATIONS_API_KEY + USE_POLLINATIONS_API_KEY flag below are a fallback
+        // path for client-side keying (only enable if the worker is unavailable); both are empty
+        // / off by default. A pre-commit hook (.husky/pre-commit) blocks plaintext sk_*/pk_*
+        // from being committed.
         window._env = window._env || {
-            POLLINATIONS_API_KEY: _cv('MwQzVgE0KUZCClRiamYsDiMsQA==', _s),
+            POLLINATIONS_API_KEY: '',
+            USE_POLLINATIONS_API_KEY: false,
             CONTENT_API_URL: '',
-            IMAGE_PROXY_URL: '',
+            IMAGE_PROXY_URL: 'https://colorverse-image-proxy.daniel-bca.workers.dev',
         };
     </script>
     <!-- Load Site Data and App Logic -->

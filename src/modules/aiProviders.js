@@ -404,7 +404,8 @@ function getOptimizedModelOrder(preferredModel = "openai") {
     "gemma-roblox", // Gemma 2 9B (lightweight)
     "glm", // GLM-4 9B (alternative)
     "phi", // Phi-4 Mini (fallback)
-    "mistral-nemo-roblox", // Final fallback
+    "mistral-nemo-roblox", // Fast final fallback
+    "kimi", // Kimi-K2.6 (reasoning, 256k ctx) — late fallback, slower but high-quality
   ];
 
   // Filter out recently failed models and sort by success

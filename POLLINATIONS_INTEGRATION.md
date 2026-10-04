@@ -346,3 +346,23 @@ For issues with Pollinations.ai integration, visit:
 - ✅ Test text generation with new endpoints
 - ✅ Update error handling for 401 responses
 - ✅ Update documentation and examples
+
+## Image Proxy Worker (Server-Side Key)
+
+The repo ships an undeployed Cloudflare Worker at `workers/image-proxy/` that proxies Pollinations image requests and injects a server-side `sk_*` key. This keeps the secret out of the browser and works around the current image API breakage, where the client-baked `pk_*` key is revoked and the anonymous tier 401s on fresh `flux` requests against `gen.pollinations.ai`.
+
+The alternative path is the `USE_POLLINATIONS_API_KEY` client flag (`index.html:1345`), which ships a publishable `pk_*` in the client. The worker is the recommended path for production: it uses a secret `sk_*` that the client never sees.
+
+### Deploy and Wire Steps
+
+1. `cd workers/image-proxy && npx wrangler login` (if not already authenticated)
+2. Obtain a valid `sk_*` key from https://enter.pollinations.ai/keys
+3. `npx wrangler secret put POLLINATIONS_API_KEY` and paste the `sk_*` key
+4. (Recommended) tighten `workers/image-proxy/wrangler.toml` `ALLOWED_ORIGINS` from `"*"` to your production origin (e.g., `https://dseeker.github.io`) to prevent open-proxy abuse
+5. `npx wrangler deploy` and note the printed `https://colorverse-image-proxy.<subdomain>.workers.dev` URL
+6. Set `IMAGE_PROXY_URL` in `index.html:1347` to that URL (and add it to `.env.example` if one exists)
+7. Redeploy/republish the static site
+
+### Client Wiring
+
+No client code change is needed. The wiring at `app.js:1137-1144` already checks `window._env.IMAGE_PROXY_URL` and, when set, builds `${imageProxyUrl}?prompt=<encoded>` with the remaining params. Setting `IMAGE_PROXY_URL` is the only client-side change required.
