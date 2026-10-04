@@ -4,8 +4,8 @@
  * Version: 1.0.0
  */
 
-const CACHE_NAME = "colorverse-v1";
-const STATIC_CACHE = "colorverse-static-v1";
+const CACHE_NAME = "colorverse-v2";
+const STATIC_CACHE = "colorverse-static-v2";
 const IMAGE_CACHE = "colorverse-images-v1";
 const API_CACHE = "colorverse-api-v1";
 
@@ -14,6 +14,7 @@ const STATIC_ASSETS = [
   "/",
   "/index.html",
   "/app.js",
+  "/offline.html",
   "/src/services/seoManager.js",
   "/src/services/favoritesManager.js",
   "/src/services/searchManager.js",

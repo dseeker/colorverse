@@ -1,82 +1,34 @@
-# ColorVerse - Recent Changes Summary
+# ColorVerse - Changelog
 
-## Files Modified
+## 2026-10-04
 
-### 1. app.js
+- **Security**: Removed hardcoded fallback `pk_*` key in `build.js`; build now fails fast if `POLLINATIONS_API_KEY` is unset. Tightened husky pre-commit hook regex threshold from 20 → 12 chars.
+- **SEO**: Wired up `src/services/seoManager.js` (was dead code). `app.js` `updateSEO()` now injects JSON-LD and updates meta tags per route. `build.js` now emits `dist/sitemap.xml` so `robots.txt`'s sitemap reference resolves.
+- **Offline**: Added `offline.html`; bumped service-worker cache to `v2`. `cacheFirst` offline fallback now resolves to a real page instead of `caches.match("/offline.html")` (which 404'd).
+- **Security**: Added `escapeHtml` / `escapeJsAttr` helpers in `app.js`. Applied to AI-generated `item.title` / `item.description` in `renderItem`, `renderCategory`, `renderRelatedItems`, and the print-window document.
+- **Docs**: Refreshed `DEVELOPMENT.md`, `LATEST.md`, `CHANGES.md`; removed references to dead `test/` directory and `test.html`; documented the worker-based production path.
 
-- **Added DEBUG_MODE system** with URL-based activation
-  - Enable with: `?debug=true`, `?debug=1`, `#debug`, or `?dev=true`
-  - All console logs now wrapped in DEBUG_MODE checks
-  - Debug utility object with log/warn/info/table/group/time methods
-  - Errors always shown regardless of debug mode
+## Earlier
 
-- **Replaced IS_DEV_MODE with DEBUG_MODE**
-  - Removed old localhost-based detection
-  - 31 locations updated to use new DEBUG_MODE flag
-  - Logging now controlled by URL parameter
-
-### 2. Archive
-
-- **Moved debug/ folder to archive/debug/**
-  - 8 test scripts archived (no longer needed in production)
-  - All scripts were development/testing tools for AI model testing
+- **Debug system overhaul**: URL-based `DEBUG_MODE` (`?debug=true`, `#debug`, `?dev=true`); all logs wrapped via `debug` utility; errors always surface.
+- **Archive cleanup**: Moved `debug/` test scripts to `archive/debug/`; archived `test-json-generator.js` and `generate-image.js`.
+- **Cache system**: 24-hour cache for all environments (was 10 min dev / 6 hrs prod); content stays consistent throughout the day.
+- **Theme system**: Tailwind classes for light/dark; deterministic gradients based on section title/id.
+- **AI model config**: Primary `gemini-fast`; fallback chain in `src/services/aiProviderConfig.js`.
+- **Deterministic content**: Featured categories, popular items, related items, and gradients use date/hash-based algorithms.
 
 ## How to Use Debug Mode
 
-Add one of these to your URL:
+Add one of these to the URL:
 
 - `http://localhost:4000/?debug=true`
 - `http://localhost:4000/#debug`
 - `http://localhost:4000/?dev=true`
 
-When enabled, you'll see:
-
-- Green "🔧 DEBUG MODE ENABLED" banner in console
-- All application logs visible
-- Performance timings
-- API call details
-
-## Cache Duration Changes (Previously Done)
-
-- Changed from 10 minutes (dev) / 6 hours (prod) to **24 hours for all environments**
-- Content now stays consistent throughout the entire day
-- Refresh happens once daily
-
-## Model Configuration (Previously Done)
-
-- Primary: `gemini-fast`
-- Fallback chain: `mistral` → `nova-fast` → others
-- Removed `openai-large` from fetchFreshData
-
-## Deterministic Content (Previously Done)
-
-All random elements now use deterministic algorithms:
-
-- Featured categories: Based on current date
-- Popular items: Date-based shuffle
-- Related items: Hash-based sorting
-- Gradient colors: Title-based selection
-
-## Next Steps / TODO
-
-1. **Testing**: Verify debug mode works correctly
-2. **Documentation**: Update README.md with debug mode instructions
-3. **LATEST.md**: Create comprehensive changelog
-4. **Code cleanup**: Consider removing remaining unused code
-5. **Performance**: Test with debug mode off to ensure no console overhead
-
-## Files to Archive (Optional)
-
-The following files in root could also be archived:
-
-- `test.html` - Old test file
-- `ai-playground.html` - Model testing playground
-- `model-test.html` - Model comparison tool
-- `test-json-generator.js` - JSON structure testing
-- Various `.md` docs that are outdated
+When enabled you'll see a green "🔧 DEBUG MODE ENABLED" banner in the console, all application logs, performance timings, and API call details.
 
 ## Key URLs
 
-- **Normal mode**: `http://localhost:4000/`
-- **Debug mode**: `http://localhost:4000/?debug=true`
-- **Clear cache**: Run `clearAllCache()` in browser console
+- Normal mode: `http://localhost:4000/`
+- Debug mode: `http://localhost:4000/?debug=true`
+- Clear cache: `clearAllCache()` in the browser console

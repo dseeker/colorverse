@@ -2,7 +2,7 @@ npx lint-staged
 
 # Block plaintext Pollinations keys (sk_*/pk_*) from being committed.
 # Encoded forms (e.g. _cv('...', salt)) are allowed — this matches the raw key only.
-if git diff --cached --name-only -z | xargs -0 grep -lE '(sk|pk)_[A-Za-z0-9]{20,}' 2>/dev/null; then
+if git diff --cached --name-only -z | xargs -0 grep -lE '(sk|pk)_[A-Za-z0-9]{12,}' 2>/dev/null; then
   echo "❌ Commit blocked: plaintext Pollinations API key detected in staged files."
   echo "   Either remove the key, encode it with _cv() (see index.html), or use IMAGE_PROXY_URL (worker) instead."
   echo "   To bypass for a deliberate local-only commit: git commit --no-verify (NOT RECOMMENDED)."

@@ -186,34 +186,6 @@ npm run test:watch
 npm run test:coverage
 ```
 
-src/tests/
-├── unit/ # Unit tests for individual functions (89 tests)
-├── integration/ # Integration tests for component interactions (55 tests)
-├── e2e/ # End-to-end tests (coming soon)
-├── mocks/ # Mock data and API responses
-└── helpers.ts # Test utilities and environment helpers
-
-````
-
-### Running Tests
-
-```bash
-# Run all tests
-npm test
-
-# Run unit tests only
-npm run test:unit
-
-# Run integration tests only
-npm run test:integration
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run tests with UI
-npm run test:ui
-````
-
 ### Current Test Results
 
 - ✅ **174 tests passing** (89 unit + 55 integration + 30 E2E)
@@ -304,51 +276,6 @@ API_URL=https://your-prod-url.com
 ```
 
 See `.env.example` for all available environment variables.
-
-## Code Quality
-
-This project uses **ESLint** and **Prettier** for consistent code quality and formatting.
-
-### Code Quality Tools
-
-- **ESLint** - JavaScript linting for code quality and error detection
-- **Prettier** - Code formatter for consistent style across the codebase
-- **Husky** - Git hooks for automated pre-commit checks
-- **lint-staged** - Run linters only on staged files
-
-### Linting & Formatting
-
-```bash
-# Check code quality
-npm run lint
-
-# Auto-fix linting issues
-npm run lint:fix
-
-# Format all files
-npm run format
-
-# Check formatting without changing files
-npm run format:check
-```
-
-### Pre-Commit Hooks
-
-Automated checks run before every commit:
-
-- ESLint validation with auto-fix
-- Prettier formatting
-- Tests (recommended to run manually)
-
-To bypass hooks (not recommended): `git commit --no-verify`
-
-### Code Style
-
-- 2-space indentation
-- Double quotes (")
-- Semicolons required
-- Max line width: 100 characters
-- LF line endings (Unix style)
 
 ### Current Status
 

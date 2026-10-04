@@ -74,6 +74,29 @@ function sanitizeFilename(str) {
     .toLowerCase();
 }
 
+// Escape AI-generated text before interpolating into HTML.
+// Use for any ${itemData.title} / ${itemData.description} that lands in
+// template strings rendered via .innerHTML, or in attribute values
+// (alt, download, onclick string args). Source content is AI-generated
+// and not fully trusted, so block <script>, ", ', etc.
+function escapeHtml(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Escape for use inside a single-quoted JS string literal (e.g. onclick="fn('${x}')").
+// Handles the quote plus the HTML-context chars that could break the attribute.
+function escapeJsAttr(value) {
+  return escapeHtml(value).replace(/\\/g, "\\\\").replace(/'/g, "\\&#39;");
+}
+
 // Build image lookup map from static site data
 function buildStaticImageMap(data) {
   const map = new Map();
@@ -2004,13 +2027,16 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
   const itemsPerPage = 20; // Show 20 items per page
   const totalPages = 8; // Fixed 8 pages as requested
 
+  const escCatTitle = escapeHtml(categoryData.title);
+  const escCatDesc = escapeHtml(categoryData.description || "");
+
   let html = `
         <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 dark:text-gray-400 py-2">
             <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
                 <i class="fas fa-home mr-1"></i> Home
             </a>
             <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
-            <span class="font-medium text-gray-800 dark:text-gray-200">${categoryData.title}</span>
+            <span class="font-medium text-gray-800 dark:text-gray-200">${escCatTitle}</span>
         </nav>
         
         <div class="bg-gradient-to-r from-primary-500 to-primary-700 rounded-xl p-6 text-white mb-8 relative overflow-hidden">
@@ -2020,8 +2046,8 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
                     <i class="${categoryIcon} text-3xl"></i>
                 </div>
                 <div>
-                    <h2 class="text-3xl font-bold">${categoryData.title}</h2>
-                    <p class="mt-2 text-white text-opacity-90 max-w-2xl">${categoryData.description || ""}</p>
+                    <h2 class="text-3xl font-bold">${escCatTitle}</h2>
+                    <p class="mt-2 text-white text-opacity-90 max-w-2xl">${escCatDesc}</p>
                 </div>
             </div>
         </div>
@@ -2059,6 +2085,8 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
       itemKey: itemKey,
       seed: getDeterministicSeed(categoryKey, itemKey), // ✅ Deterministic across pagination
     });
+    const escItemTitle = escapeHtml(item.title || "Untitled");
+    const escItemDesc = escapeHtml(item.description);
     html += `
             <a href="#item/${categoryKey}/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group">
                 <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
@@ -2066,11 +2094,11 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
                         <div class="spinner"></div>
                     </div>
                     <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}"
-                         data-prompt="${item.description}"
+                         data-prompt="${escItemDesc}"
                          data-width="400"
                          data-height="400"
                          data-seed="${getDeterministicSeed(categoryKey, itemKey)}"
-                         alt="${item.title}" 
+                         alt="${escItemTitle}"
                          class="w-full aspect-square object-contain group-hover:opacity-80 transition-opacity relative z-10">
                     <div class="absolute inset-0 bg-primary-600 bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center z-20">
                         <div class="bg-white p-2 rounded-full opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all duration-300">
@@ -2079,7 +2107,7 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
                     </div>
                 </div>
                 <div class="p-3">
-                    <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">${item.title || "Untitled"}</h4>
+                    <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">${escItemTitle}</h4>
                 </div>
             </a>
         `;
@@ -2317,43 +2345,57 @@ function renderItem(itemData, categoryKey, itemKey) {
   const prevItemKey = currentIndex > 0 ? itemKeys[currentIndex - 1] : null;
   const nextItemKey = currentIndex < itemKeys.length - 1 ? itemKeys[currentIndex + 1] : null;
 
+  // Escape AI-generated content for safe HTML interpolation.
+  const escTitle = escapeHtml(itemData.title);
+  const escDesc = escapeHtml(itemData.description);
+  const escCatTitle = escapeHtml(category.title);
+  // For use inside single-quoted JS string literals in onclick handlers.
+  const jsTitle = escapeJsAttr(itemData.title);
+  // For the download attribute (filename): strip quotes/slashes too.
+  const downloadSlug = escapeHtml(
+    (itemData.title || itemKey)
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9_-]/gi, "_")
+      .substring(0, 80)
+  );
+
   const html = `
         <nav aria-label="breadcrumb" class="mb-6 mt-2 text-sm py-2" style="color: var(--text-color);">
           <a href="#" class="hover:underline hover:text-primary-600">Home</a> &raquo;
-          <a href="#category/${categoryKey}" class="hover:underline hover:text-primary-600 mx-1">${category.title}</a> &raquo;
-          <span class="mx-1 font-medium">${itemData.title}</span>
+          <a href="#category/${categoryKey}" class="hover:underline hover:text-primary-600 mx-1">${escCatTitle}</a> &raquo;
+          <span class="mx-1 font-medium">${escTitle}</span>
         </nav>
-        <h2 class="text-3xl font-bold mb-2" style="color: var(--text-color);">${itemData.title}</h2>
-        <p class="mb-6" style="color: var(--text-color);">${itemData.description}</p>
+        <h2 class="text-3xl font-bold mb-2" style="color: var(--text-color);">${escTitle}</h2>
+        <p class="mb-6" style="color: var(--text-color);">${escDesc}</p>
 
-        <div class="p-4 shadow-lg rounded-lg flex flex-col lg:flex-row gap-6" 
+        <div class="p-4 shadow-lg rounded-lg flex flex-col lg:flex-row gap-6"
             style="background-color: var(--card-bg); color: var(--card-text); border: 1px solid var(--border-color);">
             <!-- Image Area -->
             <div class="flex-grow flex justify-center items-center lg:pr-6 relative" style="border-right: 1px solid var(--border-color);">
                 <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                     <div class="spinner"></div>
                 </div>
-                <img id="coloring-image" src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" 
-                     data-prompt="${itemData.description}" 
-                     data-width="${generationParams.width}" 
-                     data-height="${generationParams.height}" 
-                     data-seed="${generationParams.seed}" 
-                     alt="Coloring page: ${itemData.title}" 
+                <img id="coloring-image" src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}"
+                     data-prompt="${escDesc}"
+                     data-width="${generationParams.width}"
+                     data-height="${generationParams.height}"
+                     data-seed="${generationParams.seed}"
+                     alt="Coloring page: ${escTitle}"
                      class="max-w-full max-h-[70vh] object-contain rounded shadow relative z-10">
             </div>
 
             <!-- Controls & Info Area -->
             <div class="lg:w-1/4 flex flex-col gap-4 actions-panel">
                 <h3 class="text-xl font-semibold pb-2 border-b" style="color: var(--text-color); border-color: var(--border-color);">Actions</h3>
-                <a href="${imageUrl}" download="${categoryKey}-${itemKey}-${itemData.title.replace(/\s+/g, "-")}.jpg"
+                <a href="${imageUrl}" download="${categoryKey}-${itemKey}-${downloadSlug}.jpg"
                    class="block w-full text-center bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition duration-300">
                    Download Image
                 </a>
-                <button onclick="printColoringPage('${itemData.title}')"
+                <button onclick="printColoringPage('${jsTitle}')"
                         class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition duration-300">
                    Print Coloring Page
                 </button>
-                <button onclick="sharePage('${itemData.title}', window.location.href)"
+                <button onclick="sharePage('${jsTitle}', window.location.href)"
                         class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition duration-300">
                    Share
                 </button>
@@ -2371,7 +2413,7 @@ function renderItem(itemData, categoryKey, itemKey) {
                     ${prevItemKey ? `<a href="#item/${categoryKey}/${prevItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">&laquo; Previous</a>` : '<div class="flex-1"></div>'}
                     ${nextItemKey ? `<a href="#item/${categoryKey}/${nextItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">Next &raquo;</a>` : '<div class="flex-1"></div>'}
                  </div>
-                 <a href="#category/${categoryKey}" class="block text-center mt-2 hover:underline" style="color: var(--accent-color);">Back to ${category.title}</a>
+                 <a href="#category/${categoryKey}" class="block text-center mt-2 hover:underline" style="color: var(--accent-color);">Back to ${escCatTitle}</a>
 
                  <!-- Placeholder for Affiliate Links -->
                  <div class="mt-6 pt-4 border-t" style="border-color: var(--border-color);">
@@ -2384,7 +2426,7 @@ function renderItem(itemData, categoryKey, itemKey) {
         </div>
 
         <!-- Placeholder for Ads -->
-        <div class="mt-8 p-4 rounded-lg text-center border" 
+        <div class="mt-8 p-4 rounded-lg text-center border"
             style="background-color: var(--bg-color); color: var(--text-color); border-color: var(--border-color); opacity: 0.8;">
             Advertisement Placeholder
         </div>
@@ -2417,15 +2459,15 @@ function renderRelatedItems(category, categoryKey, currentItemKey) {
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" 
-                         data-prompt="${item.description}" 
-                         data-width="300" 
-                         data-height="300" 
-                         alt="${item.title}" 
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}"
+                         data-prompt="${escapeHtml(item.description)}"
+                         data-width="300"
+                         data-height="300"
+                         alt="${escapeHtml(item.title)}"
                          class="w-full aspect-square object-contain relative z-10">
                 </div>
                 <div class="p-3">
-                    <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">${item.title}</h4>
+                    <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">${escapeHtml(item.title)}</h4>
                 </div>
             </a>
         `;
@@ -2705,11 +2747,12 @@ function printColoringPage(title) {
     }
 
     const printWindow = window.open("", "_blank");
+    const escPageTitle = escapeHtml(pageTitle);
     printWindow.document.write(`
             <!DOCTYPE html>
             <html>
             <head>
-                <title>ColorVerse - ${pageTitle}</title>
+                <title>ColorVerse - ${escPageTitle}</title>
                 <style>
                     body {
                         margin: 0;
@@ -2776,8 +2819,8 @@ function printColoringPage(title) {
                 </style>
             </head>
             <body>
-                <h1>${pageTitle} - Coloring Page</h1>
-                <img src="${imgSrc}" alt="${pageTitle}">
+                <h1>${escPageTitle} - Coloring Page</h1>
+                <img src="${imgSrc}" alt="${escPageTitle}">
                 <div class="footer">
                     <p>Downloaded from ColorVerse - Free Coloring Pages & AI Art</p>
                     <p class="no-print">
@@ -2828,6 +2871,75 @@ function showLoading(isLoading) {
   }
 }
 
+// --- SEO: structured data + meta tags per route ---
+// Defers to window.SEOManager (src/services/seoManager.js). No-op if not loaded.
+function updateSEO({ type, categoryKey, category, item, itemKey } = {}) {
+  const seo = window.SEOManager;
+  if (!seo) {
+    return;
+  }
+
+  const fullUrl = window.location.href.split("#")[0] + window.location.hash;
+  let title = seo.siteName;
+  let description =
+    "Free AI-generated coloring pages for kids and adults. Download and print high-quality coloring sheets.";
+  let image = null;
+  const schemas = [];
+
+  if (type === "home") {
+    schemas.push(seo.generateWebsiteSchema(), seo.generateOrganizationSchema());
+    if (siteData?.categories) {
+      schemas.push(seo.generateCollectionSchema(siteData.categories));
+    }
+  } else if (type === "collection") {
+    title = "All Coloring Page Categories";
+    description =
+      "Browse all coloring page categories on ColorVerse — animals, fantasy, mandalas, and more.";
+    if (siteData?.categories) {
+      schemas.push(seo.generateCollectionSchema(siteData.categories));
+    }
+  } else if (type === "category") {
+    const cat = category || siteData?.categories?.[categoryKey];
+    if (cat) {
+      title = `${cat.title || categoryKey} Coloring Pages`;
+      description = cat.description || description;
+      schemas.push(seo.generateBreadcrumbSchema(cat.title || categoryKey));
+    }
+  } else if (type === "item") {
+    if (item) {
+      const name = item.title || item.name || "Coloring page";
+      title = `${name} Coloring Page`;
+      description = item.description || `Free printable ${name.toLowerCase()} coloring page.`;
+      // Rebuild the same image URL the renderer uses so JSON-LD matches the <img>.
+      try {
+        image = getImageUrl(item.description, {
+          itemKey: itemKey,
+          seed: getDeterministicSeed(categoryKey, itemKey),
+        });
+      } catch (_) {
+        image = null;
+      }
+      const cat = siteData?.categories?.[categoryKey];
+      const catTitle = cat?.title || categoryKey;
+      schemas.push(
+        seo.generateColoringPageSchema(catTitle, item, image),
+        seo.generateBreadcrumbSchema(catTitle, item)
+      );
+    }
+  } else if (type === "static") {
+    // title/description set by caller
+  }
+
+  seo.updateMetaTags(title === seo.siteName ? null : title, description, image, fullUrl);
+  // Inject structured data (replace any previous JSON-LD from prior route).
+  if (schemas.length) {
+    // Combine multiple schemas into a single @graph so injectStructuredData replaces cleanly.
+    seo.injectStructuredData(
+      schemas.length === 1 ? schemas[0] : { "@context": "https://schema.org", "@graph": schemas }
+    );
+  }
+}
+
 // --- Routing and Initialization ---
 
 function handleRouteChange() {
@@ -2863,6 +2975,7 @@ function handleRouteChange() {
       if (hash === "#" || hash === "#/") {
         mainContent.innerHTML = renderHomepage(siteData);
         mainContent.classList.remove("hidden");
+        updateSEO({ type: "home" });
       } else if (hash.startsWith("#category/")) {
         const categoryPath = hash.substring("#category/".length);
         const [categoryKey, queryString] = categoryPath.split("?");
@@ -2886,9 +2999,11 @@ function handleRouteChange() {
             currentPage,
             sortBy
           );
+          updateSEO({ type: "category", categoryKey, category: seasonalCategory });
         } else {
           // Use progressive loading for regular categories
           renderCategoryWithProgressiveLoading(categoryKey, currentPage, sortBy);
+          updateSEO({ type: "category", categoryKey, category: siteData.categories[categoryKey] });
           return; // Exit early since renderCategoryWithProgressiveLoading handles everything
         }
         mainContent.classList.remove("hidden");
@@ -2910,31 +3025,59 @@ function handleRouteChange() {
 
           mainContent.innerHTML = renderItem(itemData, categoryKey, itemKey);
           mainContent.classList.remove("hidden");
+          updateSEO({ type: "item", categoryKey, item: itemData, itemKey });
         } else {
           mainContent.innerHTML = '<p class="text-center text-red-500">Invalid item URL.</p>';
           mainContent.classList.remove("hidden");
+          updateSEO({ type: "home" });
         }
       } else if (hash === "#about") {
         // Show static about page content
         document.getElementById("static-about").classList.remove("hidden");
         mainContent.classList.add("hidden");
+        updateSEO({
+          type: "static",
+          title: "About ColorVerse",
+          description: "About the ColorVerse project and team.",
+        });
       } else if (hash === "#privacy") {
         // Show static privacy policy content
         document.getElementById("static-privacy").classList.remove("hidden");
         mainContent.classList.add("hidden");
+        updateSEO({
+          type: "static",
+          title: "Privacy Policy",
+          description: "How ColorVerse handles your data and privacy.",
+        });
       } else if (hash === "#terms") {
         // Show static terms of service content
         document.getElementById("static-terms").classList.remove("hidden");
         mainContent.classList.add("hidden");
+        updateSEO({
+          type: "static",
+          title: "Terms of Service",
+          description: "Terms of service for using ColorVerse.",
+        });
       } else if (hash === "#contact") {
         // Show static contact page content
         document.getElementById("static-contact").classList.remove("hidden");
         mainContent.classList.add("hidden");
+        updateSEO({
+          type: "static",
+          title: "Contact Us",
+          description: "Get in touch with the ColorVerse team.",
+        });
       } else if (hash === "#daily-pick") {
         // Handle Today's Special Pick page
         const dailyPickData = siteData.daily_pick || {};
         mainContent.innerHTML = renderDailyPickPage(dailyPickData);
         mainContent.classList.remove("hidden");
+        updateSEO({
+          type: "item",
+          categoryKey: "daily-pick",
+          item: dailyPickData,
+          itemKey: "daily-pick",
+        });
       } else if (hash === "#donate") {
         mainContent.innerHTML = `
                     <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm py-2">
@@ -3056,10 +3199,16 @@ function handleRouteChange() {
                     </div>
                 `;
         mainContent.classList.remove("hidden");
+        updateSEO({
+          type: "static",
+          title: "Support ColorVerse",
+          description: "Support ColorVerse and keep our coloring pages free for everyone.",
+        });
       } else if (hash === "#all-categories") {
         // Show all categories page
         mainContent.innerHTML = renderAllCategoriesPage(siteData);
         mainContent.classList.remove("hidden");
+        updateSEO({ type: "collection" });
       } else {
         // Handle any other routes
         mainContent.innerHTML = `<div class="text-center py-8">
@@ -3068,6 +3217,11 @@ function handleRouteChange() {
                     <a href="#" class="inline-block bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">Return Home</a>
                 </div>`;
         mainContent.classList.remove("hidden");
+        updateSEO({
+          type: "static",
+          title: "Page Not Found",
+          description: "The page you're looking for doesn't exist.",
+        });
       }
     } catch (error) {
       console.error("Error rendering route:", error);

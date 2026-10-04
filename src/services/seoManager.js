@@ -11,14 +11,23 @@ class SEOManager {
   }
 
   /**
+   * Items use `title` in the live data; some legacy paths use `name`.
+   * Normalize so the SEO manager works either way.
+   */
+  itemName(item) {
+    return (item && (item.title || item.name)) || "Untitled";
+  }
+
+  /**
    * Generate JSON-LD structured data for a coloring page
    */
   generateColoringPageSchema(category, item, imageUrl) {
+    const name = this.itemName(item);
     return {
       "@context": "https://schema.org",
       "@type": "ImageObject",
-      name: item.name,
-      description: `Free printable ${item.name.toLowerCase()} coloring page for kids. High-quality ${category} coloring sheet available for download.`,
+      name: name,
+      description: `Free printable ${name.toLowerCase()} coloring page for kids. High-quality ${category} coloring sheet available for download.`,
       image: {
         "@type": "ImageObject",
         url: imageUrl,
@@ -43,7 +52,7 @@ class SEOManager {
         "kids coloring",
         "printable coloring",
         `${category} coloring`,
-        item.name.toLowerCase(),
+        name.toLowerCase(),
       ].join(", "),
     };
   }
@@ -71,7 +80,7 @@ class SEOManager {
       breadcrumbs.push({
         "@type": "ListItem",
         position: 3,
-        name: item.name,
+        name: this.itemName(item),
         item: `${this.siteUrl}/#item/${category.toLowerCase()}/${item.key}`,
       });
     }
@@ -134,7 +143,7 @@ class SEOManager {
       category.items.forEach(item => {
         items.push({
           "@type": "ListItem",
-          name: item.name,
+          name: this.itemName(item),
           url: `${this.siteUrl}/#item/${key}/${item.key}`,
         });
       });

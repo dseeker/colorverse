@@ -27,7 +27,7 @@ const __dirname = path.dirname(__filename);
 
 // --- Configuration ---
 const CONFIG = {
-  apiKey: process.env.POLLINATIONS_API_KEY || "pk_9sbL41ofRXSoaOC2",
+  apiKey: process.env.POLLINATIONS_API_KEY || "",
   textApiUrl: "https://gen.pollinations.ai/v1/chat/completions",
   imageApiUrl: "https://gen.pollinations.ai/image",
   distDir: path.join(__dirname, "dist"),
@@ -404,6 +404,12 @@ async function build() {
     ? parseInt(args[args.indexOf("--delay") + 1])
     : CONFIG.delayBetweenImages;
 
+  if (!CONFIG.apiKey) {
+    throw new Error(
+      "POLLINATIONS_API_KEY is not set. Copy .env.example to .env and add your key, or export POLLINATIONS_API_KEY before running the build."
+    );
+  }
+
   console.log("╔══════════════════════════════════════════╗");
   console.log("║   ColorVerse Static Build                ║");
   console.log("╠══════════════════════════════════════════╣");
@@ -506,6 +512,55 @@ async function build() {
     console.log(`\n📂 Loaded existing site-data.json (${siteData._meta?.totalItems || "?"} items)`);
   }
 
+  // --- Step 1.5: Generate sitemap.xml ---
+  // Mirrors src/services/seoManager.js generateSitemap() so robots.txt's sitemap
+  // reference (https://dseeker.github.io/colorverse/sitemap.xml) actually resolves.
+  {
+    const today = new Date().toISOString().split("T")[0];
+    const base = "https://dseeker.github.io/colorverse";
+    const urls = [{ loc: `${base}/`, lastmod: today, changefreq: "daily", priority: "1.0" }];
+    for (const catKey of Object.keys(siteData.categories || {})) {
+      urls.push({
+        loc: `${base}/#category/${catKey}`,
+        lastmod: today,
+        changefreq: "weekly",
+        priority: "0.8",
+      });
+    }
+    for (const [catKey, catData] of Object.entries(siteData.categories || {})) {
+      for (const itemKey of Object.keys(catData.items || {})) {
+        urls.push({
+          loc: `${base}/#item/${catKey}/${itemKey}`,
+          lastmod: today,
+          changefreq: "monthly",
+          priority: "0.6",
+        });
+      }
+    }
+    if (siteData.seasonal_gallery?.items) {
+      for (const itemKey of Object.keys(siteData.seasonal_gallery.items)) {
+        urls.push({
+          loc: `${base}/#item/seasonal/${itemKey}`,
+          lastmod: today,
+          changefreq: "monthly",
+          priority: "0.6",
+        });
+      }
+    }
+    const xml =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+      urls
+        .map(
+          u =>
+            `  <url>\n    <loc>${u.loc}</loc>\n    <lastmod>${u.lastmod}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
+        )
+        .join("\n") +
+      `\n</urlset>\n`;
+    fs.writeFileSync(path.join(CONFIG.distDir, "sitemap.xml"), xml);
+    console.log(`🗺️  Generated dist/sitemap.xml (${urls.length} urls)`);
+  }
+
   // --- Step 2: Download images ---
   if (!textOnly) {
     console.log("\n🖼️  Step 2: Downloading images...\n");
@@ -584,6 +639,7 @@ async function build() {
     "service-worker-register.js",
     "robots.txt",
     "favicon.svg",
+    "offline.html",
   ];
 
   // Copy src/ folder
