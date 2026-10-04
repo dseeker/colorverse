@@ -126,22 +126,34 @@ test.describe("Live site end-to-end", () => {
     // Filter out pre-existing issues unrelated to this work:
     // - service-worker.js 404: GitHub Pages serves from /colorverse/, but the
     //   SW is registered with an absolute /service-worker.js path that lands
-    //   outside the project scope. Pre-existing.
+    //   outside the project scope. Pre-existing. Mobile Safari logs this as
+    //   a generic "Failed to load resource: 404" without the URL, so we
+    //   correlate with nonSwFailures: if no non-SW request failed, the
+    //   generic 404 console message is the SW.
     // - favicon, third-party cookie, deprecation noise.
     const swPattern = /service-worker\.js|Service Worker registration failed|fetching the script/;
-    const realErrors = errors.filter(
-      e =>
-        !e.includes("favicon") &&
-        !e.includes("third-party cookie") &&
-        !e.includes("Deprecation") &&
-        !swPattern.test(e)
-    );
-
-    // Tolerate only the pre-existing SW 404s. Any other failed request is a
-    // regression. Log what failed so the test output is actionable.
     const nonSwFailures = failedRequests.filter(url => !swPattern.test(url));
+    const noNonSwFailures = nonSwFailures.length === 0;
+    const realErrors = errors.filter(e => {
+      if (e.includes("favicon") || e.includes("third-party cookie") || e.includes("Deprecation")) {
+        return false;
+      }
+      if (swPattern.test(e)) {
+        return false;
+      }
+      // Mobile Safari logs the SW 404 as a bare "Failed to load resource: 404".
+      // If no other request failed, it's the SW — tolerate it.
+      if (noNonSwFailures && e.includes("Failed to load resource") && e.includes("404")) {
+        return false;
+      }
+      return true;
+    });
+
     if (nonSwFailures.length > 0) {
       console.error("Unexpected failed requests:\n" + nonSwFailures.join("\n"));
+    }
+    if (realErrors.length > 0) {
+      console.error("Unexpected console errors:\n" + realErrors.join("\n"));
     }
     expect(nonSwFailures).toEqual([]);
     expect(realErrors).toEqual([]);
