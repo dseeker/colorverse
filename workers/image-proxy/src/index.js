@@ -34,10 +34,13 @@ function svgResponse(svg, status, cors) {
 }
 
 async function serveSiteData(request, env, ctx, cors) {
-  const cacheKey = new Request(new URL("/data", request.url).toString(), request);
+  // Cache key is the request URL itself so cache-bust query strings work
+  // for purging stale entries. The response body is identical regardless.
+  const cacheKey = new Request(request.url, request);
   const cache = caches.default;
   const cached = await cache.match(cacheKey);
   if (cached) {
+    // Re-add CORS per request (cached response is stored without CORS headers).
     return new Response(cached.body, {
       status: cached.status,
       headers: { ...Object.fromEntries(cached.headers), ...cors },
@@ -59,16 +62,19 @@ async function serveSiteData(request, env, ctx, cors) {
         headers: { "Content-Type": "application/json", ...cors },
       });
     }
-    const response = new Response(body, {
+    // Cache the body WITHOUT CORS headers — they're added per-request on hit.
+    const cachedResponse = new Response(body, {
       status: 200,
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=86400",
-        ...cors,
       },
     });
-    ctx.waitUntil(cache.put(cacheKey, response.clone()));
-    return response;
+    ctx.waitUntil(cache.put(cacheKey, cachedResponse.clone()));
+    return new Response(cachedResponse.body, {
+      status: cachedResponse.status,
+      headers: { ...Object.fromEntries(cachedResponse.headers), ...cors },
+    });
   } catch (err) {
     console.error("[image-proxy] /data error:", err.message);
     return new Response(JSON.stringify({ error: "Failed to read site data" }), {
