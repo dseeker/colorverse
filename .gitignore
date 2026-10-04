@@ -58,3 +58,6 @@ debug/*.bak
 
 .claude/
 .playwright-mcp/
+
+# Wrangler local state
+.wrangler/
