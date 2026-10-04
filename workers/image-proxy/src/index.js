@@ -33,6 +33,51 @@ function svgResponse(svg, status, cors) {
   });
 }
 
+async function serveSiteData(request, env, ctx, cors) {
+  const cacheKey = new Request(new URL("/data", request.url).toString(), request);
+  const cache = caches.default;
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    return new Response(cached.body, {
+      status: cached.status,
+      headers: { ...Object.fromEntries(cached.headers), ...cors },
+    });
+  }
+
+  if (!env.SITE_DATA) {
+    return new Response(JSON.stringify({ error: "KV binding not configured" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json", ...cors },
+    });
+  }
+
+  try {
+    const body = await env.SITE_DATA.get("site-data.json");
+    if (!body) {
+      return new Response(JSON.stringify({ error: "site-data.json not found in KV" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json", ...cors },
+      });
+    }
+    const response = new Response(body, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=86400",
+        ...cors,
+      },
+    });
+    ctx.waitUntil(cache.put(cacheKey, response.clone()));
+    return response;
+  } catch (err) {
+    console.error("[image-proxy] /data error:", err.message);
+    return new Response(JSON.stringify({ error: "Failed to read site data" }), {
+      status: 502,
+      headers: { "Content-Type": "application/json", ...cors },
+    });
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     // CORS preflight
@@ -45,6 +90,11 @@ export default {
     }
 
     const url = new URL(request.url);
+
+    if (url.pathname === "/data") {
+      return await serveSiteData(request, env, ctx, corsHeaders(request, env));
+    }
+
     const prompt = url.searchParams.get("prompt");
     if (!prompt) {
       return svgResponse(ERROR_SVG, 400, corsHeaders(request, env));

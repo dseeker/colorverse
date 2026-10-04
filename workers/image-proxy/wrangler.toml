@@ -7,3 +7,7 @@ ALLOWED_ORIGINS = "https://dseeker.github.io"
 
 # API key set as a secret via:
 #   npx wrangler secret put POLLINATIONS_API_KEY
+
+[[kv_namespaces]]
+binding = "SITE_DATA"
+id = "ff1368ad7005423b8e866d7bd8c98ef2"

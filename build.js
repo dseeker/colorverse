@@ -615,7 +615,7 @@ async function build() {
     <script>
         // Static build mode - pre-generated content loaded from JSON
         window.__COLORVERSE_STATIC__ = true;
-        window.__COLORVERSE_DATA_URL__ = './site-data.json';
+        window.__COLORVERSE_DATA_URL__ = 'https://colorverse-image-proxy.daniel-bca.workers.dev/data';
         window.__COLORVERSE_IMAGES_BASE__ = './images';
     </script>`;
 
