@@ -3852,6 +3852,25 @@ async function ensureCategoryLoaded(categoryKey) {
     return siteData.categories[categoryKey];
   }
 
+  // If the cached site-data already has items for this category, render
+  // them immediately and upgrade to the full 160-item set in the background.
+  // This keeps navigation snappy when site-data.json was pre-generated.
+  const existing = siteData?.categories?.[categoryKey];
+  if (existing && existing.items && Object.keys(existing.items).length > 0) {
+    debug.log(
+      `Using cached ${categoryKey} (${Object.keys(existing.items).length} items), upgrading in background`
+    );
+    loadSingleCategory(categoryKey)
+      .then(upgraded => {
+        if (upgraded && siteData?.categories) {
+          siteData.categories[categoryKey] = upgraded;
+          categoryLoadingState.loadedCategories.add(categoryKey);
+        }
+      })
+      .catch(err => debug.log(`Background upgrade failed for ${categoryKey}:`, err.message));
+    return existing;
+  }
+
   // Load this specific category immediately
   debug.log(`Loading category on demand: ${categoryKey}`);
   showToast(`Loading ${categoryKey} category...`, "info", 2000);
