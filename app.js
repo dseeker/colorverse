@@ -1483,17 +1483,20 @@ function renderHomepage(data) {
       seed: getDeterministicSeedFromItemKey(key), // ✅ Deterministic seed for consistency
     });
 
+    const escCatTitle = escapeHtml(category.title);
+    const escCatDesc = escapeHtml(category.description);
+    const escItemDesc = escapeHtml(itemDescription);
     html += `
             <a href="#category/${key}" class="category-card block rounded-xl shadow-md overflow-hidden hover:shadow-xl transition duration-300 group">
                 <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" 
-                         data-prompt="${itemDescription}" 
-                         data-width="400" 
-                         data-height="400" 
-                         alt="${category.title}" 
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}"
+                         data-prompt="${escItemDesc}"
+                         data-width="400"
+                         data-height="400"
+                         alt="${escCatTitle}"
                          class="w-full aspect-square object-contain group-hover:opacity-90 transition-opacity relative z-10">
                     <div class="absolute top-3 right-3 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md z-20">
                         <i class="${getCategoryIcon(key)} text-primary-600"></i>
@@ -1501,9 +1504,9 @@ function renderHomepage(data) {
                 </div>
                 <div class="p-4 bg-white dark:bg-gray-800">
                     <h3 class="text-lg font-semibold text-gray-800 dark:text-white flex items-center">
-                        ${category.title}
+                        ${escCatTitle}
                     </h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">${category.description}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">${escCatDesc}</p>
                 </div>
             </a>
         `;
@@ -1572,6 +1575,9 @@ function renderHomepage(data) {
       : "placeholder.png";
     delay += 50; // Stagger the API requests
 
+    const escCatTitle = escapeHtml(category.title);
+    const escCatDesc = escapeHtml(category.description);
+    const escFirstDesc = escapeHtml(firstItem ? firstItem.description : "");
     html += `
             <a href="#category/${key}" class="category-card flex flex-col rounded-xl shadow-md overflow-hidden hover:shadow-xl transition duration-300 bg-white dark:bg-gray-800">
                 <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
@@ -1579,11 +1585,11 @@ function renderHomepage(data) {
                         <div class="spinner"></div>
                     </div>
                     <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}"
-                         data-prompt="${firstItem.description}"
+                         data-prompt="${escFirstDesc}"
                          data-width="400"
                          data-height="400"
                          data-seed="${getDeterministicSeedFromItemKey(key)}"
-                         alt="${category.title}" 
+                         alt="${escCatTitle}"
                          class="w-full aspect-square object-contain group-hover:opacity-90 transition-opacity relative z-10">
                 </div>
                 <div class="p-4 flex-grow flex flex-col">
@@ -1591,9 +1597,9 @@ function renderHomepage(data) {
                         <div class="w-8 h-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center mr-3">
                             <i class="${getCategoryIcon(key)}"></i>
                         </div>
-                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white">${category.title}</h3>
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white">${escCatTitle}</h3>
                     </div>
-                    <p class="text-sm text-gray-600 dark:text-gray-300 flex-grow">${category.description}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 flex-grow">${escCatDesc}</p>
                 </div>
             </a>
         `;
@@ -1682,28 +1688,31 @@ function renderAllCategoriesPage(data) {
       seed: categoryKey.length,
     });
 
+    const escCatTitle = escapeHtml(category.title);
+    const escCatDesc = escapeHtml(category.description);
+    const escCatPrompt = escapeHtml(categoryPrompt);
     html += `
             <div class="category-card group" style="background-color: var(--card-bg); border: 1px solid var(--border-color);">
                 <a href="#category/${categoryKey}" class="block h-full p-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
                     <div class="w-full h-40 mb-4 rounded-lg overflow-hidden" style="background-color: var(--bg-secondary);">
-                        <img src="${PLACEHOLDER_IMAGE}" 
+                        <img src="${PLACEHOLDER_IMAGE}"
                              data-src="${previewImageUrl}"
-                             data-prompt="${categoryPrompt}"
+                             data-prompt="${escCatPrompt}"
                              data-width="300"
                              data-height="200"
                              data-seed="${categoryKey.length}"
-                             alt="${category.title} preview"
+                             alt="${escCatTitle} preview"
                              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 lazy-load-image">
                     </div>
-                    
+
                     <h3 class="text-xl font-bold mb-2 group-hover:text-primary-600 transition-colors" style="color: var(--text-color);">
-                        ${category.title}
+                        ${escCatTitle}
                     </h3>
-                    
+
                     <p class="text-sm mb-3 line-clamp-2" style="color: var(--text-color); opacity: 0.7;">
-                        ${category.description}
+                        ${escCatDesc}
                     </p>
-                    
+
                     <div class="flex items-center justify-between text-sm" style="color: var(--text-color); opacity: 0.6;">
                         <span class="flex items-center">
                             <i class="fas fa-palette mr-1"></i>
@@ -1752,27 +1761,30 @@ function renderDailyPick(data) {
   const seed = +`${today.getFullYear()}${today.getMonth()}${today.getDate()}`;
   const imageUrl = getImageUrl(pickItem.description, { seed: seed, width: 600, height: 600 });
 
+  const escPickTitle = escapeHtml(pickItem.title);
+  const escPickDesc = escapeHtml(pickItem.description);
+  const escDailyTitle = escapeHtml(dailyPick.title || "Today's Pick");
   return `
         <div class="flex flex-col md:flex-row">
             <div class="md:w-2/3 relative">
                 <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                     <div class="spinner"></div>
                 </div>
-                <img src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" 
-                     data-prompt="${pickItem.description}" 
-                     data-width="600" 
-                     data-height="600" 
-                     data-seed="${seed}" 
-                     alt="${pickItem.title}" 
+                <img src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}"
+                     data-prompt="${escPickDesc}"
+                     data-width="600"
+                     data-height="600"
+                     data-seed="${seed}"
+                     alt="${escPickTitle}"
                      class="w-full h-auto object-contain rounded relative z-10">
             </div>
             <div class="md:w-1/3 p-4 flex flex-col justify-between">
                 <div>
                     <span class="text-xs font-medium text-primary-600 bg-primary-100 px-2 py-1 rounded-full">
-                        ${dailyPick.title || "Today's Pick"}
+                        ${escDailyTitle}
                     </span>
-                    <h3 class="text-xl font-bold mt-2">${pickItem.title}</h3>
-                    <p class="text-sm text-gray-600 mt-2">${pickItem.description}</p>
+                    <h3 class="text-xl font-bold mt-2">${escPickTitle}</h3>
+                    <p class="text-sm text-gray-600 mt-2">${escPickDesc}</p>
                 </div>
                 <a href="#category/${categoryKey}" class="mt-4 bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded-lg font-medium text-center">
                     View & Download
@@ -1799,6 +1811,8 @@ function renderDailyPickPage(dailyPickData) {
 
   const categoryKey = dailyPick.category || "fantasy";
   const imageUrl = getImageUrl(pickItem.description, { width: 800, height: 800, seed });
+  const escPickTitle = escapeHtml(pickItem.title);
+  const escPickDesc = escapeHtml(pickItem.description);
 
   return `
         <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 py-2">
@@ -1828,19 +1842,19 @@ function renderDailyPickPage(dailyPickData) {
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}" 
-                         data-prompt="${pickItem.description}" 
-                         data-width="800" 
-                         data-height="800" 
-                         data-seed="${seed}" 
-                         alt="${pickItem.title}" 
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${imageUrl}"
+                         data-prompt="${escPickDesc}"
+                         data-width="800"
+                         data-height="800"
+                         data-seed="${seed}"
+                         alt="${escPickTitle}"
                          class="w-full h-auto object-contain relative z-10">
                 </div>
             </div>
             
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <h2 class="text-2xl font-bold mb-4">${pickItem.title}</h2>
-                <p class="text-gray-600 dark:text-gray-300 mb-6">${pickItem.description}</p>
+                <h2 class="text-2xl font-bold mb-4">${escPickTitle}</h2>
+                <p class="text-gray-600 dark:text-gray-300 mb-6">${escPickDesc}</p>
                 
                 <div class="space-y-4">
                     <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -1908,14 +1922,17 @@ function renderSeasonalGallery(data) {
     description: seasonalTheme.description,
     items: {},
   };
+  const escGalleryTitle = escapeHtml(seasonalGallery.title);
+  const escGallerySubtitle = escapeHtml(seasonalGallery.subtitle);
+  const escGalleryDesc = escapeHtml(seasonalGallery.description);
 
   let html = `
         <div class="bg-gradient-to-r ${seasonalTheme.gradient} rounded-xl p-6 text-white mb-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <h2 class="text-2xl font-bold mb-2">${seasonalGallery.title}</h2>
-                    <p class="text-lg opacity-90 mb-1">${seasonalGallery.subtitle}</p>
-                    <p class="text-sm opacity-80">${seasonalGallery.description}</p>
+                    <h2 class="text-2xl font-bold mb-2">${escGalleryTitle}</h2>
+                    <p class="text-lg opacity-90 mb-1">${escGallerySubtitle}</p>
+                    <p class="text-sm opacity-80">${escGalleryDesc}</p>
                 </div>
                 <div class="hidden md:block">
                     <i class="${seasonalTheme.icon} text-4xl opacity-50"></i>
@@ -1935,6 +1952,8 @@ function renderSeasonalGallery(data) {
       itemKey: itemKey,
       seed: getDeterministicSeedFromItemKey(itemKey), // ✅ Strong deterministic hash
     });
+    const escItemTitle = escapeHtml(item.title);
+    const escItemDesc = escapeHtml(item.description);
 
     html += `
             <a href="#item/seasonal/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group">
@@ -1943,15 +1962,15 @@ function renderSeasonalGallery(data) {
                         <div class="spinner"></div>
                     </div>
                     <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}"
-                         data-prompt="${item.description}"
+                         data-prompt="${escItemDesc}"
                          data-width="300"
                          data-height="300"
                          data-seed="${getDeterministicSeedFromItemKey(itemKey)}"
-                         alt="${item.title}" 
+                         alt="${escItemTitle}"
                          class="w-full aspect-square object-contain group-hover:opacity-80 transition-opacity relative z-10">
                 </div>
                 <div class="p-2">
-                    <h4 class="text-xs font-medium truncate">${item.title}</h4>
+                    <h4 class="text-xs font-medium truncate">${escItemTitle}</h4>
                 </div>
             </a>
         `;
@@ -1993,6 +2012,9 @@ function renderRecentAdditions(data) {
       itemKey: itemKey,
       seed: getDeterministicSeed(categoryKey, itemKey), // ✅ Consistent
     });
+    const escItemTitle = escapeHtml(item.title);
+    const escItemDesc = escapeHtml(item.description);
+    const escCatTitle = escapeHtml(categoryTitle);
 
     html += `
             <a href="#item/${categoryKey}/${itemKey}" class="flex-shrink-0 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition duration-300">
@@ -2000,16 +2022,16 @@ function renderRecentAdditions(data) {
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
                     </div>
-                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}" 
-                         data-prompt="${item.description}" 
-                         data-width="300" 
-                         data-height="300" 
-                         alt="${item.title}" 
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}"
+                         data-prompt="${escItemDesc}"
+                         data-width="300"
+                         data-height="300"
+                         alt="${escItemTitle}"
                          class="w-full aspect-square object-contain relative z-10">
                 </div>
                 <div class="p-3">
-                    <span class="text-xs font-medium text-primary-600 bg-primary-100 px-2 py-0.5 rounded-full">${categoryTitle}</span>
-                    <h4 class="text-sm font-medium mt-1 truncate">${item.title}</h4>
+                    <span class="text-xs font-medium text-primary-600 bg-primary-100 px-2 py-0.5 rounded-full">${escCatTitle}</span>
+                    <h4 class="text-sm font-medium mt-1 truncate">${escItemTitle}</h4>
                 </div>
             </a>
         `;
@@ -3988,10 +4010,11 @@ async function renderCategoryWithProgressiveLoading(
     showLoading(false);
   } catch (error) {
     console.error("Error loading category:", error);
+    const escErrorMsg = escapeHtml(error.message);
     mainContent.innerHTML = `
             <div class="text-center py-8 text-red-500">
                 <h2>Error Loading Category</h2>
-                <p>${error.message}</p>
+                <p>${escErrorMsg}</p>
                 <button onclick="window.location.hash = '#'" class="mt-4 px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">
                     Return Home
                 </button>
