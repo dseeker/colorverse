@@ -57,6 +57,12 @@ const PLACEHOLDER_IMAGE =
 const STATIC_MODE = !!window.__COLORVERSE_STATIC__;
 const STATIC_DATA_URL = window.__COLORVERSE_DATA_URL__ || "./site-data.json";
 const STATIC_IMAGES_BASE = window.__COLORVERSE_IMAGES_BASE__ || "./images";
+// Static IMAGES are opt-in: only use the local pre-generated image file map when
+// explicitly enabled. Data static mode (above) is independent. On GitHub Pages
+// we serve site-data.json from the worker but generate images on-demand through
+// the image-proxy worker, so we don't want getImageUrl to return local ./images
+// paths that would 404.
+const STATIC_IMAGES_ENABLED = !!window.__COLORVERSE_STATIC_IMAGES__;
 
 // In static mode, map item keys to local image paths
 let staticImageMap = null; // Populated on load in static mode
@@ -1036,7 +1042,7 @@ const imageUrlCache = new LRUCache(MAX_CACHE_SIZE); // LRU Cache for image URLs 
 function getImageUrl(prompt, params = {}) {
   try {
     // Static mode: resolve to local image path if available
-    if (STATIC_MODE && staticImageMap && params.itemKey) {
+    if (STATIC_IMAGES_ENABLED && STATIC_MODE && staticImageMap && params.itemKey) {
       const localPath = staticImageMap.get(params.itemKey);
       if (localPath) {
         return localPath;
