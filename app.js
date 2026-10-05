@@ -1753,9 +1753,9 @@ function renderAllCategoriesPage(data) {
                              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 lazy-load-image">
                     </div>
 
-                    <h3 class="text-xl font-bold mb-2 group-hover:text-primary-600 transition-colors" style="color: var(--text-color);">
+                    <h2 class="text-xl font-bold mb-2 group-hover:text-primary-600 transition-colors" style="color: var(--text-color);">
                         ${escCatTitle}
-                    </h3>
+                    </h2>
 
                     <p class="text-sm mb-3 line-clamp-2" style="color: var(--text-color); opacity: 0.7;">
                         ${escCatDesc}
@@ -2018,7 +2018,7 @@ function renderSeasonalGallery(data) {
                          class="w-full aspect-square object-contain group-hover:opacity-80 transition-opacity relative z-10">
                 </div>
                 <div class="p-2">
-                    <h4 class="text-xs font-medium truncate">${escItemTitle}</h4>
+                    <h3 class="text-xs font-medium truncate">${escItemTitle}</h3>
                 </div>
             </a>
         `;
@@ -2079,7 +2079,7 @@ function renderRecentAdditions(data) {
                 </div>
                 <div class="p-3">
                     <span class="text-xs font-medium text-primary-600 bg-primary-100 px-2 py-0.5 rounded-full">${escCatTitle}</span>
-                    <h4 class="text-sm font-medium mt-1 truncate">${escItemTitle}</h4>
+                    <h3 class="text-sm font-medium mt-1 truncate">${escItemTitle}</h3>
                 </div>
             </a>
         `;
@@ -2110,13 +2110,13 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
         </nav>
         
         <div class="bg-gradient-to-r from-primary-500 to-primary-700 rounded-xl p-6 text-white mb-8 relative overflow-hidden">
-            <div class="absolute inset-0 opacity-10" style="background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMCAwaDEwdjEwaC0xMHpNMTAgMTBoMTB2MTBoLTEweiIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjEiLz48cGF0aCBkPSJNMTAgMGgxMHYxMGgtMTB6TTAgMTBoMTB2MTBoLTEweiIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjA1Ii8+PC9zdmc+')"></div>
+            <div class="absolute inset-0 opacity-10" aria-hidden="true" style="background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMCAwaDEwdjEwaC0xMHpNMTAgMTBoMTB2MTBoLTEweiIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjEiLz48cGF0aCBkPSJNMTAgMGgxMHYxMGgtMTB6TTAgMTBoMTB2MTBoLTEweiIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjA1Ii8+PC9zdmc+')"></div>
             <div class="flex flex-col md:flex-row items-start md:items-center relative z-10">
                 <div class="rounded-full bg-white bg-opacity-20 p-4 mr-6 mb-4 md:mb-0">
-                    <i class="${categoryIcon} text-3xl"></i>
+                    <i class="${categoryIcon} text-3xl" aria-hidden="true"></i>
                 </div>
                 <div>
-                    <h2 class="text-3xl font-bold">${escCatTitle}</h2>
+                    <h1 class="text-3xl font-bold">${escCatTitle}</h1>
                     <p class="mt-2 text-white text-opacity-90 max-w-2xl">${escCatDesc}</p>
                 </div>
             </div>
@@ -2177,7 +2177,7 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
                     </div>
                 </div>
                 <div class="p-3">
-                    <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">${escItemTitle}</h4>
+                    <h2 class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">${escItemTitle}</h2>
                 </div>
             </a>
         `;
@@ -2435,7 +2435,7 @@ function renderItem(itemData, categoryKey, itemKey) {
           <a href="#category/${categoryKey}" class="hover:underline hover:text-primary-600 mx-1">${escCatTitle}</a> &raquo;
           <span class="mx-1 font-medium">${escTitle}</span>
         </nav>
-        <h2 class="text-3xl font-bold mb-2" style="color: var(--text-color);">${escTitle}</h2>
+        <h1 class="text-3xl font-bold mb-2" style="color: var(--text-color);">${escTitle}</h1>
         <p class="mb-6" style="color: var(--text-color);">${escDesc}</p>
 
         <div class="p-4 shadow-lg rounded-lg flex flex-col lg:flex-row gap-6"
@@ -2456,17 +2456,20 @@ function renderItem(itemData, categoryKey, itemKey) {
 
             <!-- Controls & Info Area -->
             <div class="lg:w-1/4 flex flex-col gap-4 actions-panel">
-                <h3 class="text-xl font-semibold pb-2 border-b" style="color: var(--text-color); border-color: var(--border-color);">Actions</h3>
+                <h2 class="text-xl font-semibold pb-2 border-b" style="color: var(--text-color); border-color: var(--border-color);" id="item-actions-heading">Actions</h2>
                 <a href="${imageUrl}" download="${categoryKey}-${itemKey}-${downloadSlug}.jpg"
+                   aria-label="Download image of ${escTitle}"
                    onclick="if (window.analytics &amp;&amp; window.analytics.track) { window.analytics.track('download'); }"
                    class="block w-full text-center bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition duration-300">
                    Download Image
                 </a>
                 <button onclick="printColoringPage('${jsTitle}')"
+                        aria-label="Print ${escTitle} coloring page"
                         class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition duration-300">
                    Print Coloring Page
                 </button>
                 <button onclick="sharePage('${jsTitle}', window.location.href)"
+                        aria-label="Share ${escTitle} page"
                         class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition duration-300">
                    Share
                 </button>
@@ -2479,11 +2482,13 @@ function renderItem(itemData, categoryKey, itemKey) {
                      header count badge via FavoritesManager. -->
                 <button id="favorite-toggle-${categoryKey}-${itemKey}"
                         onclick="window.toggleFavoriteFromItem('${escapeJsAttr(categoryKey)}', '${escapeJsAttr(itemKey)}', this)"
+                        aria-pressed="${window.FavoritesManager && window.FavoritesManager.isFavorite(categoryKey, itemKey) ? "true" : "false"}"
+                        aria-label="${window.FavoritesManager && window.FavoritesManager.isFavorite(categoryKey, itemKey) ? "Remove ${escTitle} from favorites" : "Add ${escTitle} to favorites"}"
                         class="favorite-toggle-btn w-full font-bold py-2 px-4 rounded transition duration-300 ${window.FavoritesManager && window.FavoritesManager.isFavorite(categoryKey, itemKey) ? "bg-pink-500 hover:bg-pink-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"}">
-                    <i class="fas fa-heart mr-2"></i><span class="fav-label">${window.FavoritesManager && window.FavoritesManager.isFavorite(categoryKey, itemKey) ? "Remove from Favorites" : "Add to Favorites"}</span>
+                    <i class="fas fa-heart mr-2" aria-hidden="true"></i><span class="fav-label">${window.FavoritesManager && window.FavoritesManager.isFavorite(categoryKey, itemKey) ? "Remove from Favorites" : "Add to Favorites"}</span>
                 </button>
 
-                <h3 class="text-xl font-semibold pb-2 mt-4 border-b" style="color: var(--text-color); border-color: var(--border-color);">Navigation</h3>
+                <h2 class="text-xl font-semibold pb-2 mt-4 border-b" style="color: var(--text-color); border-color: var(--border-color);" id="item-navigation-heading">Navigation</h2>
                  <div class="flex justify-between gap-2">
                     ${prevItemKey ? `<a href="#item/${categoryKey}/${prevItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">&laquo; Previous</a>` : '<div class="flex-1"></div>'}
                     ${nextItemKey ? `<a href="#item/${categoryKey}/${nextItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">Next &raquo;</a>` : '<div class="flex-1"></div>'}
@@ -2492,7 +2497,7 @@ function renderItem(itemData, categoryKey, itemKey) {
 
                  <!-- Placeholder for Affiliate Links -->
                  <div class="mt-6 pt-4 border-t" style="border-color: var(--border-color);">
-                     <h4 class="text-md font-semibold mb-2" style="color: var(--text-color);">Get Coloring Supplies!</h4>
+                     <h3 class="text-md font-semibold mb-2" style="color: var(--text-color);">Get Coloring Supplies!</h3>
                      <a href="#" target="_blank" rel="noopener noreferrer sponsored" class="text-sm hover:underline block" style="color: var(--accent-color);">Shop Pencils on Amazon (Affiliate)</a>
                      <a href="#" target="_blank" rel="noopener noreferrer sponsored" class="text-sm hover:underline block" style="color: var(--accent-color);">Shop Markers on Amazon (Affiliate)</a>
                      <p class="text-xs mt-1" style="color: var(--text-color); opacity: 0.7;">(As an Amazon Associate we earn from qualifying purchases)</p>
@@ -2799,7 +2804,9 @@ function toggleFavoriteFromItem(categoryKey, itemKey, btnEl) {
   // path also updates the header count badge.
   if (btnEl) {
     const label = btnEl.querySelector(".fav-label");
-    if (mgr.isFavorite(categoryKey, itemKey)) {
+    const itemName = itemData.title || itemKey;
+    const nowFav = mgr.isFavorite(categoryKey, itemKey);
+    if (nowFav) {
       btnEl.classList.remove("bg-gray-200", "hover:bg-gray-300", "text-gray-800");
       btnEl.classList.add("bg-pink-500", "hover:bg-pink-600", "text-white");
       if (label) {
@@ -2812,6 +2819,11 @@ function toggleFavoriteFromItem(categoryKey, itemKey, btnEl) {
         label.textContent = "Add to Favorites";
       }
     }
+    btnEl.setAttribute("aria-pressed", nowFav ? "true" : "false");
+    btnEl.setAttribute(
+      "aria-label",
+      nowFav ? `Remove ${itemName} from favorites` : `Add ${itemName} to favorites`
+    );
   }
 }
 
@@ -3525,7 +3537,7 @@ function renderSearchPage(query) {
         </nav>
 
         <div class="bg-gradient-to-r from-primary-500 to-primary-700 rounded-xl p-6 text-white mb-8">
-            <h2 class="text-3xl font-bold mb-4"><i class="fas fa-search mr-3"></i>Find a Coloring Page</h2>
+            <h1 class="text-3xl font-bold mb-4"><i class="fas fa-search mr-3" aria-hidden="true"></i>Find a Coloring Page</h1>
             <form id="search-form" class="flex gap-3 max-w-xl" role="search">
                 <input type="search" id="search-page-input" name="q" value="${escapeHtml(query || "")}"
                     placeholder="Try dragon, mandala, animals..."
@@ -3632,7 +3644,7 @@ function renderSearchPage(query) {
                 </div>
                 <div class="p-3">
                     <span class="text-xs font-medium text-primary-600 bg-primary-100 px-2 py-0.5 rounded-full">${escCatTitle}</span>
-                    <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 mt-1 truncate">${escItemTitle}</h4>
+                    <h3 class="text-sm font-medium text-gray-800 dark:text-gray-200 mt-1 truncate">${escItemTitle}</h3>
                 </div>
             </a>
         `;
@@ -4007,7 +4019,7 @@ function handleRouteChange() {
       } else {
         // Handle any other routes
         mainContent.innerHTML = `<div class="text-center py-8">
-                    <h2 class="text-2xl font-semibold mb-4">Page Not Found</h2>
+                    <h1 class="text-2xl font-semibold mb-4">Page Not Found</h1>
                     <p class="mb-4">Sorry, the page you're looking for doesn't exist or is still under construction.</p>
                     <a href="#" class="inline-block bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">Return Home</a>
                 </div>`;
@@ -4763,7 +4775,7 @@ async function renderCategoryWithProgressiveLoading(
 
     if (!categoryData) {
       mainContent.innerHTML =
-        '<div class="text-center py-8 text-red-500"><h2>Category not found</h2><p>The requested category could not be loaded.</p><button onclick="window.location.hash = \'#\'" class="mt-4 px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">Return Home</button></div>';
+        '<div class="text-center py-8 text-red-500"><h1>Category not found</h1><p>The requested category could not be loaded.</p><button onclick="window.location.hash = \'#\'" class="mt-4 px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">Return Home</button></div>';
       mainContent.classList.remove("hidden");
       showLoading(false);
       return;
@@ -4786,7 +4798,7 @@ async function renderCategoryWithProgressiveLoading(
     const escErrorMsg = escapeHtml(error.message);
     mainContent.innerHTML = `
             <div class="text-center py-8 text-red-500">
-                <h2>Error Loading Category</h2>
+                <h1>Error Loading Category</h1>
                 <p>${escErrorMsg}</p>
                 <button onclick="window.location.hash = '#'" class="mt-4 px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">
                     Return Home

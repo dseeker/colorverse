@@ -177,8 +177,9 @@ class FavoritesManager {
                     data-category="${escCategory}"
                     data-item-key="${escKey}"
                     data-item-name="${escName}"
-                    title="${isFav ? "Remove from favorites" : "Add to favorites"}">
-                <i class="fas fa-heart"></i>
+                    aria-pressed="${isFav}"
+                    aria-label="${isFav ? `Remove ${escName} from favorites` : `Add ${escName} to favorites`}">
+                <i class="fas fa-heart" aria-hidden="true"></i>
             </button>
         `;
   }
@@ -195,11 +196,10 @@ class FavoritesManager {
 
         const category = btn.dataset.category;
         const itemKey = btn.dataset.itemKey;
-        const itemName = btn.dataset.itemName;
 
         // Get the full item object from the card data
         const card = btn.closest("[data-item-full]");
-        let item = { key: itemKey, name: itemName };
+        let item = { key: itemKey, name: btn.dataset.itemName };
 
         if (card) {
           try {
@@ -209,11 +209,14 @@ class FavoritesManager {
           }
         }
 
+        const itemName = this.itemName(item);
         if (this.isFavorite(category, itemKey)) {
           this.removeFavorite(category, itemKey);
           btn.classList.remove("bg-pink-500", "text-white");
           btn.classList.add("bg-white", "bg-opacity-80", "text-gray-400");
           btn.title = "Add to favorites";
+          btn.setAttribute("aria-pressed", "false");
+          btn.setAttribute("aria-label", `Add ${itemName} to favorites`);
         } else {
           // Get image URL from the card
           const img = card?.querySelector("img");
@@ -223,6 +226,8 @@ class FavoritesManager {
           btn.classList.remove("bg-white", "bg-opacity-80", "text-gray-400");
           btn.classList.add("bg-pink-500", "text-white");
           btn.title = "Remove from favorites";
+          btn.setAttribute("aria-pressed", "true");
+          btn.setAttribute("aria-label", `Remove ${itemName} from favorites`);
 
           // Add animation
           btn.classList.add("animate-pulse");
@@ -330,7 +335,7 @@ class FavoritesManager {
                                          loading="lazy">
                                 </div>
                                 <div class="p-4">
-                                    <h3 class="font-semibold text-gray-800 truncate">${escName}</h3>
+                                    <h2 class="font-semibold text-gray-800 truncate">${escName}</h2>
                                     <p class="text-sm text-gray-500 capitalize">${escCategory}</p>
                                     <p class="text-xs text-gray-400 mt-1">
                                         Added ${escDate}

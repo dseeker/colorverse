@@ -296,6 +296,36 @@
         }
 
         /* Accessibility enhancements */
+        .skip-link {
+            position: absolute;
+            top: -48px;
+            left: 8px;
+            z-index: 100;
+            background: #1a202c;
+            color: #ffffff;
+            padding: 8px 16px;
+            border-radius: 0 0 8px 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: top 0.2s ease;
+        }
+
+        .skip-link:focus {
+            top: 0;
+            outline: 2px solid #ffffff;
+            outline-offset: 2px;
+        }
+
+        a:focus-visible,
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible,
+        [tabindex]:focus-visible {
+            outline: 3px solid #2563eb;
+            outline-offset: 2px;
+        }
+
         .sr-only {
             position: absolute;
             width: 1px;
@@ -603,12 +633,14 @@
 
 <body class="bg-gray-50 text-gray-900 loading flex flex-col min-h-screen">
 
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
     <div id="page-container" class="flex-grow pt-20">
         <!-- Increased padding-top to prevent breadcrumbs from being cut off -->
         <header class="bg-gradient-to-r from-cyan-500 to-blue-500 p-4 shadow-md fixed top-0 left-0 right-0 z-50">
             <div class="container mx-auto flex justify-between items-center">
                 <div class="flex items-center">
-                    <div class="mr-3 hidden sm:block">
+                    <div class="mr-3 hidden sm:block" aria-hidden="true">
                         <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <circle cx="20" cy="20" r="18" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="2" />
                             <path
@@ -622,25 +654,25 @@
                         </svg>
                     </div>
                     <div>
-                        <h1 class="text-3xl font-bold">
+                        <div class="text-3xl font-bold">
                             <a href="#" class="flex items-center">
                                 ColorVerse
                                 <span class="ml-2 text-xs bg-yellow-400 text-black px-2 py-0.5 rounded-full">Beta</span>
                             </a>
-                        </h1>
+                        </div>
                         <p class="text-sm mt-1 opacity-90">Unlock Your Imagination: Endless Coloring Pages &
                             AI-Generated Art</p>
                     </div>
                 </div>
-                <nav class="flex items-center">
+                <nav aria-label="Main" class="flex items-center">
                     <!-- Search Bar -->
                     <div class="relative mr-4 hidden md:block">
                         <input type="text" id="search-input" 
                             placeholder="Search coloring pages..." 
                             class="bg-white bg-opacity-20 text-white placeholder-gray-200 rounded-lg px-4 py-2 pr-10 border-none focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all w-64"
                             aria-label="Search coloring pages">
-                        <button id="search-btn" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-200">
-                            <i class="fas fa-search"></i>
+                        <button id="search-btn" aria-label="Search coloring pages" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-200">
+                            <i class="fas fa-search" aria-hidden="true"></i>
                         </button>
                     </div>
                     
@@ -648,15 +680,15 @@
                     <a href="#search"
                         class="mr-3 p-2 rounded-lg text-white bg-indigo-500 hover:bg-indigo-600 transition-colors"
                         title="Search Coloring Pages">
-                        <i class="fas fa-search"></i>
+                        <i class="fas fa-search" aria-hidden="true"></i>
                         <span class="sr-only">Search Coloring Pages</span>
                     </a>
 
                     <!-- Favorites Button -->
                     <button id="favorites-toggle"
                         class="mr-3 p-2 rounded-lg text-white bg-pink-500 hover:bg-pink-600 transition-colors relative"
-                        title="My Favorites">
-                        <i class="fas fa-heart"></i>
+                        title="My Favorites" aria-label="My Favorites">
+                        <i class="fas fa-heart" aria-hidden="true"></i>
                         <span id="favorites-count" class="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
                         <span class="sr-only">My Favorites</span>
                     </button>
@@ -672,42 +704,42 @@
                     <div class="flex items-center mr-6">
                         <button id="refresh-content"
                             class="mr-3 p-2 rounded-lg text-white bg-yellow-500 hover:bg-yellow-600 transition-colors"
-                            title="Refresh Content">
-                            <i class="fas fa-dice"></i>
+                            title="Refresh Content" aria-label="Refresh Content">
+                            <i class="fas fa-dice" aria-hidden="true"></i>
                             <span class="sr-only">Refresh Content</span>
                         </button>
                         <div class="relative mr-3">
                             <select id="style-selector"
                                 class="bg-white bg-opacity-20 text-white rounded-lg p-2 pr-8 border-none appearance-none focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all cursor-pointer"
-                                title="Coloring Style">
+                                title="Coloring Style" aria-label="Coloring style">
                                 <!-- Options will be dynamically populated by JavaScript from COLORING_STYLES -->
                             </select>
                             <i
-                                class="fas fa-chevron-down absolute right-2 top-1/2 transform -translate-y-1/2 text-white pointer-events-none"></i>
+                                class="fas fa-chevron-down absolute right-2 top-1/2 transform -translate-y-1/2 text-white pointer-events-none" aria-hidden="true"></i>
                         </div>
                         <div class="flex items-center bg-white bg-opacity-20 rounded-lg p-1">
                             <button id="theme-light"
                                 class="p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-10 transition-colors"
-                                title="Light Mode">
-                                <i class="fas fa-sun"></i>
+                                title="Light Mode" aria-label="Light Mode">
+                                <i class="fas fa-sun" aria-hidden="true"></i>
                                 <span class="sr-only">Light Mode</span>
                             </button>
                             <button id="theme-dark"
                                 class="p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-10 transition-colors"
-                                title="Dark Mode">
-                                <i class="fas fa-moon"></i>
+                                title="Dark Mode" aria-label="Dark Mode">
+                                <i class="fas fa-moon" aria-hidden="true"></i>
                                 <span class="sr-only">Dark Mode</span>
                             </button>
                             <button id="theme-colorful"
                                 class="p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-10 transition-colors"
-                                title="Colorful Mode">
-                                <i class="fas fa-palette"></i>
+                                title="Colorful Mode" aria-label="Colorful Mode">
+                                <i class="fas fa-palette" aria-hidden="true"></i>
                                 <span class="sr-only">Colorful Mode</span>
                             </button>
                         </div>
                         <a href="#donate"
                             class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center ml-4">
-                            <i class="fas fa-heart mr-2"></i> Donate
+                            <i class="fas fa-heart mr-2" aria-hidden="true"></i> Donate
                         </a>
                 </nav>
             </div>
@@ -1083,8 +1115,7 @@
                         </div>
 
                         <div class="flex items-start">
-                            <input type="checkbox" id="privacy" class="mt-1">
-                            <label for="privacy" class="ml-2 text-sm">I agree to the <a href="#privacy"
+                            <label for="privacy" class="block mb-1 text-sm">I agree to the <a href="#privacy"
                                     class="text-primary-600 hover:underline">Privacy Policy</a> and consent to being
                                 contacted regarding my inquiry.</label>
                         </div>
@@ -1298,8 +1329,8 @@
                     <div class="flex mt-2">
                         <input type="email" placeholder="Your email"
                             class="px-3 py-1 text-sm text-black rounded-l-lg w-full" aria-label="Email for newsletter">
-                        <button class="bg-primary-500 hover:bg-primary-600 px-3 py-1 rounded-r-lg transition-colors">
-                            <i class="fas fa-paper-plane"></i>
+                        <button class="bg-primary-500 hover:bg-primary-600 px-3 py-1 rounded-r-lg transition-colors" aria-label="Subscribe to newsletter">
+                            <i class="fas fa-paper-plane" aria-hidden="true"></i>
                         </button>
                     </div>
                 </div>
@@ -1317,14 +1348,14 @@
     </footer>
 
     <!-- Add paint splashes for artistic effect -->
-    <div class="paint-splash top-20 left-5 w-64 h-64" style="--rotation: 15deg;">
+    <div class="paint-splash top-20 left-5 w-64 h-64" style="--rotation: 15deg;" aria-hidden="true">
         <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
             <path fill="#FF6B6B"
                 d="M47.7,-61.5C62.4,-53.4,75.3,-39.5,79.7,-23.5C84.1,-7.5,80,10.6,71.5,25.8C63,41,50.1,53.2,35.1,61.3C20.1,69.5,3,73.5,-12.4,70.6C-27.8,67.6,-41.6,57.6,-53.2,45.1C-64.9,32.5,-74.4,17.5,-76.2,1.1C-78,-15.4,-72,-33.2,-60.4,-43.3C-48.8,-53.5,-31.5,-56,-16.3,-61.1C-1.1,-66.2,12.9,-73.9,28.5,-72.7C44.1,-71.6,60.3,-61.7,47.7,-61.5Z"
                 transform="translate(100 100)" />
         </svg>
     </div>
-    <div class="paint-splash bottom-40 right-10 w-96 h-96" style="--rotation: -25deg;">
+    <div class="paint-splash bottom-40 right-10 w-96 h-96" style="--rotation: -25deg;" aria-hidden="true">
         <path fill="#64D1D0"
             d="M36.3,-48.8C51.1,-45.3,70,-39.9,76.1,-28.1C82.1,-16.4,75.5,1.7,68.3,17.5C61.1,33.3,53.3,46.8,41.6,57.3C29.9,67.8,14.9,75.3,0.9,74.1C-13.2,72.9,-26.4,63,-38.1,52.4C-49.8,41.8,-60,30.6,-63.5,17.7C-67,4.8,-63.8,-9.8,-58.2,-22.3C-52.6,-34.9,-44.7,-45.4,-34.2,-50.1C-23.7,-54.8,-11.9,-53.7,0.2,-54C12.2,-54.2,24.5,-55.6,36.3,-48.8Z"
             transform="translate(100 100)" />
