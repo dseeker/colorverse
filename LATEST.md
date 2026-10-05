@@ -1,6 +1,6 @@
 # ColorVerse - Latest State & Context
 
-## Current Status (October 4, 2026)
+## Current Status (October 5, 2026)
 
 ### Recent Changes Completed
 
@@ -70,6 +70,26 @@
 - Header heart button navigates to `#favorites` (hash route) so back-button, SEO, and analytics page-view fire correctly.
 - `#favorites` route renders the saved-pages grid via `FavoritesManager.showFavoritesView()`.
 - `item.name` normalized to `item.title || item.name` (live data uses `title`); all AI-content interpolations in the favorites view escaped.
+
+#### Newsletter (2026-10-05)
+
+- Homepage newsletter form is wired via `wireNewsletterForm()` in `app.js` (was markup-only). Validates email, shows toast on error, swaps form for thank-you message on success. `colorverse_newsletter_subscribed` localStorage flag (the email itself is never persisted/transmitted; no backend). `newsletter_subscribe` added to both analytics allowlists (count-only).
+
+#### Search (2026-10-05)
+
+- `src/services/searchManager.js` wired into a `#search` route. Keyword search against `siteData` items; tag-based filtering by theme/difficulty is a follow-up (tag taxonomy not yet built). `search` added to both analytics allowlists (count-only).
+
+#### Sharing (2026-10-05)
+
+- `sharePage()` falls back to an accessible per-platform modal (Twitter/X, Pinterest, Facebook, WhatsApp, Reddit, Email, Copy Link) when `navigator.share` is unavailable or cancelled. Modal is keyboard-navigable (focus trap, Escape, click-outside, focus restoration). `share` added to both analytics allowlists (count-only).
+
+#### Accessibility (2026-10-05)
+
+- Skip-to-main link, landmark roles/labels, `aria-label`s on icon-only buttons (favorites, share, print, download, theme, refresh, search, newsletter), `:focus-visible` outlines, single `<h1>` per route, `aria-pressed` on toggleable favorite buttons. Commit 9c14b31.
+
+#### Docs (2026-10-05)
+
+- Added `CONTRIBUTING.md` and `ARCHITECTURE.md`.
 
 ### File Structure
 
@@ -141,7 +161,9 @@ Client-side `window._env` is set inline in `index.html` (`IMAGE_PROXY_URL`, `USE
 ### Open Follow-ups
 
 - Test coverage is 0% for `app.js` (monolithic); standalone helpers in `src/services/` are tested.
-- No analytics integration yet (ROADMAP feature #10).
+- Tag taxonomy for search filtering (ROADMAP feature #5 follow-up) not yet built.
 - No i18n yet (ROADMAP feature #9).
+- Coloring tips infobox (ROADMAP feature #4) not yet wired.
+- Color palette library (ROADMAP feature #11) not yet built.
 
-Last updated: October 4, 2026
+Last updated: October 5, 2026
