@@ -37,7 +37,7 @@ window._env = window._env || { // ...existing keys... ENABLE_ANALYTICS: true, AN
 'https://your-worker.example.workers.dev/events', };
 ```
 
-`ANALYZTICS_ENDPOINT` should point at a `/events` route. The default content-api worker already has one at `workers/content-api/src/index.js`. If you deploy that worker, set `ANALYTICS_ENDPOINT` to its `/events` URL.
+`ANALYTICS_ENDPOINT` should point at a `/events` route. The default content-api worker already has one at `workers/content-api/src/index.js`. If you deploy that worker, set `ANALYTICS_ENDPOINT` to its `/events` URL.
 
 ## Where events go
 
