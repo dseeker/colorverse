@@ -30,6 +30,7 @@ const ALLOWED_ANALYTICS_EVENTS = new Set([
   "download",
   "favorite_add",
   "favorite_remove",
+  "share",
 ]);
 const MAX_EVENTS_PER_BATCH = 100;
 const MAX_EVENT_PROP_BYTES = 512;

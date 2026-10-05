@@ -11,6 +11,7 @@
  *   - print actions (count only, no item content)
  *   - download actions (count only, no item content)
  *   - favorite add / remove (count only, no item content)
+ *   - share actions (count only, no platform name or item content)
  *
  * What we DO NOT collect:
  *   - IPs, user agents, or any user identifiers
@@ -152,7 +153,8 @@ class AnalyticsManager {
       name === "print" ||
       name === "download" ||
       name === "favorite_add" ||
-      name === "favorite_remove"
+      name === "favorite_remove" ||
+      name === "share"
     );
   }
 
@@ -171,7 +173,8 @@ class AnalyticsManager {
       name === "print" ||
       name === "download" ||
       name === "favorite_add" ||
-      name === "favorite_remove"
+      name === "favorite_remove" ||
+      name === "share"
     ) {
       // Count-only. We deliberately do NOT forward item identifiers.
     }
