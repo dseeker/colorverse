@@ -13,10 +13,12 @@
  *   - favorite add / remove (count only, no item content)
  *   - share actions (count only, no platform name or item content)
  *   - search actions (count only, never the query text)
+ *   - newsletter subscriptions (count only, never the email address)
  *
  * What we DO NOT collect:
  *   - IPs, user agents, or any user identifiers
  *   - search query contents (we only send query length if ever instrumented)
+ *   - newsletter email addresses
  *   - item titles, descriptions, prompts, or any AI-generated content
  *   - localStorage / favorites contents
  *
@@ -156,7 +158,8 @@ class AnalyticsManager {
       name === "favorite_add" ||
       name === "favorite_remove" ||
       name === "share" ||
-      name === "search"
+      name === "search" ||
+      name === "newsletter_subscribe"
     );
   }
 
@@ -177,10 +180,11 @@ class AnalyticsManager {
       name === "favorite_add" ||
       name === "favorite_remove" ||
       name === "share" ||
-      name === "search"
+      name === "search" ||
+      name === "newsletter_subscribe"
     ) {
-      // Count-only. We deliberately do NOT forward item identifiers or the
-      // search query itself.
+      // Count-only. We deliberately do NOT forward item identifiers, the
+      // search query itself, or the subscriber's email address.
     }
     return out;
   }
