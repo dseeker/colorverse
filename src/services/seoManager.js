@@ -140,11 +140,11 @@ class SEOManager {
   generateCollectionSchema(categories) {
     const items = [];
     Object.entries(categories).forEach(([key, category]) => {
-      category.items.forEach(item => {
+      Object.entries(category.items || {}).forEach(([itemKey, item]) => {
         items.push({
           "@type": "ListItem",
           name: this.itemName(item),
-          url: `${this.siteUrl}/#item/${key}/${item.key}`,
+          url: `${this.siteUrl}/#item/${key}/${itemKey}`,
         });
       });
     });
@@ -288,9 +288,9 @@ class SEOManager {
 
     // Add individual item pages
     Object.entries(categories).forEach(([categoryKey, category]) => {
-      category.items.forEach(item => {
+      Object.entries(category.items || {}).forEach(([itemKey]) => {
         urls.push({
-          loc: `${this.siteUrl}/#item/${categoryKey}/${item.key}`,
+          loc: `${this.siteUrl}/#item/${categoryKey}/${itemKey}`,
           lastmod: new Date().toISOString().split("T")[0],
           changefreq: "monthly",
           priority: "0.6",

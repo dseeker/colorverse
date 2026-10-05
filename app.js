@@ -3393,15 +3393,15 @@ function renderDashboard() {
     });
 }
 
-function updateSEO({ type, categoryKey, category, item, itemKey } = {}) {
+function updateSEO({ type, categoryKey, category, item, itemKey, title, description } = {}) {
   const seo = window.SEOManager;
   if (!seo) {
     return;
   }
 
   const fullUrl = window.location.href.split("#")[0] + window.location.hash;
-  let title = seo.siteName;
-  let description =
+  let seoTitle = seo.siteName;
+  let seoDescription =
     "Free AI-generated coloring pages for kids and adults. Download and print high-quality coloring sheets.";
   let image = null;
   const schemas = [];
@@ -3412,8 +3412,8 @@ function updateSEO({ type, categoryKey, category, item, itemKey } = {}) {
       schemas.push(seo.generateCollectionSchema(siteData.categories));
     }
   } else if (type === "collection") {
-    title = "All Coloring Page Categories";
-    description =
+    seoTitle = "All Coloring Page Categories";
+    seoDescription =
       "Browse all coloring page categories on ColorVerse — animals, fantasy, mandalas, and more.";
     if (siteData?.categories) {
       schemas.push(seo.generateCollectionSchema(siteData.categories));
@@ -3421,15 +3421,15 @@ function updateSEO({ type, categoryKey, category, item, itemKey } = {}) {
   } else if (type === "category") {
     const cat = category || siteData?.categories?.[categoryKey];
     if (cat) {
-      title = `${cat.title || categoryKey} Coloring Pages`;
-      description = cat.description || description;
+      seoTitle = `${cat.title || categoryKey} Coloring Pages`;
+      seoDescription = cat.description || seoDescription;
       schemas.push(seo.generateBreadcrumbSchema(cat.title || categoryKey));
     }
   } else if (type === "item") {
     if (item) {
       const name = item.title || item.name || "Coloring page";
-      title = `${name} Coloring Page`;
-      description = item.description || `Free printable ${name.toLowerCase()} coloring page.`;
+      seoTitle = `${name} Coloring Page`;
+      seoDescription = item.description || `Free printable ${name.toLowerCase()} coloring page.`;
       // Rebuild the same image URL the renderer uses so JSON-LD matches the <img>.
       try {
         image = getImageUrl(item.description, {
@@ -3447,10 +3447,16 @@ function updateSEO({ type, categoryKey, category, item, itemKey } = {}) {
       );
     }
   } else if (type === "static") {
-    // title/description set by caller
+    // title/description passed by caller (e.g. #about, #search, #favorites).
+    if (title) {
+      seoTitle = title;
+    }
+    if (description) {
+      seoDescription = description;
+    }
   }
 
-  seo.updateMetaTags(title === seo.siteName ? null : title, description, image, fullUrl);
+  seo.updateMetaTags(seoTitle === seo.siteName ? null : seoTitle, seoDescription, image, fullUrl);
   // Inject structured data (replace any previous JSON-LD from prior route).
   if (schemas.length) {
     // Combine multiple schemas into a single @graph so injectStructuredData replaces cleanly.

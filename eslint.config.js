@@ -105,6 +105,7 @@ export default [
       "playwright.config.ts",
       "openrouter.js",
       "archive/**",
+      ".llmhub/**",
     ],
   },
 ];
