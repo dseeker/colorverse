@@ -1624,7 +1624,7 @@ function renderHomepage(data) {
                 <p>Subscribe to our newsletter for weekly coloring pages, tips, and creative inspiration.</p>
             </div>
             <div class="md:w-1/3">
-                <form class="flex">
+                <form id="newsletter-form" class="flex">
                     <input type="email" placeholder="Your email address" class="px-4 py-3 rounded-l-lg w-full text-gray-800" required aria-label="Email for newsletter">
                     <button type="submit" class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold px-4 py-3 rounded-r-lg transition duration-300">
                         Subscribe
@@ -1653,6 +1653,47 @@ function renderHomepage(data) {
   }, 100);
 
   return html;
+}
+
+// --- Newsletter form ---------------------------------------------------------
+// The newsletter form is injected via innerHTML by renderHomepage, so its
+// submit listener must be attached after the DOM is painted. Called from the
+// home branch of handleRouteChange right after renderHomepage(siteData).
+//
+// Privacy note: we only store a flag in localStorage to remember that this
+// browser already subscribed. The email address itself is never persisted,
+// logged, or transmitted anywhere (no backend).
+function wireNewsletterForm() {
+  const form = document.getElementById("newsletter-form");
+  if (!form) {
+    return;
+  }
+
+  // Already subscribed on this device: swap the form for a thank-you note.
+  if (localStorage.getItem("colorverse_newsletter_subscribed")) {
+    form.outerHTML = '<p class="font-semibold">You\'re already subscribed, thanks!</p>';
+    return;
+  }
+
+  form.addEventListener("submit", e => {
+    e.preventDefault();
+    const input = form.querySelector("input[type='email']");
+    const email = input ? input.value.trim() : "";
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showToast("Please enter a valid email address.", "error");
+      return;
+    }
+
+    // Success. Remember the subscription locally — count-only analytics
+    // event, no props (and never the email address itself).
+    localStorage.setItem("colorverse_newsletter_subscribed", "1");
+    if (window.analytics && typeof window.analytics.track === "function") {
+      window.analytics.track("newsletter_subscribe");
+    }
+    showToast("Thanks! You're subscribed.", "success");
+    form.outerHTML = '<p class="font-semibold">Thanks! You\'re subscribed.</p>';
+  });
 }
 
 // Render all categories page
@@ -3651,6 +3692,9 @@ function handleRouteChange() {
         mainContent.innerHTML = renderHomepage(siteData);
         mainContent.classList.remove("hidden");
         updateSEO({ type: "home" });
+        // Attach the newsletter submit listener synchronously — the render
+        // above is synchronous, so the form is in the DOM right now.
+        wireNewsletterForm();
       } else if (hash.startsWith("#category/")) {
         const categoryPath = hash.substring("#category/".length);
         const [categoryKey, queryString] = categoryPath.split("?");
