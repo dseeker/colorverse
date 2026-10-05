@@ -48,6 +48,14 @@
 - Added `offline.html`; service worker pre-caches it as the cache-first fallback.
 - Bumped `STATIC_CACHE` and `CACHE_NAME` to `v2` so existing clients pick up the new asset.
 
+#### Analytics (2026-10-05)
+
+- Added `src/services/analyticsManager.js`. Off by default; gated on `window._env.ENABLE_ANALYTICS`.
+- Tracks only `page_view`, `print`, `download`. No IPs, no user IDs, no search contents, no AI content.
+- Batches events and flushes on a 10s timer / 50-event queue / `visibilitychange` / `pagehide`.
+- Added `/events` route to `workers/content-api`; re-validates batches, optionally forwards to `ANALYTICS_SINK`.
+- See `ANALYTICS.md` for the full privacy contract and how to enable.
+
 ### File Structure
 
 ```
@@ -66,6 +74,7 @@ colorverse/
 │   ├── modules/aiProviders.js
 │   └── services/
 │       ├── aiProviderConfig.js
+│       ├── analyticsManager.js      # Privacy-first event tracking (off by default)
 │       ├── cacheManager.js          # IndexedDB cache
 │       ├── coloringTipsManager.js   # Random tip tooltip
 │       ├── favoritesManager.js      # localStorage favorites
@@ -79,7 +88,7 @@ colorverse/
 │
 ├── workers/
 │   ├── image-proxy/                 # CF Worker: proxies Pollinations images + /data (KV)
-│   ├── content-api/                 # CF Worker: proxies text gen (Pollinations/OpenRouter/Gemini)
+│   ├── content-api/                 # CF Worker: proxies text gen + /events analytics route
 │   └── shared/                      # constants.js, utils.js
 │
 ├── archive/                         # Archived debug/test scripts

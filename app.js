@@ -2410,6 +2410,7 @@ function renderItem(itemData, categoryKey, itemKey) {
             <div class="lg:w-1/4 flex flex-col gap-4 actions-panel">
                 <h3 class="text-xl font-semibold pb-2 border-b" style="color: var(--text-color); border-color: var(--border-color);">Actions</h3>
                 <a href="${imageUrl}" download="${categoryKey}-${itemKey}-${downloadSlug}.jpg"
+                   onclick="if (window.analytics &amp;&amp; window.analytics.track) { window.analytics.track('download'); }"
                    class="block w-full text-center bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition duration-300">
                    Download Image
                 </a>
@@ -2701,6 +2702,9 @@ async function loadImageWithRetry(imageElement, src, maxRetries = 3, abortContro
 
 // Function to print the coloring page
 function printColoringPage(title) {
+  if (window.analytics && typeof window.analytics.track === "function") {
+    window.analytics.track("print");
+  }
   const img = document.getElementById("coloring-image");
 
   // Make sure the image is fully loaded
@@ -2994,6 +2998,11 @@ function handleRouteChange() {
   // Small delay to allow UI to show loading state
   setTimeout(() => {
     try {
+      // One page-view per route. The analytics manager strips query params
+      // and is a no-op when window._env.ENABLE_ANALYTICS is false.
+      if (window.analytics && typeof window.analytics.trackPageView === "function") {
+        window.analytics.trackPageView(hash);
+      }
       if (hash === "#" || hash === "#/") {
         mainContent.innerHTML = renderHomepage(siteData);
         mainContent.classList.remove("hidden");

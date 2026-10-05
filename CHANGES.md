@@ -1,5 +1,12 @@
 # ColorVerse - Changelog
 
+## 2026-10-05
+
+- **Analytics**: Added `src/services/analyticsManager.js` — privacy-first event tracking, off by default (`window._env.ENABLE_ANALYTICS`). Tracks `page_view`, `print`, `download` only; no IPs, user IDs, search contents, or AI content. Batches and flushes on timer / queue-size / `visibilitychange` / `pagehide`.
+- **Worker**: Added `/events` route to `workers/content-api`. Re-validates batches (allowlist + size caps), forwards to optional `ANALYTICS_SINK` env var, otherwise logs aggregate count.
+- **Docs**: Added `ANALYTICS.md` covering the privacy contract, how to enable, and how to add new events. Marked ROADMAP #10 done.
+- **Security (follow-up to 2026-10-04)**: Extended HTML-escape pass to `renderDailyPickPage`, `renderSeasonalGallery`, `renderRecentAdditions`, and the catch block of `renderCategoryWithProgressiveLoading` (commit `545eb07`).
+
 ## 2026-10-04
 
 - **Security**: Removed hardcoded fallback `pk_*` key in `build.js`; build now fails fast if `POLLINATIONS_API_KEY` is unset. Tightened husky pre-commit hook regex threshold from 20 → 12 chars.

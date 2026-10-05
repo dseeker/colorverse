@@ -1350,6 +1350,10 @@
             CONTENT_API_URL: '',
             IMAGE_PROXY_URL: 'https://colorverse-image-proxy.daniel-bca.workers.dev',
             DATA_URL: 'https://colorverse-image-proxy.daniel-bca.workers.dev/data',
+            // Analytics is OFF by default. Flip ENABLE_ANALYTICS to true and
+            // set ANALYTICS_ENDPOINT to collect events. See docs/ANALYTICS.md.
+            ENABLE_ANALYTICS: false,
+            ANALYTICS_ENDPOINT: '',
         };
         window.__COLORVERSE_STATIC__ = true;
         window.__COLORVERSE_DATA_URL__ = 'https://colorverse-image-proxy.daniel-bca.workers.dev/data?v=2';
@@ -1357,6 +1361,7 @@
     <!-- Load Site Data and App Logic -->
     <script src="src/modules/aiProviders.js"></script>
     <script src="src/services/seoManager.js"></script>
+    <script src="src/services/analyticsManager.js"></script>
     <script src="app.js"></script>
 
     <!-- Theme Switcher and Refresh Script -->
