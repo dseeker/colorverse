@@ -3460,6 +3460,150 @@ function updateSEO({ type, categoryKey, category, item, itemKey } = {}) {
   }
 }
 
+// --- Search Page ---
+
+// Render the #search route. Result cards follow the same pattern as
+// renderCategory: placeholder + data-src lazy loading, deterministic seed,
+// and escapeHtml on all AI-generated text.
+function renderSearchPage(query) {
+  const trimmed = (query || "").trim();
+
+  let html = `
+        <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 dark:text-gray-400 py-2">
+            <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
+                <i class="fas fa-home mr-1"></i> Home
+            </a>
+            <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
+            <span class="font-medium text-gray-800 dark:text-gray-200">Search</span>
+        </nav>
+
+        <div class="bg-gradient-to-r from-primary-500 to-primary-700 rounded-xl p-6 text-white mb-8">
+            <h2 class="text-3xl font-bold mb-4"><i class="fas fa-search mr-3"></i>Find a Coloring Page</h2>
+            <form id="search-form" class="flex gap-3 max-w-xl" role="search">
+                <input type="search" id="search-page-input" name="q" value="${escapeHtml(query || "")}"
+                    placeholder="Try dragon, mandala, animals..."
+                    class="flex-1 rounded-lg px-4 py-2 text-gray-800 bg-white border-none focus:outline-none focus:ring-2 focus:ring-white"
+                    aria-label="Search coloring pages">
+                <button type="submit" class="bg-primary-700 hover:bg-primary-800 text-white font-medium px-5 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-search mr-2"></i>Search
+                </button>
+            </form>
+        </div>
+    `;
+
+  if (!trimmed) {
+    html += `
+        <div class="text-center py-16">
+            <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
+            <h2 class="text-2xl font-semibold text-gray-600 dark:text-gray-300 mb-2">Search our collection</h2>
+            <p class="text-gray-500 dark:text-gray-400 mb-6">
+                Type a keyword above to find coloring pages by name, category, or theme.
+            </p>
+            <div class="flex flex-wrap justify-center gap-2">
+                ${["animals", "fantasy", "mandalas", "space", "dinosaurs", "flowers"]
+                  .map(
+                    term => `
+                    <a href="#search?q=${encodeURIComponent(term)}" class="bg-primary-100 hover:bg-primary-200 text-primary-800 dark:bg-primary-900 dark:text-primary-100 px-4 py-2 rounded-full transition-colors">${term}</a>
+                    `
+                  )
+                  .join("")}
+            </div>
+        </div>
+    `;
+    return html;
+  }
+
+  if (!window.SearchManager) {
+    html += `
+        <div class="text-center py-16">
+            <h2 class="text-2xl font-semibold text-gray-600 dark:text-gray-300 mb-2">Search unavailable</h2>
+            <p class="text-gray-500 dark:text-gray-400">The search service could not be loaded. Please try again later.</p>
+        </div>
+    `;
+    return html;
+  }
+
+  // (Re)build the index on every render so background data refreshes are
+  // picked up; it is O(N) over the category map and cheap.
+  let results = [];
+  if (siteData && siteData.categories) {
+    window.SearchManager.buildSearchIndex(siteData.categories);
+    results = window.SearchManager.search(trimmed);
+  }
+
+  if (results.length === 0) {
+    html += `
+        <div class="text-center py-16">
+            <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
+            <h2 class="text-2xl font-semibold text-gray-600 dark:text-gray-300 mb-2">No results found</h2>
+            <p class="text-gray-500 dark:text-gray-400 mb-6">We couldn't find any coloring pages matching &quot;${escapeHtml(trimmed)}&quot;.</p>
+            <a href="#" class="inline-block bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">Return Home</a>
+        </div>
+    `;
+    return html;
+  }
+
+  html += `
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Results for &quot;${escapeHtml(trimmed)}&quot;</h2>
+            <span class="text-gray-600 dark:text-gray-400">${results.length} coloring pages found</span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+    `;
+
+  for (const result of results) {
+    const categoryKey = result.category;
+    const item = result.item;
+    const itemKey = item.key;
+    const itemTitle = item.title || item.name || "Untitled";
+    const itemDescription = item.description || "";
+    const categoryTitle = result.categoryName || categoryKey;
+    const thumbnailUrl = getImageUrl(itemDescription || itemTitle, {
+      width: 400,
+      height: 400,
+      itemKey: itemKey,
+      seed: getDeterministicSeed(categoryKey, itemKey), // ✅ Deterministic
+    });
+    const escItemTitle = escapeHtml(itemTitle);
+    const escItemDesc = escapeHtml(itemDescription);
+    const escCatTitle = escapeHtml(categoryTitle);
+
+    html += `
+            <a href="#item/${categoryKey}/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group">
+                <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                    <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
+                        <div class="spinner"></div>
+                    </div>
+                    <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}"
+                         data-prompt="${escItemDesc}"
+                         data-width="400"
+                         data-height="400"
+                         data-seed="${getDeterministicSeed(categoryKey, itemKey)}"
+                         alt="${escItemTitle} coloring page - free printable ${escCatTitle} coloring sheet for kids"
+                         class="w-full aspect-square object-contain group-hover:opacity-80 transition-opacity relative z-10">
+                </div>
+                <div class="p-3">
+                    <span class="text-xs font-medium text-primary-600 bg-primary-100 px-2 py-0.5 rounded-full">${escCatTitle}</span>
+                    <h4 class="text-sm font-medium text-gray-800 dark:text-gray-200 mt-1 truncate">${escItemTitle}</h4>
+                </div>
+            </a>
+        `;
+  }
+
+  html += "        </div>";
+
+  if (results.length >= 50) {
+    html += `
+        <div class="text-center mt-8">
+            <p class="text-gray-500 dark:text-gray-400">Showing top 50 results. Try a more specific search term for better results.</p>
+        </div>
+    `;
+  }
+
+  return html;
+}
+
 // --- Routing and Initialization ---
 
 function handleRouteChange() {
@@ -3760,6 +3904,55 @@ function handleRouteChange() {
           type: "static",
           title: "Analytics Dashboard",
           description: "Internal analytics dashboard for ColorVerse.",
+        });
+      } else if (hash.startsWith("#search")) {
+        // Search: #search or #search?q=term
+        const searchQuery = new URLSearchParams(
+          hash.substring("#search".length).replace(/^\?/, "")
+        ).get("q");
+        const trimmedQuery = (searchQuery || "").trim();
+
+        mainContent.innerHTML = renderSearchPage(searchQuery || "");
+        mainContent.classList.remove("hidden");
+
+        // Attach the submit listener synchronously — the render above is
+        // synchronous, so the form is in the DOM right now. (A delayed
+        // attach would let an early Enter press fall through to a default
+        // form submission and navigate to the no-hash URL.)
+        const searchForm = document.getElementById("search-form");
+        const searchInput = document.getElementById("search-page-input");
+        if (searchForm && searchInput) {
+          searchForm.addEventListener("submit", e => {
+            e.preventDefault();
+            const value = searchInput.value.trim();
+            // Count-only event, fired on executed searches (form submit),
+            // never on every keystroke. No props — see analytics allowlist.
+            if (window.analytics && typeof window.analytics.track === "function") {
+              window.analytics.track("search");
+            }
+            const nextHash = value ? `#search?q=${encodeURIComponent(value)}` : "#search";
+            if (nextHash === hash) {
+              // Same route — re-render in place so the form still works
+              // when the user submits without changing the query.
+              mainContent.innerHTML = renderSearchPage(value);
+              window.scrollTo(0, 0);
+              // This path bypasses handleRouteChange's finally block, so
+              // wire up lazy image loading for the freshly rendered cards.
+              setupLazyLoading();
+            } else {
+              window.location.hash = nextHash;
+            }
+          });
+        }
+
+        updateSEO({
+          type: "static",
+          title: trimmedQuery
+            ? `Search Results for ${trimmedQuery} — ColorVerse`
+            : "Search Coloring Pages — ColorVerse",
+          description: trimmedQuery
+            ? `Free printable coloring pages matching "${trimmedQuery}". Download and print high-quality coloring sheets for kids.`
+            : "Search hundreds of free printable coloring pages by name, category, or theme.",
         });
       } else {
         // Handle any other routes

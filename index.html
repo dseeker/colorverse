@@ -562,8 +562,6 @@
     <!-- SEO Manager -->
     <!-- Favorites Manager -->
     <script type="module" src="src/services/favoritesManager.js?v=2"></script>
-    <!-- Search Manager -->
-    <script type="module" src="src/services/searchManager.js?v=2"></script>
     <!-- Coloring Tips Manager -->
     <script type="module" src="src/services/coloringTipsManager.js?v=2"></script>
     <!-- Performance Monitor -->
@@ -646,8 +644,16 @@
                         </button>
                     </div>
                     
+                    <!-- Search Button -->
+                    <a href="#search"
+                        class="mr-3 p-2 rounded-lg text-white bg-indigo-500 hover:bg-indigo-600 transition-colors"
+                        title="Search Coloring Pages">
+                        <i class="fas fa-search"></i>
+                        <span class="sr-only">Search Coloring Pages</span>
+                    </a>
+
                     <!-- Favorites Button -->
-                    <button id="favorites-toggle" 
+                    <button id="favorites-toggle"
                         class="mr-3 p-2 rounded-lg text-white bg-pink-500 hover:bg-pink-600 transition-colors relative"
                         title="My Favorites">
                         <i class="fas fa-heart"></i>
@@ -1368,6 +1374,12 @@
     <script src="src/services/seoManager.js"></script>
     <script src="src/services/analyticsManager.js"></script>
     <script src="src/services/favoritesManager.js"></script>
+    <!-- Search Manager. Must stay type="module": the file ends with
+         `export default` (for vitest), and `export` is a SyntaxError in a
+         classic script, so a plain <script> tag would silently fail to set
+         window.SearchManager. Module scripts are deferred, so this still
+         runs before the deferred DOMContentLoaded handler in app.js. -->
+    <script type="module" src="src/services/searchManager.js"></script>
     <script src="app.js"></script>
 
     <!-- Theme Switcher and Refresh Script -->

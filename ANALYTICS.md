@@ -13,8 +13,10 @@ Only these events are emitted, and only when analytics is enabled:
 | `download`        | none          | download `<a>` `onclick` in `renderItem` |
 | `favorite_add`    | none          | `FavoritesManager.addFavorite()`         |
 | `favorite_remove` | none          | `FavoritesManager.removeFavorite()`      |
+| `share`           | none          | `sharePage()` in `app.js`                |
+| `search`          | none          | `#search` form submit in `app.js`        |
 
-The `path` prop is the route hash with query params stripped (`#search?q=foo` becomes `#search`) and truncated to 200 chars. No item identifiers, titles, descriptions, prompts, search contents, or user input are ever sent.
+The `path` prop is the route hash with query params stripped (`#search?q=foo` becomes `#search`) and truncated to 200 chars. No item identifiers, titles, descriptions, prompts, search contents, or user input are ever sent. `search` is count-only — the query text is never tracked.
 
 ## What we DO NOT collect
 
