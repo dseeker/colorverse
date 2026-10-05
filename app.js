@@ -2944,7 +2944,237 @@ function printColoringPage(title) {
   }
 }
 
+// --- Share modal ---------------------------------------------------------------
+// Per-platform share options for browsers without (or cancelled) Web Share API.
+// Modal is keyboard-navigable: focus trap, Escape to close, click outside to
+// close, and focus returns to the triggering Share button on close.
+
+const SHARE_PLATFORMS = [
+  {
+    id: "twitter",
+    label: "Twitter / X",
+    icon: "fab fa-x-twitter",
+    className: "bg-[#1d9bf0] hover:bg-[#0d8ae0] text-white",
+    buildUrl: (title, url) =>
+      `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`,
+  },
+  {
+    id: "pinterest",
+    label: "Pinterest",
+    icon: "fab fa-pinterest",
+    className: "bg-[#bd081c] hover:bg-[#9a0617] text-white",
+    buildUrl: (title, url) =>
+      `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(url)}&description=${encodeURIComponent(title)}`,
+  },
+  {
+    id: "facebook",
+    label: "Facebook",
+    icon: "fab fa-facebook-f",
+    className: "bg-[#1877f2] hover:bg-[#125ecb] text-white",
+    buildUrl: (title, url) =>
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+  },
+  {
+    id: "whatsapp",
+    label: "WhatsApp",
+    icon: "fab fa-whatsapp",
+    className: "bg-[#25d366] hover:bg-[#1ebe5a] text-white",
+    buildUrl: (title, url) => `https://wa.me/?text=${encodeURIComponent(title + " " + url)}`,
+  },
+  {
+    id: "reddit",
+    label: "Reddit",
+    icon: "fab fa-reddit-alien",
+    className: "bg-[#ff4500] hover:bg-[#e03d00] text-white",
+    buildUrl: (title, url) =>
+      `https://reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`,
+  },
+  {
+    id: "email",
+    label: "Email",
+    icon: "fas fa-envelope",
+    className: "bg-gray-600 hover:bg-gray-700 text-white",
+    buildUrl: (title, url) =>
+      `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(url)}`,
+  },
+];
+
+// Count-only analytics (no props, no platform name) — privacy contract.
+function trackShare() {
+  if (window.analytics && typeof window.analytics.track === "function") {
+    window.analytics.track("share");
+  }
+}
+
+function shareModalButtonHtml(platform, title, url) {
+  const href = escapeHtml(platform.buildUrl(title, url));
+  const ariaLabel = escapeHtml(`Share on ${platform.label}`);
+  // Web platforms open in a new tab with noopener/noreferrer. Email uses a
+  // mailto: link, which must stay in the current context (no target).
+  const targetAttrs = platform.id === "email" ? "" : ' target="_blank" rel="noopener noreferrer"';
+  return `<a href="${href}"${targetAttrs} class="share-platform-btn flex items-center justify-center gap-2 w-full py-3 px-4 rounded-lg font-bold transition duration-200 ${platform.className}" aria-label="${ariaLabel}"><i class="${platform.icon} text-lg" aria-hidden="true"></i>${escapeHtml(platform.label)}</a>`;
+}
+
+function openShareModal(title, url, triggerEl) {
+  // Only one share modal at a time; close the previous one cleanly so its
+  // document-level keydown listener is removed too.
+  const existing = document.getElementById("share-modal-overlay");
+  if (existing && typeof existing.__closeShareModal === "function") {
+    existing.__closeShareModal();
+  } else if (existing && existing.parentNode) {
+    existing.parentNode.removeChild(existing);
+  }
+
+  const overlay = document.createElement("div");
+  overlay.id = "share-modal-overlay";
+  overlay.className =
+    "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50";
+
+  const copyUrl = escapeHtml(url);
+  const modalHtml = `
+      <div id="share-modal" role="dialog" aria-modal="true" aria-label="Share this page"
+           class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Share this page</h3>
+          <button type="button" id="share-modal-close" aria-label="Close share options"
+                  class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none px-1">
+            <i class="fas fa-times" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          ${SHARE_PLATFORMS.map(p => shareModalButtonHtml(p, title, url)).join("")}
+          <button type="button" id="share-modal-copy" data-share-copy-url="${copyUrl}"
+                  class="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-lg font-bold transition duration-200 bg-blue-500 hover:bg-blue-600 text-white"
+                  aria-label="Copy link to clipboard">
+            <i class="fas fa-link text-lg" aria-hidden="true"></i>Copy Link
+          </button>
+        </div>
+      </div>
+    `;
+  overlay.innerHTML = modalHtml;
+  document.body.appendChild(overlay);
+
+  const modal = document.getElementById("share-modal");
+  const closeBtn = document.getElementById("share-modal-close");
+  const copyBtn = document.getElementById("share-modal-copy");
+
+  function close() {
+    if (overlay.__closeShareModal) {
+      overlay.__closeShareModal = null;
+    }
+    document.removeEventListener("keydown", onKeyDown, true);
+    overlay.removeEventListener("click", onOverlayClick);
+    if (overlay.parentNode) {
+      overlay.parentNode.removeChild(overlay);
+    }
+    if (triggerEl && typeof triggerEl.focus === "function") {
+      triggerEl.focus();
+    }
+  }
+
+  function onOverlayClick(e) {
+    // Click on the dimmed backdrop (outside the dialog content) closes the modal.
+    if (e.target === overlay) {
+      close();
+    }
+  }
+
+  function getFocusable() {
+    return modal.querySelectorAll(
+      'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+    );
+  }
+
+  function onKeyDown(e) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+      return;
+    }
+    if (e.key !== "Tab") {
+      return;
+    }
+    // Focus trap: keep Tab/Shift+Tab cycling within the modal.
+    const focusable = Array.from(getFocusable());
+    if (focusable.length === 0) {
+      e.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey) {
+      if (active === first || !modal.contains(active)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else if (active === last || !modal.contains(active)) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  overlay.addEventListener("click", onOverlayClick);
+  document.addEventListener("keydown", onKeyDown, true);
+  overlay.__closeShareModal = close;
+
+  // Platform buttons: navigation is native (target="_blank" + rel="noopener
+  // noreferrer"), we only track the share on actual click, not modal open.
+  modal.querySelectorAll(".share-platform-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      trackShare();
+      close();
+    });
+  });
+
+  copyBtn.addEventListener("click", () => {
+    trackShare();
+    const copyTarget = copyBtn.getAttribute("data-share-copy-url") || "";
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      navigator.clipboard.writeText(copyTarget).then(
+        () => {
+          showToast("Link copied!", "success");
+          close();
+        },
+        () => {
+          showToast("Could not copy link", "error");
+        }
+      );
+    } else {
+      // Clipboard API unavailable (e.g., insecure context): fall back to a
+      // read-only selection the user can copy manually.
+      const helper = document.createElement("textarea");
+      helper.value = copyTarget;
+      helper.setAttribute("readonly", "");
+      helper.style.position = "fixed";
+      helper.style.opacity = "0";
+      document.body.appendChild(helper);
+      helper.select();
+      let ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } catch {
+        ok = false;
+      }
+      helper.parentNode.removeChild(helper);
+      if (ok) {
+        showToast("Link copied!", "success");
+        close();
+      } else {
+        showToast("Could not copy link", "error");
+      }
+    }
+  });
+
+  closeBtn.addEventListener("click", close);
+
+  // Move focus into the modal (close button first so Escape always works).
+  closeBtn.focus();
+}
+
 async function sharePage(title, url) {
+  // Best UX on mobile: native share sheet first.
   if (navigator.share) {
     try {
       await navigator.share({
@@ -2952,15 +3182,23 @@ async function sharePage(title, url) {
         text: `Check out this free coloring page: ${title}`,
         url: url,
       });
+      trackShare();
       debug.log("Page shared successfully");
+      return;
     } catch (err) {
-      console.error("Share failed:", err.message);
+      // AbortError = user dismissed the native sheet; show our own options
+      // so the share intent isn't silently dropped.
+      if (err && err.name === "AbortError") {
+        debug.log("Native share cancelled by user; showing share modal");
+      } else {
+        console.error("Share failed:", err.message);
+      }
     }
-  } else {
-    // Fallback for browsers that don't support Web Share API
-    alert(`Share this page: ${url}`);
-    // Or implement custom share buttons (e.g., mailto, Twitter link)
   }
+
+  // Fallback (or cancelled native share): accessible per-platform modal.
+  const triggerEl = document.activeElement;
+  openShareModal(title, url, triggerEl);
 }
 
 function showLoading(isLoading) {
