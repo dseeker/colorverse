@@ -6,11 +6,13 @@ ColorVerse ships with a privacy-first analytics system. It is **off by default**
 
 Only these events are emitted, and only when analytics is enabled:
 
-| Event       | Props         | Source                                   |
-| ----------- | ------------- | ---------------------------------------- |
-| `page_view` | `path` (hash) | `handleRouteChange` in `app.js`          |
-| `print`     | none          | `printColoringPage()` in `app.js`        |
-| `download`  | none          | download `<a>` `onclick` in `renderItem` |
+| Event             | Props         | Source                                   |
+| ----------------- | ------------- | ---------------------------------------- |
+| `page_view`       | `path` (hash) | `handleRouteChange` in `app.js`          |
+| `print`           | none          | `printColoringPage()` in `app.js`        |
+| `download`        | none          | download `<a>` `onclick` in `renderItem` |
+| `favorite_add`    | none          | `FavoritesManager.addFavorite()`         |
+| `favorite_remove` | none          | `FavoritesManager.removeFavorite()`      |
 
 The `path` prop is the route hash with query params stripped (`#search?q=foo` becomes `#search`) and truncated to 200 chars. No item identifiers, titles, descriptions, prompts, search contents, or user input are ever sent.
 

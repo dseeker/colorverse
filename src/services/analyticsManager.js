@@ -10,6 +10,7 @@
  *   - route changes (page views) — the hash path only, no query params
  *   - print actions (count only, no item content)
  *   - download actions (count only, no item content)
+ *   - favorite add / remove (count only, no item content)
  *
  * What we DO NOT collect:
  *   - IPs, user agents, or any user identifiers
@@ -146,7 +147,13 @@ class AnalyticsManager {
   // --- internals -------------------------------------------------------------
 
   _isAllowedEvent(name) {
-    return name === "page_view" || name === "print" || name === "download";
+    return (
+      name === "page_view" ||
+      name === "print" ||
+      name === "download" ||
+      name === "favorite_add" ||
+      name === "favorite_remove"
+    );
   }
 
   /**
@@ -160,7 +167,12 @@ class AnalyticsManager {
       if (typeof props.path === "string") {
         out.path = this._sanitizePath(props.path);
       }
-    } else if (name === "print" || name === "download") {
+    } else if (
+      name === "print" ||
+      name === "download" ||
+      name === "favorite_add" ||
+      name === "favorite_remove"
+    ) {
       // Count-only. We deliberately do NOT forward item identifiers.
     }
     return out;

@@ -51,10 +51,18 @@
 #### Analytics (2026-10-05)
 
 - Added `src/services/analyticsManager.js`. Off by default; gated on `window._env.ENABLE_ANALYTICS`.
-- Tracks only `page_view`, `print`, `download`. No IPs, no user IDs, no search contents, no AI content.
+- Tracks only `page_view`, `print`, `download`, `favorite_add`, `favorite_remove`. No IPs, no user IDs, no search contents, no AI content.
 - Batches events and flushes on a 10s timer / 50-event queue / `visibilitychange` / `pagehide`.
 - Added `/events` route to `workers/content-api`; re-validates batches, optionally forwards to `ANALYTICS_SINK`.
 - See `ANALYTICS.md` for the full privacy contract and how to enable.
+
+#### Favorites (2026-10-05)
+
+- `src/services/favoritesManager.js` is now loaded by `index.html` and wired into the app (was a dead service like SEOManager used to be).
+- Item page has a real "Add/Remove from Favorites" button (replaces the disabled "Save (Coming Soon)" placeholder). Toggles via `window.toggleFavoriteFromItem`.
+- Header heart button navigates to `#favorites` (hash route) so back-button, SEO, and analytics page-view fire correctly.
+- `#favorites` route renders the saved-pages grid via `FavoritesManager.showFavoritesView()`.
+- `item.name` normalized to `item.title || item.name` (live data uses `title`); all AI-content interpolations in the favorites view escaped.
 
 ### File Structure
 

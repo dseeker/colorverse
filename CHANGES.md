@@ -2,6 +2,7 @@
 
 ## 2026-10-05
 
+- **Favorites**: Wired `src/services/favoritesManager.js` into the app (was a dead service). `index.html` now loads it; `app.js` adds a `#favorites` route, replaces the disabled "Save (Coming Soon)" button on the item page with a real toggle (`window.toggleFavoriteFromItem`), and exposes `siteData` on `window` via a getter so the handler can read the item payload. The header heart button now navigates to `#favorites` (via hash) so back-button and analytics work correctly. Fixed `item.name` → `item.title || item.name` normalization (live data uses `title`); escaped all AI-content interpolations in `showFavoritesView`; replaced broken `window.showItemDetail`/`window.showHomepage` onclicks with hash navigation. Added `favorite_add` / `favorite_remove` to the analytics allowlist (both client and server).
 - **Analytics**: Added `src/services/analyticsManager.js` — privacy-first event tracking, off by default (`window._env.ENABLE_ANALYTICS`). Tracks `page_view`, `print`, `download` only; no IPs, user IDs, search contents, or AI content. Batches and flushes on timer / queue-size / `visibilitychange` / `pagehide`.
 - **Worker**: Added `/events` route to `workers/content-api`. Re-validates batches (allowlist + size caps), forwards to optional `ANALYTICS_SINK` env var, otherwise logs aggregate count.
 - **Docs**: Added `ANALYTICS.md` covering the privacy contract, how to enable, and how to add new events. Marked ROADMAP #10 done.

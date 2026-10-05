@@ -18,7 +18,13 @@ const POLLINATIONS_URL = "https://gen.pollinations.ai/v1/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-const ALLOWED_ANALYTICS_EVENTS = new Set(["page_view", "print", "download"]);
+const ALLOWED_ANALYTICS_EVENTS = new Set([
+  "page_view",
+  "print",
+  "download",
+  "favorite_add",
+  "favorite_remove",
+]);
 const MAX_EVENTS_PER_BATCH = 100;
 const MAX_EVENT_PROP_BYTES = 512;
 

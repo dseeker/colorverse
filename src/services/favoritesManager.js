@@ -7,11 +7,31 @@
 const PLACEHOLDER_IMAGE =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
+function escapeFavHtml(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 class FavoritesManager {
   constructor() {
     this.storageKey = "colorverse_favorites";
     this.favorites = this.loadFavorites();
     this.listeners = [];
+  }
+
+  /**
+   * Items in the live data use `title`; some legacy/seed paths use `name`.
+   * Normalize so the manager works either way.
+   */
+  itemName(item) {
+    return (item && (item.title || item.name)) || "Untitled";
   }
 
   /**
@@ -56,7 +76,10 @@ class FavoritesManager {
     if (!this.isFavorite(category, item.key)) {
       this.favorites.push(favorite);
       this.saveFavorites();
-      this.showToast(`Added "${item.name}" to favorites`, "success");
+      this.showToast(`Added "${this.itemName(item)}" to favorites`, "success");
+      if (window.analytics && typeof window.analytics.track === "function") {
+        window.analytics.track("favorite_add");
+      }
       return true;
     }
     return false;
@@ -72,7 +95,10 @@ class FavoritesManager {
     if (index > -1) {
       const removed = this.favorites.splice(index, 1)[0];
       this.saveFavorites();
-      this.showToast(`Removed "${removed.item.name}" from favorites`, "info");
+      this.showToast(`Removed "${this.itemName(removed.item)}" from favorites`, "info");
+      if (window.analytics && typeof window.analytics.track === "function") {
+        window.analytics.track("favorite_remove");
+      }
       return true;
     }
     return false;
@@ -143,11 +169,14 @@ class FavoritesManager {
    */
   createFavoriteButton(category, item) {
     const isFav = this.isFavorite(category, item.key);
+    const escName = escapeFavHtml(this.itemName(item));
+    const escCategory = escapeFavHtml(category);
+    const escKey = escapeFavHtml(item.key);
     return `
             <button class="favorite-btn absolute top-2 right-2 p-2 rounded-full transition-all transform hover:scale-110 z-10 ${isFav ? "bg-pink-500 text-white" : "bg-white bg-opacity-80 text-gray-400 hover:text-pink-500"}"
-                    data-category="${category}" 
-                    data-item-key="${item.key}"
-                    data-item-name="${item.name}"
+                    data-category="${escCategory}"
+                    data-item-key="${escKey}"
+                    data-item-name="${escName}"
                     title="${isFav ? "Remove from favorites" : "Add to favorites"}">
                 <i class="fas fa-heart"></i>
             </button>
@@ -202,11 +231,13 @@ class FavoritesManager {
       }
     });
 
-    // Favorites toggle button in header
+    // Favorites toggle button in header. Setting the hash lets
+    // handleRouteChange drive the rendering, SEO, and analytics, so the
+    // back button works the same as any other page.
     const favoritesToggle = document.getElementById("favorites-toggle");
     if (favoritesToggle) {
       favoritesToggle.addEventListener("click", () => {
-        this.showFavoritesView();
+        window.location.hash = "#favorites";
       });
     }
   }
@@ -235,19 +266,19 @@ class FavoritesManager {
 
     let html = `
             <nav aria-label="breadcrumb" class="flex items-center mb-6 text-sm text-gray-600">
-                <a href="#" class="hover:text-primary-600 transition-colors flex items-center" onclick="window.showHomepage(); return false;">
+                <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
                     <i class="fas fa-home mr-1"></i> Home
                 </a>
                 <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
                 <span class="font-medium text-gray-800">My Favorites</span>
             </nav>
-            
+
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-3xl font-bold">My Favorite Coloring Pages</h1>
                 ${
                   favorites.length > 0
                     ? `
-                    <button onclick="window.FavoritesManager.clearFavorites()" 
+                    <button onclick="window.FavoritesManager.clearFavorites()"
                             class="text-red-500 hover:text-red-700 transition-colors flex items-center">
                         <i class="fas fa-trash-alt mr-2"></i> Clear All
                     </button>
@@ -263,8 +294,8 @@ class FavoritesManager {
                     <i class="fas fa-heart text-6xl text-gray-300 mb-4"></i>
                     <h2 class="text-2xl font-semibold text-gray-600 mb-2">No favorites yet</h2>
                     <p class="text-gray-500 mb-6">Start exploring and save your favorite coloring pages here!</p>
-                    <a href="#" class="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-3 rounded-lg font-medium inline-flex items-center" 
-                       onclick="window.showHomepage(); return false;">
+                    <a href="#"
+                       class="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-6 py-3 rounded-lg font-medium inline-flex items-center">
                         <i class="fas fa-search mr-2"></i> Browse Coloring Pages
                     </a>
                 </div>
@@ -273,32 +304,45 @@ class FavoritesManager {
       html += `
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     ${favorites
-                      .map(
-                        fav => `
-                        <div class="relative group" data-item-full='${JSON.stringify(fav.item).replace(/'/g, "&#39;")}'>
+                      .map(fav => {
+                        const name = this.itemName(fav.item);
+                        const escName = escapeFavHtml(name);
+                        const escCategory = escapeFavHtml(fav.category);
+                        const escKey = escapeFavHtml(fav.item.key);
+                        const escImgUrl = escapeFavHtml(fav.imageUrl || PLACEHOLDER_IMAGE);
+                        const escDate = escapeFavHtml(new Date(fav.addedAt).toLocaleDateString());
+                        // data-item-full carries the JSON-encoded item payload for the
+                        // click handler. We escape the JSON to safely embed it in a
+                        // single-quoted attribute. JSON.stringify already escapes
+                        // quotes; the .replace handles the single-quote case.
+                        const itemJson = escapeFavHtml(
+                          JSON.stringify(fav.item).replace(/'/g, "&#39;")
+                        );
+                        return `
+                        <div class="relative group" data-item-full='${itemJson}'>
                             ${this.createFavoriteButton(fav.category, fav.item)}
                             <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                                 onclick="window.showItemDetail('${fav.category}', '${fav.item.key}')">
+                                 onclick="window.location.hash = '#item/${escCategory}/${escKey}'">
                                 <div class="aspect-square overflow-hidden bg-gray-100">
-                                    <img src="${fav.imageUrl || PLACEHOLDER_IMAGE}" 
-                                         alt="${fav.item.name} coloring page" 
+                                    <img src="${escImgUrl}"
+                                         alt="${escName} coloring page"
                                          class="w-full h-full object-cover"
                                          loading="lazy">
                                 </div>
                                 <div class="p-4">
-                                    <h3 class="font-semibold text-gray-800 truncate">${fav.item.name}</h3>
-                                    <p class="text-sm text-gray-500 capitalize">${fav.category}</p>
+                                    <h3 class="font-semibold text-gray-800 truncate">${escName}</h3>
+                                    <p class="text-sm text-gray-500 capitalize">${escCategory}</p>
                                     <p class="text-xs text-gray-400 mt-1">
-                                        Added ${new Date(fav.addedAt).toLocaleDateString()}
+                                        Added ${escDate}
                                     </p>
                                 </div>
                             </div>
                         </div>
-                    `
-                      )
+                    `;
+                      })
                       .join("")}
                 </div>
-                
+
                 <!-- Affiliate Banner for Coloring Books -->
                 <div class="mt-12 p-6 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl border-2 border-purple-200">
                     <div class="flex items-center justify-between">
@@ -308,8 +352,8 @@ class FavoritesManager {
                             </h3>
                             <p class="text-purple-700">Get a physical coloring book with hundreds of pages! Perfect for offline coloring.</p>
                         </div>
-                        <a href="https://www.amazon.com/s?k=coloring+books+for+kids&ref=nb_sb_noss" 
-                           target="_blank" 
+                        <a href="https://www.amazon.com/s?k=coloring+books+for+kids&ref=nb_sb_noss"
+                           target="_blank"
                            rel="noopener noreferrer"
                            class="bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold px-6 py-3 rounded-lg hover:shadow-lg transition-shadow flex items-center">
                             <i class="fas fa-shopping-cart mr-2"></i> Shop on Amazon

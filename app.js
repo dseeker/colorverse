@@ -1057,6 +1057,13 @@ class LRUCache {
 
 // --- State ---
 let siteData = null;
+// Expose siteData on window so onclick handlers (e.g. toggleFavoriteFromItem)
+// can read the in-memory data without a separate export dance. A property
+// getter keeps the two names in sync automatically.
+Object.defineProperty(window, "siteData", {
+  get: () => siteData,
+  configurable: true,
+});
 let currentSeason = getCurrentSeason();
 let featuredCategories = []; // Will store our featured categories
 const imageUrlCache = new LRUCache(MAX_CACHE_SIZE); // LRU Cache for image URLs (max 100 entries)
@@ -2426,9 +2433,13 @@ function renderItem(itemData, categoryKey, itemKey) {
                         class="w-full text-center bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded transition duration-300">
                     Support Us (Donate)
                  </a>
-                <!-- Placeholder for Save/Favorite -->
-                <button class="w-full font-bold py-2 px-4 rounded transition duration-300" style="background-color: #d1d5db; color: #4b5563;" disabled>
-                    Save (Coming Soon)
+                <!-- Favorite toggle. Reads initial state at render time;
+                     the click handler updates localStorage, classes, and the
+                     header count badge via FavoritesManager. -->
+                <button id="favorite-toggle-${categoryKey}-${itemKey}"
+                        onclick="window.toggleFavoriteFromItem('${escapeJsAttr(categoryKey)}', '${escapeJsAttr(itemKey)}', this)"
+                        class="favorite-toggle-btn w-full font-bold py-2 px-4 rounded transition duration-300 ${window.FavoritesManager && window.FavoritesManager.isFavorite(categoryKey, itemKey) ? "bg-pink-500 hover:bg-pink-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"}">
+                    <i class="fas fa-heart mr-2"></i><span class="fav-label">${window.FavoritesManager && window.FavoritesManager.isFavorite(categoryKey, itemKey) ? "Remove from Favorites" : "Add to Favorites"}</span>
                 </button>
 
                 <h3 class="text-xl font-semibold pb-2 mt-4 border-b" style="color: var(--text-color); border-color: var(--border-color);">Navigation</h3>
@@ -2696,6 +2707,69 @@ async function loadImageWithRetry(imageElement, src, maxRetries = 3, abortContro
       const delay = Math.min(2000 * Math.pow(1.5, attempt - 1), 8000); // Increased delays: 2s, 3s, 4.5s, max 8s
       debug.log(`Waiting ${delay}ms before retrying image load for ${src}`);
       await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
+// Toggle favorite state for the current item. Called from the favorite button
+// in renderItem. Reads the item from siteData so FavoritesManager gets the
+// full payload (title, description, etc.) without us having to thread it
+// through the onclick string. Falls back gracefully if the manager or data
+// is missing.
+function toggleFavoriteFromItem(categoryKey, itemKey, btnEl) {
+  const mgr = window.FavoritesManager;
+  if (!mgr || typeof mgr.isFavorite !== "function") {
+    if (typeof showToast === "function") {
+      showToast("Favorites unavailable right now.", "error");
+    }
+    return;
+  }
+
+  // Resolve the item payload from the in-memory site data.
+  let itemData = null;
+  if (categoryKey === "seasonal" && window.siteData?.seasonal_gallery?.items) {
+    itemData = window.siteData.seasonal_gallery.items[itemKey];
+  } else {
+    itemData = window.siteData?.categories?.[categoryKey]?.items?.[itemKey];
+  }
+  if (!itemData) {
+    if (typeof showToast === "function") {
+      showToast("Couldn't find that item to save.", "error");
+    }
+    return;
+  }
+
+  // FavoritesManager expects item.key to be set; live data items don't carry it.
+  const item = Object.assign({ key: itemKey }, itemData);
+
+  // Find the image URL from the rendered <img> on the page so the favorites
+  // grid can show the same thumbnail.
+  const img = document.getElementById("coloring-image");
+  const imageUrl = img?.src || img?.getAttribute("data-src") || "";
+
+  const isFav = mgr.isFavorite(categoryKey, itemKey);
+  if (isFav) {
+    mgr.removeFavorite(categoryKey, itemKey);
+  } else {
+    mgr.addFavorite(categoryKey, item, imageUrl);
+  }
+
+  // Update the button's visual + label state. The manager's notifyListeners
+  // path also updates the header count badge.
+  if (btnEl) {
+    const label = btnEl.querySelector(".fav-label");
+    if (mgr.isFavorite(categoryKey, itemKey)) {
+      btnEl.classList.remove("bg-gray-200", "hover:bg-gray-300", "text-gray-800");
+      btnEl.classList.add("bg-pink-500", "hover:bg-pink-600", "text-white");
+      if (label) {
+        label.textContent = "Remove from Favorites";
+      }
+    } else {
+      btnEl.classList.remove("bg-pink-500", "hover:bg-pink-600", "text-white");
+      btnEl.classList.add("bg-gray-200", "hover:bg-gray-300", "text-gray-800");
+      if (label) {
+        label.textContent = "Add to Favorites";
+      }
     }
   }
 }
@@ -3240,6 +3314,24 @@ function handleRouteChange() {
         mainContent.innerHTML = renderAllCategoriesPage(siteData);
         mainContent.classList.remove("hidden");
         updateSEO({ type: "collection" });
+      } else if (hash === "#favorites") {
+        // My Favorites — backed by FavoritesManager (localStorage)
+        if (
+          window.FavoritesManager &&
+          typeof window.FavoritesManager.showFavoritesView === "function"
+        ) {
+          window.FavoritesManager.showFavoritesView();
+          mainContent.classList.remove("hidden");
+        } else {
+          mainContent.innerHTML =
+            '<div class="text-center py-8 text-red-500"><h2>Favorites unavailable</h2><p>The favorites service could not be loaded.</p></div>';
+          mainContent.classList.remove("hidden");
+        }
+        updateSEO({
+          type: "static",
+          title: "My Favorites",
+          description: "Your saved coloring pages on ColorVerse.",
+        });
       } else {
         // Handle any other routes
         mainContent.innerHTML = `<div class="text-center py-8">
@@ -4866,6 +4958,7 @@ Constraints & Guidelines:
 // Make the static content functions available globally for use in links
 window.printColoringPage = printColoringPage;
 window.sharePage = sharePage;
+window.toggleFavoriteFromItem = toggleFavoriteFromItem;
 
 // Handle form submissions on static pages
 document.addEventListener("submit", function (event) {
