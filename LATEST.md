@@ -56,6 +56,13 @@
 - Added `/events` route to `workers/content-api`; re-validates batches, optionally forwards to `ANALYTICS_SINK`.
 - See `ANALYTICS.md` for the full privacy contract and how to enable.
 
+#### Analytics Dashboard (2026-10-05)
+
+- `workers/content-api` keeps aggregate counters in an `ANALYTICS_KV` KV namespace (single JSON blob: per-event totals + per-path `page_view` counts, capped at 500 distinct paths). Writes are skipped silently when `ANALYTICS_KV` is unbound, so `/events` never fails on missing KV.
+- New `GET /events/stats` route returns the counters. Bearer-token gated via `ANALYTICS_ADMIN_TOKEN`: 403 if the token is unset server-side, 401 on a wrong/missing token.
+- `app.js` adds a `#dashboard` hash route (admin-only, not in the nav) that fetches `{ANALYTICS_ENDPOINT or CONTENT_API_URL}/events/stats` using `window._env.ANALYTICS_DASHBOARD_TOKEN` and renders event totals + top 20 paths with loading/error/empty states. All data is escaped with `escapeHtml`.
+- `index.html` adds `ANALYTICS_DASHBOARD_TOKEN` (empty = dashboard disabled). `wrangler.toml` adds the `ANALYTICS_KV` binding (placeholder id).
+
 #### Favorites (2026-10-05)
 
 - `src/services/favoritesManager.js` is now loaded by `index.html` and wired into the app (was a dead service like SEOManager used to be).

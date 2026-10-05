@@ -2973,6 +2973,188 @@ function showLoading(isLoading) {
 
 // --- SEO: structured data + meta tags per route ---
 // Defers to window.SEOManager (src/services/seoManager.js). No-op if not loaded.
+// --- Admin analytics dashboard -----------------------------------------------
+
+function renderDashboardShell(state, detail) {
+  // state: "loading" | "error" | "empty" | "disabled" | "data"
+  const heading = `
+    <div class="mb-6">
+      <h1 class="text-3xl font-bold mb-2">Analytics Dashboard</h1>
+      <p class="text-gray-600 dark:text-gray-400">
+        Aggregate event counts served by the content-api worker.
+      </p>
+    </div>`;
+
+  if (state === "loading") {
+    return (
+      heading +
+      `<div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-8 text-center">
+        <div class="inline-block w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="mt-4 text-gray-600 dark:text-gray-400">Loading stats&hellip;</p>
+      </div>`
+    );
+  }
+
+  if (state === "disabled") {
+    return (
+      heading +
+      `<div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-8 text-center">
+        <p class="text-gray-700 dark:text-gray-300">Dashboard disabled.</p>
+        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          Set <code>window._env.ANALYTICS_DASHBOARD_TOKEN</code> in index.html to enable it.
+        </p>
+      </div>`
+    );
+  }
+
+  if (state === "error") {
+    return (
+      heading +
+      `<div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-8 text-center">
+        <p class="text-red-500">Failed to load stats.</p>
+        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">${escapeHtml(detail)}</p>
+      </div>`
+    );
+  }
+
+  return heading;
+}
+
+function renderDashboardEventsTable(events) {
+  const entries = Object.entries(events || {}).sort(
+    (a, b) => (b[1] || 0) - (a[1] || 0) || (a[0] < b[0] ? -1 : 1)
+  );
+  const total = entries.reduce((sum, [, n]) => sum + (n || 0), 0);
+  const rows = entries
+    .map(
+      ([name, count]) => `
+        <tr class="border-b border-gray-100 dark:border-gray-700 last:border-0">
+          <td class="py-2 pr-4 font-mono text-sm">${escapeHtml(name)}</td>
+          <td class="py-2 text-right font-semibold tabular-nums">${escapeHtml(count)}</td>
+        </tr>`
+    )
+    .join("");
+  return `
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
+      <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Events by type</h2>
+      <table class="w-full text-left">
+        <thead>
+          <tr class="text-sm uppercase text-gray-500 dark:text-gray-400">
+            <th class="pb-2">Event</th>
+            <th class="pb-2 text-right">Count</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+        <tfoot>
+          <tr class="border-t-2 border-gray-200 dark:border-gray-600">
+            <td class="py-2 pr-4 font-semibold">Total</td>
+            <td class="py-2 text-right font-bold tabular-nums">${escapeHtml(total)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
+}
+
+function renderDashboardPathsTable(topPaths) {
+  const rows = topPaths
+    .map(
+      (entry, i) => `
+        <tr class="border-b border-gray-100 dark:border-gray-700 last:border-0">
+          <td class="py-2 pr-4 text-gray-400 tabular-nums">${escapeHtml(i + 1)}</td>
+          <td class="py-2 pr-4 font-mono text-sm break-all">${escapeHtml(entry.path)}</td>
+          <td class="py-2 text-right font-semibold tabular-nums">${escapeHtml(entry.count)}</td>
+        </tr>`
+    )
+    .join("");
+  return `
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
+      <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
+        Top page views <span class="text-sm font-normal text-gray-500 dark:text-gray-400">(top 20 paths)</span>
+      </h2>
+      <table class="w-full text-left">
+        <thead>
+          <tr class="text-sm uppercase text-gray-500 dark:text-gray-400">
+            <th class="pb-2 w-10">#</th>
+            <th class="pb-2">Path</th>
+            <th class="pb-2 text-right">Views</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+/**
+ * Admin-only analytics dashboard (reachable by URL, not in the main nav).
+ * Reads aggregate counters from the content-api worker's /events/stats
+ * endpoint using the Bearer token from window._env.ANALYTICS_DASHBOARD_TOKEN.
+ */
+function renderDashboard() {
+  const cfg = window._env || {};
+  const token = cfg.ANALYTICS_DASHBOARD_TOKEN;
+  mainContent.innerHTML = renderDashboardShell("loading");
+  mainContent.classList.remove("hidden");
+
+  if (!token) {
+    mainContent.innerHTML = renderDashboardShell("disabled");
+    return;
+  }
+
+  const base = cfg.ANALYTICS_ENDPOINT || cfg.CONTENT_API_URL || "";
+  if (!base) {
+    mainContent.innerHTML = renderDashboardShell(
+      "error",
+      "No analytics endpoint configured (ANALYTICS_ENDPOINT / CONTENT_API_URL)."
+    );
+    return;
+  }
+  const statsUrl = base.replace(/\/+$/, "") + "/events/stats";
+
+  fetch(statsUrl, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then(resp => {
+      if (!resp.ok) {
+        const err = new Error("HTTP " + resp.status);
+        err.status = resp.status;
+        throw err;
+      }
+      return resp.json();
+    })
+    .then(data => {
+      const hasData =
+        Object.keys(data.events || {}).length > 0 ||
+        (Array.isArray(data.topPaths) && data.topPaths.length > 0);
+      if (!hasData) {
+        mainContent.innerHTML =
+          renderDashboardShell("data") +
+          `<div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-8 text-center">
+            <p class="text-gray-700 dark:text-gray-300">No analytics data yet.</p>
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Events will appear here once the site starts sending them to the worker.
+            </p>
+          </div>`;
+        return;
+      }
+      mainContent.innerHTML =
+        renderDashboardShell("data") +
+        renderDashboardEventsTable(data.events) +
+        renderDashboardPathsTable(data.topPaths || []);
+    })
+    .catch(err => {
+      const detail =
+        err.status === 401
+          ? "Invalid token (401). Check ANALYTICS_DASHBOARD_TOKEN."
+          : err.status === 403
+            ? "Stats endpoint not enabled on the server (403). Set ANALYTICS_ADMIN_TOKEN on the worker."
+            : err.status === 503
+              ? "Stats storage not configured on the server (503). Bind ANALYTICS_KV."
+              : err.message;
+      mainContent.innerHTML = renderDashboardShell("error", detail);
+    });
+}
+
 function updateSEO({ type, categoryKey, category, item, itemKey } = {}) {
   const seo = window.SEOManager;
   if (!seo) {
@@ -3331,6 +3513,15 @@ function handleRouteChange() {
           type: "static",
           title: "My Favorites",
           description: "Your saved coloring pages on ColorVerse.",
+        });
+      } else if (hash === "#dashboard") {
+        // Admin-only analytics dashboard. Deliberately absent from the main
+        // nav — reachable by URL and gated on a Bearer token.
+        renderDashboard();
+        updateSEO({
+          type: "static",
+          title: "Analytics Dashboard",
+          description: "Internal analytics dashboard for ColorVerse.",
         });
       } else {
         // Handle any other routes

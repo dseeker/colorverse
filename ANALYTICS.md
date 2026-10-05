@@ -49,6 +49,15 @@ The default `/events` route in `workers/content-api`:
 2. If `ANALYTICS_SINK` is set in the worker's env, forwards the sanitized batch to that URL with a 5s timeout
 3. Otherwise logs a single summary line (`[content-api] analytics: N events (sink not configured)`) and returns 204
 
+## Dashboard (admin)
+
+The worker keeps aggregate counters in an `ANALYTICS_KV` KV namespace (single JSON blob: per-event totals + per-path `page_view` counts, capped at 500 distinct paths). If `ANALYTICS_KV` is not bound, counter writes are skipped silently and the `/events` POST still succeeds.
+
+- **`GET /events/stats`** returns the counters as JSON. Auth gate: requires `Authorization: Bearer <ANALYTICS_ADMIN_TOKEN>`; returns **403** if no `ANALYTICS_ADMIN_TOKEN` is configured server-side, **401** on a wrong/missing token.
+- **Client:** set `window._env.ANALYTICS_DASHBOARD_TOKEN` in `index.html` (empty = dashboard disabled). The `#dashboard` hash route (not in the main nav) fetches `{ANALYTICS_ENDPOINT or CONTENT_API_URL}/events/stats` with that token and renders event totals + top 20 paths.
+
+Setup: `npx wrangler kv:namespace create ANALYTICS_KV`, paste the id into `workers/content-api/wrangler.toml`, and `npx wrangler secret put ANALYTICS_ADMIN_TOKEN`.
+
 So you can run three configurations:
 
 - **Log-only (dev):** leave `ANALYTICS_SINK` unset. Events are accepted and logged in aggregate.

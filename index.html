@@ -1354,6 +1354,11 @@
             // set ANALYTICS_ENDPOINT to collect events. See docs/ANALYTICS.md.
             ENABLE_ANALYTICS: false,
             ANALYTICS_ENDPOINT: '',
+            // Admin analytics dashboard (#dashboard route). Empty = disabled.
+            // When set, it is sent as `Authorization: Bearer <token>` to the
+            // worker's /events/stats route and must match the worker's
+            // ANALYTICS_ADMIN_TOKEN secret.
+            ANALYTICS_DASHBOARD_TOKEN: '',
         };
         window.__COLORVERSE_STATIC__ = true;
         window.__COLORVERSE_DATA_URL__ = 'https://colorverse-image-proxy.daniel-bca.workers.dev/data?v=2';
