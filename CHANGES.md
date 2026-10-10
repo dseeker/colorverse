@@ -1,5 +1,13 @@
 # ColorVerse - Changelog
 
+## 2026-10-10
+
+- **Worker**: Hybrid catalog generation in `workers/content-api` `/catalog` route — three-strategy approach replacing the sequential 26-call loop that exceeded CF's ~30s `waitUntil` limit. (1) Parallel: 26 LLM calls concurrent via `Promise.race` against a 25s deadline with partial-result collection; (2) Chain: incremental 5-category batches across poll cycles with `catalog:partial:{key}` KV state; (3) Legacy fallback: serves stale `site-data.json` when failcount >= 3 (1h auto-recovery). Commits 6d4df9a, a9688e2.
+- **Worker**: Provider fallback for catalog text gen — Pollinations (`openai`) → OpenRouter (`openai/gpt-4.1-nano`) → Gemini (`gemini-2.0-flash`). All three keys configured as CF Worker secrets. Pollinations 402 throws immediately without retry.
+- **Worker**: Generation lock TTL reduced 120s → 30s (matches CF `waitUntil` limit). Lock check made resilient to KV errors (proceeds without lock instead of 502). Commits 0336d97, 47df707.
+- **Worker**: Fixed Pollinations text model alias (`gpt-4.1-nano` → `openai`). Commit 5a681a3.
+- **Worker**: Commented out `IMAGE_CACHE` KV binding placeholder (was rejecting deploy with code 10042). Commit 3fc1000.
+
 ## 2026-10-05
 
 - **Accessibility**: Skip-to-main link, landmark roles/labels, `aria-label`s on icon-only buttons (favorites, share, print, download, theme, refresh, search, newsletter), `:focus-visible` outlines, single-`<h1>` heading hierarchy per route, `aria-pressed` on toggleable favorite buttons. Commit 9c14b31.

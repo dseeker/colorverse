@@ -91,6 +91,13 @@
 
 - Added `CONTRIBUTING.md` and `ARCHITECTURE.md`.
 
+#### Hybrid Catalog Generation (2026-10-10)
+
+- `workers/content-api` `/catalog` route now uses a three-strategy hybrid generation: (1) parallel — 26 LLM calls concurrent via `Promise.race` against a 25s deadline; (2) chain — incremental 5-category batches across poll cycles with partial state in KV; (3) legacy fallback — serves stale `site-data.json` when failcount >= 3 (1h auto-recovery).
+- Provider fallback for catalog text gen: Pollinations (`openai`) → OpenRouter (`openai/gpt-4.1-nano`) → Gemini (`gemini-2.0-flash`). All three keys set as CF Worker secrets.
+- Generation lock TTL reduced to 30s (matches CF `waitUntil` limit). Lock check is resilient to KV errors (proceeds without lock instead of 502).
+- Commits: 6d4df9a, 5a681a3, 3fc1000, 0336d97, 47df707, a9688e2.
+
 ### File Structure
 
 ```
@@ -166,4 +173,4 @@ Client-side `window._env` is set inline in `index.html` (`IMAGE_PROXY_URL`, `USE
 - Coloring tips infobox (ROADMAP feature #4) not yet wired.
 - Color palette library (ROADMAP feature #11) not yet built.
 
-Last updated: October 5, 2026
+Last updated: October 10, 2026

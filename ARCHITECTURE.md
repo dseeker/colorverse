@@ -116,6 +116,22 @@ Both workers live under `workers/`, share helpers in `workers/shared/`
 
 ### `workers/content-api` (`workers/content-api/src/index.js`)
 
+- **`GET /catalog`** — Hybrid catalog generation (25 categories + 1 seasonal). Three
+  strategies, each triggered by the previous one's outcome:
+  1. **Parallel**: fires all 26 LLM calls via `Promise.race` against a 25s deadline
+     (`CATALOG_GEN_DEADLINE_MS`). Collects partial results on timeout; writes full catalog
+     to KV (`catalog:{hash}`). If ≥50% return 402, keeps lock + increments failcount.
+  2. **Chain**: triggered when parallel yields zero results. Generates 5 categories per
+     poll cycle (`CATALOG_CHAIN_BATCH_SIZE`), storing partial progress in
+     `catalog:partial:{hash}`. Next poll continues from the last completed batch.
+  3. **Legacy fallback**: served when failcount ≥ 3 (`CATALOG_MAX_FAILS`); returns the
+     stale `site-data.json` from KV with a 1h auto-recovery window.
+- **Provider fallback**: `Pollinations` (openai model) → `OpenRouter` (`openai/gpt-4.1-nano`)
+  → `Gemini` (`gemini-2.0-flash`). All three keys are CF Worker secrets.
+- **Locking**: `catalog:generating:{hash}` KV key with a 30s TTL (`CATALOG_GENERATION_LOCK_TTL_S`)
+  prevents concurrent generation runs. Lock check is resilient to KV errors.
+  Failure tracking uses `catalog:failcount:{hash}`. Rate limiting uses
+  `ratelimit:{ip}:{hour}`.
 - **`POST /`** — AI text generation proxy. Dispatches on `payload.provider`
   (`pollinations` / `openrouter` / `gemini`) and injects the matching secret. Keys are set
   via `npx wrangler secret put` (see the comments in `wrangler.toml`); `ALLOWED_ORIGINS`
