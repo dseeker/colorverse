@@ -73,3 +73,32 @@ export async function fetchWithTimeout(url, options = {}, timeout = 30000) {
 export function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+/**
+ * Build CORS headers for a request, honoring the ALLOWED_ORIGINS env var
+ * (comma-separated; default "*").
+ *
+ * Shared by both workers — previously each worker (content-api, image-proxy)
+ * kept its own copy. Callers that need to allow additional HTTP methods
+ * (e.g. POST on the content-api) spread these headers and override
+ * Access-Control-Allow-Methods:
+ *
+ *   const cors = corsHeaders(request, env);
+ *   return new Response(body, { headers: { ...cors, "Access-Control-Allow-Methods": "GET, POST, OPTIONS" } });
+ *
+ * @param {Request} request - The incoming worker request
+ * @param {{ ALLOWED_ORIGINS?: string }} env - Worker env bindings
+ * @returns {Record<string, string>} CORS headers object
+ */
+export function corsHeaders(request, env) {
+  const allowed = (env.ALLOWED_ORIGINS || "*").split(",").map(s => s.trim());
+  const origin = request.headers.get("Origin") || "*";
+  const allowOrigin = allowed.includes("*") ? "*" : allowed.includes(origin) ? origin : allowed[0];
+
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+  };
+}
