@@ -318,7 +318,7 @@ function countCatalogItems(catalog) {
 async function generateCatalogText(prompt, apiKey, systemMessage) {
   const upstream = await callPollinations(
     {
-      model: "gpt-4.1-nano",
+      model: "openai",
       messages: [
         { role: "system", content: systemMessage },
         { role: "user", content: prompt },
