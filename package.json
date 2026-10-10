@@ -20,6 +20,7 @@
     "test:watch": "vitest watch",
     "test:coverage": "vitest --coverage",
     "test:unit": "vitest src/tests/unit",
+    "test:workers": "vitest run workers/content-api/test",
     "test:integration": "vitest src/tests/integration",
     "test:e2e": "vitest src/tests/e2e",
     "test:e2e:playwright": "playwright test",
