@@ -1042,9 +1042,18 @@ async function handleCatalog(request, env, ctx) {
   //    already generating it, check for a partial and potentially resume
   //    the chain in this request's waitUntil.
   const lockKey = `catalog:generating:${catalogKey}`;
+  let lockHeld = false;
   try {
     const held = await env.SITE_DATA.get(lockKey);
-    if (held !== null) {
+    lockHeld = held !== null;
+  } catch (err) {
+    // KV read error — assume no lock held rather than 502'ing. A stale
+    // lock from a killed waitUntil is worse than a duplicate generation
+    // attempt (the generation lock is a guardrail, not a hard requirement).
+    console.warn(`[content-api] catalog lock read error (proceeding): ${err.message}`);
+  }
+  try {
+    if (lockHeld) {
       // Check for a fresh partial — if it exists, this request can continue
       // the chain rather than just bailing with 202.
       const partialKey = `catalog:partial:${catalogKey}`;
@@ -1090,8 +1099,10 @@ async function handleCatalog(request, env, ctx) {
     }
     await env.SITE_DATA.put(lockKey, "1", { expirationTtl: CATALOG_GENERATION_LOCK_TTL_S });
   } catch (err) {
-    console.warn(`[content-api] catalog lock error: ${err.message}`);
-    return errorResponse("Failed to check catalog generation lock", 502, request, env);
+    // KV write error on the lock — proceed anyway. The lock is a guardrail
+    // against duplicate generation, not a hard requirement; a stale lock
+    // or a failed write shouldn't block the user.
+    console.warn(`[content-api] catalog lock write error (proceeding): ${err.message}`);
   }
 
   // 2. Per-IP hourly rate limit on generation triggers. The IP comes from
