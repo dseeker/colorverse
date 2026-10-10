@@ -111,23 +111,33 @@ export default {
       return svgResponse(ERROR_SVG, 503, corsHeaders(request, env));
     }
 
-    // Build upstream Pollinations image URL
-    const params = new URLSearchParams({
+    // Model fallback chain: caller may override, otherwise use full chain.
+    // First 200 wins; fall back on any non-200 or network error.
+    const requestedModel = url.searchParams.get("model");
+    const modelChain = requestedModel
+      ? [
+          requestedModel,
+          ...POLLINATIONS_CONFIG.IMAGE_MODEL_FALLBACKS.filter(m => m !== requestedModel),
+        ]
+      : POLLINATIONS_CONFIG.IMAGE_MODEL_FALLBACKS;
+
+    const baseParams = {
       width: url.searchParams.get("width") || "1024",
       height: url.searchParams.get("height") || "1024",
       seed: url.searchParams.get("seed") || String(Math.floor(Math.random() * 100000)),
       nologo: "true",
       referrer: "dseeker.github.io",
-      model: url.searchParams.get("model") || POLLINATIONS_CONFIG.DEFAULT_MODEL,
       key: apiKey,
-      enhance: url.searchParams.get("enhance") || "true",
+      // enhance=false so style keywords in the prompt aren't rewritten away
+      // by Pollinations' prompt-enhancer. Decided 2026-10-09.
+      enhance: url.searchParams.get("enhance") || "false",
       quality: url.searchParams.get("quality") || "medium",
-    });
+    };
 
-    const upstreamUrl = `${POLLINATIONS_CONFIG.IMAGE_BASE_URL}/${encodeURIComponent(prompt)}?${params}`;
     const cors = corsHeaders(request, env);
 
-    // Check CF cache first
+    // Check CF cache first — cache key is the full client URL (includes requested
+    // model if any), so a cache hit short-circuits before the fallback loop.
     const cacheKey = new Request(url.toString(), request);
     const cache = caches.default;
     const cachedResponse = await cache.match(cacheKey);
@@ -138,35 +148,50 @@ export default {
       });
     }
 
-    try {
-      const upstream = await fetchWithTimeout(upstreamUrl, {}, 60000);
+    let lastErrorStatus = 502;
+    for (const model of modelChain) {
+      const params = new URLSearchParams({ ...baseParams, model });
+      const upstreamUrl = `${POLLINATIONS_CONFIG.IMAGE_BASE_URL}/${encodeURIComponent(prompt)}?${params}`;
 
-      if (!upstream.ok) {
-        console.error(
-          `[image-proxy] Upstream ${upstream.status}: ${upstreamUrl.substring(0, 120)}`
-        );
-        return svgResponse(ERROR_SVG, upstream.status, cors);
+      try {
+        const upstream = await fetchWithTimeout(upstreamUrl, {}, 60000);
+
+        if (!upstream.ok) {
+          console.error(
+            `[image-proxy] Upstream ${upstream.status} for model=${model}: ${upstreamUrl.substring(0, 120)}`
+          );
+          lastErrorStatus = upstream.status;
+          // 402/429/5xx → try next model; 400/404 → bad request, no point retrying other models
+          if (upstream.status === 400 || upstream.status === 404) {
+            break;
+          }
+          continue;
+        }
+
+        const contentType = upstream.headers.get("Content-Type") || "image/jpeg";
+        const body = await upstream.arrayBuffer();
+
+        const response = new Response(body, {
+          status: 200,
+          headers: {
+            "Content-Type": contentType,
+            "Cache-Control": `public, max-age=${IMAGE_CACHE_TTL}`,
+            ...cors,
+          },
+        });
+
+        // Store in CF cache (non-blocking)
+        ctx.waitUntil(cache.put(cacheKey, response.clone()));
+
+        return response;
+      } catch (err) {
+        console.error(`[image-proxy] fetch error for model=${model}: ${err.message}`);
+        lastErrorStatus = 502;
+        // network error → try next model
+        continue;
       }
-
-      const contentType = upstream.headers.get("Content-Type") || "image/jpeg";
-      const body = await upstream.arrayBuffer();
-
-      const response = new Response(body, {
-        status: 200,
-        headers: {
-          "Content-Type": contentType,
-          "Cache-Control": `public, max-age=${IMAGE_CACHE_TTL}`,
-          ...cors,
-        },
-      });
-
-      // Store in CF cache (non-blocking)
-      ctx.waitUntil(cache.put(cacheKey, response.clone()));
-
-      return response;
-    } catch (err) {
-      console.error("[image-proxy] fetch error:", err.message);
-      return svgResponse(ERROR_SVG, 502, cors);
     }
+
+    return svgResponse(ERROR_SVG, lastErrorStatus, cors);
   },
 };

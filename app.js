@@ -166,91 +166,91 @@ const COLORING_STYLES = {
   "bold-simple": {
     name: "Bold & Simple",
     prompt:
-      "EXTREMELY BOLD AND THICK black lines, MASSIVE stroke width, ultra-simple shapes, MINIMAL detail, chunky outlines, beginner-friendly thick borders, BOLD BOLD BOLD line art style",
+      "bold thick outlines, heavy line weight, simple clean shapes, easy to color, thick borders, bold line art style, high contrast black lines, no thin lines",
     description: "Thick, clean outlines perfect for beginners",
   },
   intricate: {
     name: "Intricate & Detailed",
     prompt:
-      "ULTRA INTRICATE and EXTREMELY detailed line art, FINE hairline strokes, elaborate ornate patterns, MAXIMUM complexity, incredibly dense detail work, sophisticated fine line patterns, complex decorative elements",
+      "highly detailed line art, fine hairline strokes, ornate intricate patterns, dense complex details, fine line patterns, decorative elements, precise detailed outlines",
     description: "Complex detailed patterns for advanced colorists",
   },
   geometric: {
     name: "Geometric",
     prompt:
-      "PERFECT GEOMETRIC precision, MATHEMATICAL symmetry, precise angular shapes, triangular tessellations, hexagonal grids, CRYSTALLINE structures, architectural precision, STRICT geometric forms, symmetrical mandala patterns",
+      "geometric precision, angular shapes, symmetrical forms, tessellated patterns, crystalline structures, strict geometric design, clean geometric outlines, no curves",
     description: "Perfectly symmetrical geometric shapes and mathematical patterns",
   },
   doodle: {
     name: "Doodle & Sketch",
     prompt:
-      "HAND-DRAWN sketchy style, ROUGH pencil strokes, messy crosshatching, spontaneous scribbled lines, artistic sketch marks, LOOSE drawing style, imperfect hand-drawn lines, sketchy doodle texture",
+      "hand-drawn sketchy line art, loose pencil strokes, spontaneous scribbled lines, loose informal drawing style, imperfect hand-drawn lines, rough sketchy outlines, black and white sketch",
     description: "Spontaneous, hand-drawn artistic expression with pencil sketch lines",
   },
   whimsical: {
     name: "Whimsical & Playful",
     prompt:
-      "WHIMSICAL fairy-tale style, PLAYFUL magical elements, charming storybook illustrations, fantasy flourishes, lighthearted enchanted design, magical creature aesthetics, storybook charm",
+      "whimsical storybook illustration style, playful ornamental flourishes, charming illustrative design, lighthearted decorative elements, storybook illustration style, playful line art",
     description: "Charming, imaginative designs with fantasy elements",
   },
   vintage: {
     name: "Vintage & Retro",
     prompt:
-      "VINTAGE art nouveau style, RETRO classic illustration, historical decorative elements, antique design aesthetic, classic vintage typography style, old-fashioned ornate details",
+      "vintage art nouveau style, retro classic illustration, ornate decorative borders, antique design aesthetic, old-fashioned ornate details, vintage line art style",
     description: "Nostalgic designs inspired by past eras",
   },
   fantasy: {
     name: "Fantasy & Surreal",
     prompt:
-      "FANTASY epic art style, SURREAL mythical elements, magical creatures and landscapes, otherworldly dreamlike scenes, enchanted fantasy realms, mystical ethereal design",
+      "fantasy epic illustration style, mythical ornamental elements, otherworldly dreamlike design, enchanted decorative motifs, mystical ethereal line art, fantasy artwork style, black and white fantasy",
     description: "Imaginative scenes with mythical and magical elements",
   },
   children_friendly: {
     name: "Children Friendly",
     prompt:
-      "EXTRA THICK outlines for children, SUPER BOLD lines, HUGE stroke width, basic simple shapes, MASSIVE line thickness, chunky cartoon style, toddler-friendly thick borders, GIANT outline style",
+      "extra thick outlines, bold heavy lines, simple clean shapes, chunky cartoon style, thick borders, easy to color, large unbroken areas, bold cartoon line art",
     description: "Extra simple drawings with thick lines, perfect for young children",
   },
   futuristic: {
     name: "Futuristic & Sci-Fi",
     prompt:
-      "FUTURISTIC sci-fi aesthetic, sleek technological lines, CYBERPUNK neon-style outlines, space-age design, robotic angular features, HIGH-TECH geometric patterns, digital circuit aesthetics, cyber-enhanced line art",
+      "futuristic sci-fi design, sleek technological outlines, cyberpunk angular features, space-age design, high-tech geometric patterns, digital circuit aesthetics, futuristic line art",
     description: "Cutting-edge futuristic designs with sci-fi and tech elements",
   },
   minimalist: {
     name: "Minimalist & One-Line",
     prompt:
-      "ULTRA MINIMALIST design, SINGLE continuous line art, bare essential strokes only, ONE-LINE drawing style, elegant simplicity, pure minimal form, continuous unbroken lines, clean minimal aesthetic",
+      "minimalist line art, clean essential strokes, elegant simplicity, minimal form, clean unbroken lines, simple minimal aesthetic, reduced line art",
     description: "Modern elegant style with minimal lines",
   },
   architectural: {
     name: "Technical",
     prompt:
-      "TECHNICAL blueprint style, PRECISE engineering lines, mechanical diagram aesthetic, ARCHITECTURAL drawing style, technical schematic look, engineering blueprint precision, structured technical rendering",
+      "technical blueprint line art, precise engineering lines, mechanical diagram style, architectural drawing style, technical schematic look, engineered precision, structured technical line art",
     description: "Precise, structured technical drawings and mechanical diagrams",
   },
   organic: {
     name: "Organic & Nature",
     prompt:
-      "ORGANIC natural flowing lines, BOTANICAL detailed textures, leaf vein patterns, wood grain aesthetics, natural form structures, flowing nature-inspired curves, organic botanical art style",
+      "organic natural flowing line art, botanical line patterns, leaf vein line designs, flowing nature-inspired curves, organic botanical line art, flowing organic outlines",
     description: "Natural forms and textures inspired by nature",
   },
   zentangle: {
     name: "Zentangle Style",
     prompt:
-      "ZENTANGLE meditation art, REPETITIVE intricate patterns, detailed zen doodles, STRUCTURED tangle designs, meditative pattern work, COMPLEX repetitive motifs, zen-inspired line patterns",
+      "zentangle meditation art, repetitive intricate patterns, detailed tangle designs, structured tangle motifs, complex repeating patterns, zen-inspired line patterns, zentangle line art",
     description: "Detailed repetitive patterns for meditative coloring",
   },
   kawaii: {
     name: "Kawaii & Cute",
     prompt:
-      "KAWAII ultra-cute style, ADORABLE character design, big round eyes, soft bubbly shapes, CHIBI cartoon style, super cute Japanese aesthetic, endearing kawaii features",
+      "kawaii cute illustration style, chibi cartoon design, round bubbly shapes, cute character line art, super cute Japanese aesthetic, endearing kawaii outlines, kawaii line art",
     description: "Adorable Japanese-inspired cute character style",
   },
   mosaic: {
     name: "Mosaic Style",
     prompt:
-      "MOSAIC tile pattern, TESSELLATED geometric segments, stained glass divisions, TILED mosaic art style, segmented geometric patterns, mosaic tile aesthetic",
+      "mosaic tile line art, tessellated geometric segments, tiled mosaic art style, segmented geometric patterns, mosaic tile outlines, black and white mosaic design",
     description: "Artistic mosaic patterns with tile-like segments",
   },
   painted_preview: {
@@ -1163,8 +1163,13 @@ function getImageUrl(prompt, params = {}) {
       seed: seed,
       nologo: fullParams.nologo,
       referrer: REFERRER_ID,
-      model: "flux", // Use flux model for high-quality coloring pages
-      enhance: "true", // Let AI improve the prompt
+      // Default model — worker applies the full fallback chain if this one fails.
+      // Decided 2026-10-09 after visual comparison of 24 test images.
+      model: "microsoft/mai-image-2.6-flash",
+      // enhance=false so style keywords reach the model unmodified — Pollinations'
+      // prompt enhancer was diluting the style prompts (the root cause of the
+      // "style dropdown does nothing" bug).
+      enhance: "false",
       quality: "medium", // Balance between quality and speed
     });
     // Only send a key when the feature flag is on AND a key is configured.

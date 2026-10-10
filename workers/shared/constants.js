@@ -12,7 +12,15 @@ export const REGENERATION_CYCLE = {
 export const POLLINATIONS_CONFIG = {
   IMAGE_BASE_URL: "https://gen.pollinations.ai/image",
   TEXT_BASE_URL: "https://gen.pollinations.ai/v1/chat/completions",
-  DEFAULT_MODEL: "flux",
+  // Model fallback chain (try in order; first 200 wins).
+  // Decided 2026-10-09 after visual comparison of 24 test images.
+  DEFAULT_MODEL: "microsoft/mai-image-2.6-flash",
+  IMAGE_MODEL_FALLBACKS: [
+    "microsoft/mai-image-2.6-flash",
+    "microsoft/mai-image-2.6",
+    "openai/gpt-image-2",
+    "black-forest-labs/flux.1-schnell",
+  ],
   TIMEOUT: 30000,
 };
 

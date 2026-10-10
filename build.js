@@ -41,7 +41,14 @@ const CONFIG = {
   concurrency: 2, // Conservative default — reduce to stay under rate limits
   delayBetweenImages: 1500, // ms between requests within a batch (Seed tier = 1req/5s)
   model: "openai",
-  imageModel: "flux",
+  // Model fallback chain (first 200 wins). Decided 2026-10-09.
+  imageModel: "microsoft/mai-image-2.6-flash",
+  imageModelFallbacks: [
+    "microsoft/mai-image-2.6-flash",
+    "microsoft/mai-image-2.6",
+    "openai/gpt-image-2",
+    "black-forest-labs/flux.1-schnell",
+  ],
 };
 
 // --- Category definitions (mirrors app.js getCategoryInfo) ---
@@ -253,67 +260,80 @@ async function callTextAPI(prompt, model = CONFIG.model) {
 async function downloadImage(prompt, seed, outputPath, width, height) {
   const coloringPrompt = `high contrast black and white line art coloring page, ${prompt}, pure outlines with no shading, no color, no grayscale, thick clean lines, simple contours only`;
 
-  const params = new URLSearchParams({
-    width: String(width),
-    height: String(height),
-    seed: String(seed),
-    nologo: "true",
-    referrer: CONFIG.referrer,
-    model: CONFIG.imageModel,
-    key: CONFIG.apiKey,
-    enhance: "true",
-    quality: "medium",
-  });
-
-  const url = `${CONFIG.imageApiUrl}/${encodeURIComponent(coloringPrompt)}?${params}`;
+  // Try each model in the fallback chain; first 200 wins. Retries (429/402)
+  // happen per-model before moving on.
+  const models = CONFIG.imageModelFallbacks.length
+    ? CONFIG.imageModelFallbacks
+    : [CONFIG.imageModel];
 
   const MAX_RETRIES = 5;
   let lastError;
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    const response = await fetch(url);
+  for (const model of models) {
+    const params = new URLSearchParams({
+      width: String(width),
+      height: String(height),
+      seed: String(seed),
+      nologo: "true",
+      referrer: CONFIG.referrer,
+      model,
+      key: CONFIG.apiKey,
+      enhance: "false", // don't let Pollinations rewrite style keywords
+      quality: "medium",
+    });
+    const url = `${CONFIG.imageApiUrl}/${encodeURIComponent(coloringPrompt)}?${params}`;
 
-    if (response.ok) {
-      const buffer = Buffer.from(await response.arrayBuffer());
-      fs.writeFileSync(outputPath, buffer);
-      return buffer.length;
-    }
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const response = await fetch(url).catch(e => {
+        lastError = e;
+        return null;
+      });
 
-    const status = response.status;
-    const body = await response.text().catch(() => "");
+      if (response && response.ok) {
+        const buffer = Buffer.from(await response.arrayBuffer());
+        fs.writeFileSync(outputPath, buffer);
+        return buffer.length;
+      }
 
-    if (status === 429) {
-      // Rate limited — respect Retry-After header or use exponential backoff
-      const retryAfter =
-        response.headers.get("retry-after") || response.headers.get("x-ratelimit-reset-after");
-      const waitMs = retryAfter
-        ? parseFloat(retryAfter) * 1000
-        : Math.min(5000 * Math.pow(2, attempt - 1), 60000); // 5s, 10s, 20s, 40s, 60s
-      process.stdout.write(
-        `\n  ⏳ Rate limited (429). Waiting ${(waitMs / 1000).toFixed(0)}s before retry ${attempt}/${MAX_RETRIES}...`
-      );
-      await sleep(waitMs);
-    } else if (status === 402) {
-      // Balance exhausted — wait longer, balance may refill over time
-      const waitMs = Math.min(60000 * attempt, 300000); // 1min, 2min, 3min, 4min, 5min
-      process.stdout.write(
-        `\n  💸 Balance exhausted (402). Waiting ${(waitMs / 1000).toFixed(0)}s before retry ${attempt}/${MAX_RETRIES}... [${body.substring(0, 80)}]`
-      );
-      await sleep(waitMs);
-    } else {
-      // Other error — short backoff, fewer retries
-      lastError = new Error(`Image API ${status} for: ${prompt.substring(0, 60)}`);
-      if (attempt < 3) {
-        await sleep(2000 * attempt);
+      const status = response ? response.status : 502;
+      const body = response ? await response.text().catch(() => "") : "";
+
+      if (status === 429) {
+        // Rate limited — respect Retry-After header or use exponential backoff
+        const retryAfter =
+          response.headers.get("retry-after") || response.headers.get("x-ratelimit-reset-after");
+        const waitMs = retryAfter
+          ? parseFloat(retryAfter) * 1000
+          : Math.min(5000 * Math.pow(2, attempt - 1), 60000);
+        process.stdout.write(
+          `\n  ⏳ Rate limited (429). Waiting ${(waitMs / 1000).toFixed(0)}s before retry ${attempt}/${MAX_RETRIES}...`
+        );
+        await sleep(waitMs);
+      } else if (status === 402) {
+        // Balance exhausted — wait longer, balance may refill over time
+        const waitMs = Math.min(60000 * attempt, 300000);
+        process.stdout.write(
+          `\n  💸 Balance exhausted (402). Waiting ${(waitMs / 1000).toFixed(0)}s before retry ${attempt}/${MAX_RETRIES}... [${body.substring(0, 80)}]`
+        );
+        await sleep(waitMs);
+      } else if (status === 400 || status === 404) {
+        // Bad request / not found — don't retry this model, try next
+        process.stdout.write(`\n  ✖ model=${model} returned ${status}, trying next model...`);
+        lastError = new Error(`Image API ${status} for model=${model}: ${prompt.substring(0, 60)}`);
+        break;
       } else {
-        throw lastError;
+        // Other error — short backoff, fewer retries, then move to next model
+        lastError = new Error(`Image API ${status} for model=${model}: ${prompt.substring(0, 60)}`);
+        if (attempt < 3) {
+          await sleep(2000 * attempt);
+        } else {
+          break;
+        }
       }
     }
-
-    lastError = new Error(`Image API ${status} (attempt ${attempt}/${MAX_RETRIES})`);
   }
 
-  throw lastError || new Error(`Image API failed after ${MAX_RETRIES} retries`);
+  throw lastError || new Error(`Image API failed after trying all fallback models`);
 }
 
 // --- Generate category content ---
