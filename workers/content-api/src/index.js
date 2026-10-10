@@ -247,7 +247,7 @@ async function callGemini(model, body, apiKey) {
 
 const CATALOG_DEFAULT_KEY = "catalog:default";
 const CATALOG_TTL_MS = 24 * 60 * 60 * 1000;
-const CATALOG_GENERATION_LOCK_TTL_S = 120;
+const CATALOG_GENERATION_LOCK_TTL_S = 300;
 const CATALOG_MAX_GENS_PER_HOUR = 5;
 const CATALOG_RETRY_AFTER_S = 10;
 const CATALOG_ITEMS_PER_CATEGORY = 20;
@@ -256,6 +256,161 @@ const CATALOG_SEASONAL_ITEMS = 12;
 // background, so a slow response is better than a partial catalog.
 const CATALOG_ITEM_TIMEOUT_MS = 60000;
 const CATALOG_DELAY_BETWEEN_CATEGORIES_MS = 1500;
+
+// --- Hybrid/resilient generation constants -----------------------------------
+// Wall-clock deadline for the parallel strategy (buffer under paid tier's 30s).
+const CATALOG_GEN_DEADLINE_MS = 25000;
+// 0 = fire all 26 at once via Promise.allSettled. If >0, chunk into batches
+// of that size (useful if Pollinations struggles with many concurrent calls).
+const CATALOG_PARALLEL_BATCH_SIZE = 0;
+// Categories to generate per chain-mode poll cycle.
+const CATALOG_CHAIN_BATCH_SIZE = 5;
+// Wall-clock budget for a single chain batch (each batch runs in its own
+// waitUntil, so it gets its own deadline — separate from the parallel
+// strategy's CATALOG_GEN_DEADLINE_MS). Picked to stay under CF's 30s limit.
+const CATALOG_CHAIN_BATCH_DEADLINE_MS = 25000;
+// Partial catalog staleness threshold — if a partial is older than this,
+// discard it and start fresh.
+const CATALOG_PARTIAL_TTL_MS = 600000; // 10 minutes
+// After this many consecutive generation failures, serve legacy site-data.json.
+const CATALOG_MAX_FAILS = 3;
+// Text-generation model names (one per provider, used by generateCatalogTextWithFallback).
+const CATALOG_TEXT_MODEL_POLLINATIONS = "openai";
+const CATALOG_TEXT_MODEL_OPENROUTER = "openai/gpt-4.1-nano";
+const CATALOG_TEXT_MODEL_GEMINI = "gemini-2.0-flash";
+
+/**
+ * Create a wall-clock deadline tracker.
+ * @param {number} ms — duration in milliseconds
+ * @returns {{ remaining: () => number, expired: () => boolean, deadline: number }}
+ */
+function makeDeadline(ms) {
+  const deadline = Date.now() + ms;
+  return {
+    remaining: () => Math.max(0, deadline - Date.now()),
+    expired: () => Date.now() >= deadline,
+    get deadline() {
+      return deadline;
+    },
+  };
+}
+
+/**
+ * Try Pollinations, then OpenRouter, then Gemini. Each provider catches
+ * its own errors and falls through; only when ALL are exhausted does it throw.
+ *
+ * Returns a parsed JSON object (the catalog category data).
+ *
+ * @param {string} prompt
+ * @param {{ [key: string]: string }} env
+ * @param {string} [systemMessage]
+ * @returns {Promise<object>}
+ */
+async function generateCatalogTextWithFallback(prompt, env, systemMessage) {
+  // --- 1. Pollinations ---------------------------------------------------
+  try {
+    const pollBody = {
+      model: CATALOG_TEXT_MODEL_POLLINATIONS,
+      messages: [
+        { role: "system", content: systemMessage },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.5,
+    };
+    const pollRes = await callPollinations(
+      pollBody,
+      env.POLLINATIONS_API_KEY,
+      CATALOG_ITEM_TIMEOUT_MS
+    );
+    if (pollRes.status === 402) {
+      throw new Error("PROVIDER_402");
+    }
+    if (!pollRes.ok) {
+      const text = await pollRes.text().catch(() => "");
+      throw new Error(`Pollinations ${pollRes.status}: ${text.substring(0, 200)}`);
+    }
+    const pollData = await pollRes.json();
+    const content = pollData?.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("Empty Pollinations response");
+    }
+    return JSON.parse(content);
+  } catch (err) {
+    if (err.message === "PROVIDER_402") {
+      throw err;
+    }
+    console.warn(
+      `[content-api] catalog text Pollinations failed, trying OpenRouter: ${err.message}`
+    );
+  }
+
+  // --- 2. OpenRouter -----------------------------------------------------
+  try {
+    if (!env.OPENROUTER_API_KEY) {
+      throw new Error("OpenRouter key not set");
+    }
+    const orBody = {
+      model: CATALOG_TEXT_MODEL_OPENROUTER,
+      messages: [
+        { role: "system", content: systemMessage },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.5,
+    };
+    const orRes = await callOpenRouter(orBody, env.OPENROUTER_API_KEY);
+    if (orRes.status === 402 || orRes.status === 401) {
+      throw new Error("PROVIDER_402");
+    }
+    if (!orRes.ok) {
+      const text = await orRes.text().catch(() => "");
+      throw new Error(`OpenRouter ${orRes.status}: ${text.substring(0, 200)}`);
+    }
+    const orData = await orRes.json();
+    const content = orData?.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("Empty OpenRouter response");
+    }
+    return JSON.parse(content);
+  } catch (err) {
+    if (err.message === "PROVIDER_402") {
+      throw err;
+    }
+    console.warn(`[content-api] catalog text OpenRouter failed, trying Gemini: ${err.message}`);
+  }
+
+  // --- 3. Gemini ---------------------------------------------------------
+  try {
+    if (!env.GOOGLE_GEMINI_API_KEY) {
+      throw new Error("Gemini key not set");
+    }
+    const gemBody = {
+      contents: [
+        {
+          parts: [{ text: prompt }, ...(systemMessage ? [{ text: systemMessage }] : [])],
+        },
+      ],
+      generationConfig: { response_mime_type: "application/json" },
+    };
+    const gemRes = await callGemini(CATALOG_TEXT_MODEL_GEMINI, gemBody, env.GOOGLE_GEMINI_API_KEY);
+    if (!gemRes.ok) {
+      const text = await gemRes.text().catch(() => "");
+      throw new Error(`Gemini ${gemRes.status}: ${text.substring(0, 200)}`);
+    }
+    const gemData = await gemRes.json();
+    // Gemini returns { candidates: [{ content: { parts: [{ text }] }}] }
+    const content = gemData?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!content) {
+      throw new Error("Empty Gemini response");
+    }
+    return JSON.parse(content);
+  } catch (err) {
+    throw new Error(
+      `All text providers exhausted: Pollinations, OpenRouter, Gemini — ${err.message}`
+    );
+  }
+}
 
 function buildCatalogSystemMessage(styleSuffix) {
   const base =
@@ -344,15 +499,301 @@ async function generateCatalogText(prompt, apiKey, systemMessage) {
   return JSON.parse(content);
 }
 
+// --- Parallel generation (Strategy 1) ----------------------------------------
+
 /**
- * Generate the full catalog and write it to KV under catalogKey.
+ * Build all 26 category/gallery prompts, fire them via Promise.allSettled,
+ * collect results and write the final catalog to KV.
  *
- * Locking: when lockHeld is false (the stale-while-revalidate path) the job
- * claims the lock itself and no-ops if another job already holds it — this
- * prevents concurrent stale hits from double-generating. When lockHeld is
- * true (the miss path) the request already claimed it; the job never
- * re-claims but ALWAYS deletes it in the finally block so a 402 abort or
- * crash releases the lock immediately instead of waiting for the 120s TTL.
+ * If CATALOG_PARALLEL_BATCH_SIZE > 0 the calls are split into sequential
+ * chunks of that size (useful when Pollinations struggles with 26
+ * concurrent requests).
+ *
+ * Returns { success: true/false, keepLock: true } when ≥50% calls were
+ * 402 (balance exhausted) — caller keeps the lock so the next request
+ * retries after recovery.
+ */
+async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, deadline) {
+  const style = COLORING_STYLES[styleKey];
+  const styleSuffix = style && style.prompt ? style.prompt : undefined;
+  const systemMessage = buildCatalogSystemMessage(styleSuffix);
+
+  const categoryKeys = Object.keys(CATEGORIES);
+  const totalExpected = categoryKeys.length + 1; // 25 categories + seasonal
+
+  // Build a category prompt call (returns categoryKey → data).
+  function makeCategoryCall(key, info) {
+    return generateCatalogTextWithFallback(
+      buildCategoryPrompt(key, info, CATALOG_ITEMS_PER_CATEGORY, seed),
+      env,
+      systemMessage
+    ).then(
+      data => (data && typeof data === "object" ? data : { ...info, items: {} }),
+      err => {
+        throw err; // rejections tracked via allSettled
+      }
+    );
+  }
+
+  // Build a seasonal gallery call.
+  function makeSeasonalCall() {
+    const season = getCurrentSeason();
+    return generateCatalogTextWithFallback(buildSeasonalPrompt(season), env, systemMessage).then(
+      data => (data && typeof data === "object" ? data : { items: {} }),
+      err => {
+        throw err;
+      }
+    );
+  }
+
+  const calls = [];
+  for (const key of categoryKeys) {
+    calls.push({ type: "category", key, promise: makeCategoryCall(key, CATEGORIES[key]) });
+  }
+  calls.push({ type: "seasonal", promise: makeSeasonalCall() });
+
+  // If batching, split into chunks and process sequentially.
+  const rawBatch = Number(env.CATALOG_PARALLEL_BATCH);
+  const batchSize =
+    Number.isFinite(rawBatch) && rawBatch > 0 ? rawBatch : CATALOG_PARALLEL_BATCH_SIZE;
+  const batches =
+    batchSize > 0
+      ? Array.from({ length: Math.ceil(calls.length / batchSize) }, (_, i) =>
+          calls.slice(i * batchSize, (i + 1) * batchSize)
+        )
+      : [calls];
+
+  // Analyse results: count 402s, collect fulfilled values.
+  let provider402Count = 0;
+  const categories = {};
+  let seasonalGallery = null;
+  let seasonalHasResult = false;
+
+  for (const batch of batches) {
+    if (deadline.expired()) {
+      break;
+    }
+
+    // Fire all calls in this batch concurrently.
+    const results = await Promise.allSettled(batch.map(entry => entry.promise));
+
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      const entry = batch[i];
+
+      if (r.status === "fulfilled") {
+        if (entry.type === "category") {
+          categories[entry.key] = r.value;
+        } else {
+          seasonalGallery = r.value;
+          seasonalHasResult = true;
+        }
+      } else {
+        const msg = (r.reason && r.reason.message) || "";
+        if (msg === "PROVIDER_402") {
+          provider402Count++;
+          // On 402, do NOT add a fallback — leave missing to be filled later.
+          if (entry.type === "category") {
+            console.warn(`[content-api] parallel category ${entry.key}: 402, will use fallback`);
+          }
+        } else {
+          // Non-402 error: use fallback.
+          if (entry.type === "category") {
+            categories[entry.key] = { ...CATEGORIES[entry.key], items: {} };
+          } else {
+            seasonalGallery = { items: {} };
+            seasonalHasResult = true;
+          }
+        }
+      }
+    }
+  }
+
+  const season = getCurrentSeason();
+  const seasonFallback = {
+    title: `${season} Collection`,
+    subtitle: "Seasonal coloring pages",
+    items: {},
+  };
+
+  // 402 exhaustion check: ≥50% of all 26 calls are 402.
+  if (provider402Count >= Math.ceil(totalExpected / 2)) {
+    return { success: false, keepLock: true };
+  }
+
+  // Fill missing categories with fallbacks.
+  for (const key of categoryKeys) {
+    if (!categories[key]) {
+      categories[key] = { ...CATEGORIES[key], items: {} };
+    }
+  }
+  // Fill missing seasonal.
+  if (!seasonalHasResult) {
+    seasonalGallery = seasonFallback;
+  }
+
+  // If the deadline has already expired (no calls were made), do NOT write
+  // an empty/fallback catalog — the orchestrator should switch to chain mode.
+  if (deadline.expired()) {
+    return { success: false, keepLock: false };
+  }
+
+  // Assemble the final catalog.
+  const catalog = {
+    brand: { name: "ColorVerse", tagline: "Free AI-Generated Coloring Pages" },
+    seasonal_gallery: seasonalGallery,
+    categories,
+    _meta: {
+      generatedAt: Date.now(),
+      totalItems: countCatalogItems({ categories }),
+      categoryCount: Object.keys(categories).length,
+      season,
+      style: styleKey || "classic",
+      seed: seed || null,
+      generatedBy: "anonymous",
+    },
+  };
+  await kv.put(catalogKey, JSON.stringify(catalog));
+  console.log(
+    `[content-api] parallel catalog ${catalogKey} written (${catalog._meta.totalItems} items)`
+  );
+  return { success: true, keepLock: false };
+}
+
+// --- Chained generation (Strategy 2) -----------------------------------------
+
+/**
+ * Incrementally generate a catalog across multiple poll cycles.
+ *
+ * On first call (partial === null) initialises the partial state in KV.
+ * Each subsequent call advances the chain by CATALOG_CHAIN_BATCH_SIZE
+ * categories, writes the updated partial back, and returns { success }.
+ *
+ * When all categories + seasonal are done, writes the final catalog to
+ * catalogKey, deletes the partial, and returns { success: true }.
+ */
+async function generateCatalogChained(kv, catalogKey, env, styleKey, seed, partial, deadline) {
+  const categoryKeys = Object.keys(CATEGORIES);
+  const season = getCurrentSeason();
+  const seasonKey = "__seasonal__";
+  const partialKey = `catalog:partial:${catalogKey}`;
+
+  // Each chain batch runs in its own waitUntil and gets a fresh deadline —
+  // the orchestrator passes an already-expired deadline when entering chain
+  // mode from a timed-out parallel attempt, but the chain batch itself needs
+  // its own wall-clock budget to actually generate categories. Use a fixed
+  // per-batch deadline so a CATALOG_GEN_DEADLINE_MS=0 (used to force chain
+  // mode in tests / free-tier simulation) doesn't starve the chain too.
+  if (!deadline || deadline.expired()) {
+    deadline = makeDeadline(CATALOG_CHAIN_BATCH_DEADLINE_MS);
+  }
+
+  if (!partial) {
+    // Fresh start — initialise partial state.
+    partial = {
+      categories: {},
+      completedKeys: [],
+      remainingKeys: [...categoryKeys],
+      seasonalDone: false,
+      startedAt: Date.now(),
+      styleKey,
+      seed,
+    };
+    await kv.put(partialKey, JSON.stringify(partial), { expirationTtl: 300 });
+    console.log(`[content-api] chain mode started for ${catalogKey}`);
+  }
+
+  const style = COLORING_STYLES[styleKey];
+  const styleSuffix = style && style.prompt ? style.prompt : undefined;
+  const systemMessage = buildCatalogSystemMessage(styleSuffix);
+
+  // Generate next batch.
+  const batchSize = Number(env.CATALOG_CHAIN_BATCH) || CATALOG_CHAIN_BATCH_SIZE;
+  const keysToGen = partial.remainingKeys.splice(0, batchSize);
+
+  for (const key of keysToGen) {
+    if (deadline.expired()) {
+      break;
+    }
+    const prompt = buildCategoryPrompt(key, CATEGORIES[key], CATALOG_ITEMS_PER_CATEGORY, seed);
+    try {
+      const data = await generateCatalogTextWithFallback(prompt, env, systemMessage);
+      partial.categories[key] =
+        data && typeof data === "object" ? data : { ...CATEGORIES[key], items: {} };
+    } catch (err) {
+      if (err.message === "PROVIDER_402") {
+        // Stop the batch on 402 — return and let the orchestrator handle it.
+        console.warn(`[content-api] chain 402 for ${catalogKey}/${key}; pausing chain`);
+        return { success: false, keepLock: true };
+      }
+      console.warn(`[content-api] chain ${key} failed: ${err.message}; using fallback`);
+      partial.categories[key] = { ...CATEGORIES[key], items: {} };
+    }
+    partial.completedKeys.push(key);
+  }
+
+  // Check if we've finished all categories — generate seasonal if needed.
+  if (partial.remainingKeys.length === 0 && !partial.seasonalDone) {
+    if (!deadline.expired()) {
+      try {
+        const seasonalData = await generateCatalogTextWithFallback(
+          buildSeasonalPrompt(season),
+          env,
+          systemMessage
+        );
+        partial.categories[seasonKey] =
+          seasonalData && typeof seasonalData === "object" ? seasonalData : { items: {} };
+        partial.seasonalDone = true;
+      } catch (err) {
+        if (err.message === "PROVIDER_402") {
+          console.warn(`[content-api] chain seasonal 402 for ${catalogKey}; pausing chain`);
+          return { success: false, keepLock: true };
+        }
+        console.warn(`[content-api] chain seasonal failed: ${err.message}; using fallback`);
+        partial.categories[seasonKey] = {
+          title: `${season} Collection`,
+          subtitle: "Seasonal coloring pages",
+          items: {},
+        };
+        partial.seasonalDone = true;
+      }
+    }
+  }
+
+  // Check if complete: all categories done AND seasonal done.
+  if (partial.remainingKeys.length === 0 && partial.seasonalDone) {
+    // Assemble final catalog.
+    const catalog = {
+      brand: { name: "ColorVerse", tagline: "Free AI-Generated Coloring Pages" },
+      seasonal_gallery: partial.categories[seasonKey] || { items: {} },
+      categories: partial.categories,
+      _meta: {
+        generatedAt: Date.now(),
+        totalItems: countCatalogItems({ categories: partial.categories }),
+        categoryCount: categoryKeys.length,
+        season,
+        style: styleKey || "classic",
+        seed: seed || null,
+        generatedBy: "anonymous",
+      },
+    };
+    await kv.put(catalogKey, JSON.stringify(catalog));
+    await kv.delete(partialKey).catch(() => {});
+    console.log(
+      `[content-api] chain catalog ${catalogKey} completed (${catalog._meta.totalItems} items)`
+    );
+    return { success: true, keepLock: false };
+  }
+
+  // Not done yet — save partial and continue next poll.
+  await kv.put(partialKey, JSON.stringify(partial), { expirationTtl: 300 });
+  return { success: false, keepLock: false };
+}
+
+/**
+ * Orchestrator: tries Strategy 1 (parallel), falls back to Strategy 2
+ * (chain) when the deadline expires, and uses Strategy 3 (legacy) when
+ * consecutive failures exceed CATALOG_MAX_FAILS.
  *
  * @param {KVNamespace} kv
  * @param {string} catalogKey
@@ -373,11 +814,27 @@ async function generateCatalogBackground(
 ) {
   const lockKey = `catalog:generating:${catalogKey}`;
   let acquired = false;
-  // When true (402 balance exhaustion) the lock is deliberately NOT deleted:
-  // it must outlive the request so piling-up requests see "generating" and
-  // the 120s TTL lets the next request retry once the balance recovers.
   let keepLock = false;
+  let failCount = 0;
+
   try {
+    // --- failcount check (Strategy 3) -------------------------------------
+    const maxFails = Number(env.CATALOG_MAX_FAILS) || CATALOG_MAX_FAILS;
+    const failCountRaw = await kv.get(`catalog:failcount:${catalogKey}`);
+    failCount = parseInt(failCountRaw || "0", 10);
+    if (failCount >= maxFails) {
+      console.log(
+        `[content-api] catalog ${catalogKey} failcount=${failCount} >= ${maxFails}; skipping generation`
+      );
+      return;
+    }
+
+    // --- deadline ---------------------------------------------------------
+    const rawDeadline = Number(env.CATALOG_GEN_DEADLINE_MS);
+    const deadlineMs = Number.isFinite(rawDeadline) ? rawDeadline : CATALOG_GEN_DEADLINE_MS;
+    const deadline = makeDeadline(deadlineMs);
+
+    // --- lock management --------------------------------------------------
     if (!lockHeld) {
       const held = await kv.get(lockKey);
       if (held !== null) {
@@ -387,109 +844,81 @@ async function generateCatalogBackground(
       acquired = true;
     }
 
-    const apiKey = env.POLLINATIONS_API_KEY;
-    const style = COLORING_STYLES[styleKey];
-    // A known style bakes its prompt suffix into the LLM system message so
-    // the generated descriptions are tuned to that style. Unknown style keys
-    // (and no style) fall back to the classic catalog.
-    const styleSuffix = style && style.prompt ? style.prompt : undefined;
-    const systemMessage = buildCatalogSystemMessage(styleSuffix);
-
-    // Delay between category generations (rate-limit headroom). Overridable
-    // via env so tests can set it to 0 — kept out of the hot path by design.
-    let delayMs = CATALOG_DELAY_BETWEEN_CATEGORIES_MS;
-    const rawDelay = env.CATALOG_CATEGORY_DELAY_MS;
-    if (rawDelay !== undefined && rawDelay !== null && rawDelay !== "") {
-      const n = Number.parseInt(String(rawDelay), 10);
-      if (Number.isFinite(n) && n >= 0) {
-        delayMs = n;
-      }
-    }
-
-    const categories = {};
-    const keys = Object.keys(CATEGORIES);
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i];
-      const info = CATEGORIES[key];
+    // --- check for existing partial (Strategy 2 resume) -------------------
+    const partialKey = `catalog:partial:${catalogKey}`;
+    const partialRaw = await kv.get(partialKey);
+    if (partialRaw) {
+      let parsed;
       try {
-        const data = await generateCatalogText(
-          buildCategoryPrompt(key, info, CATALOG_ITEMS_PER_CATEGORY, seed),
-          apiKey,
-          systemMessage
-        );
-        categories[key] = data && typeof data === "object" ? data : { ...info, items: {} };
-      } catch (err) {
-        if (err.message && err.message.startsWith("Pollinations 402")) {
-          // Balance exhausted: stop and KEEP the lock — piling-up requests
-          // get 202 "generating", and once the lock's 120s TTL expires the
-          // next request retries generation (by which point the balance may
-          // have been topped up).
-          keepLock = true;
-          console.error(
-            `[content-api] catalog generation for ${catalogKey} aborted: ${err.message} ` +
-              `(lock expires in ${CATALOG_GENERATION_LOCK_TTL_S}s; next request retries)`
-          );
+        parsed = JSON.parse(partialRaw);
+        if (parsed && Date.now() - parsed.startedAt < CATALOG_PARTIAL_TTL_MS) {
+          // Resume chain from existing partial.
+          console.log(`[content-api] resuming chain for ${catalogKey}`);
+          await generateCatalogChained(kv, catalogKey, env, styleKey, seed, parsed, deadline);
           return;
         }
-        console.warn(`[content-api] catalog ${key} failed, using static fallback: ${err.message}`);
-        categories[key] = { ...info, items: {} };
+      } catch {
+        // corrupt partial — fall through.
       }
-      if (i < keys.length - 1 && delayMs > 0) {
-        await sleep(delayMs);
-      }
+      // Stale or corrupt partial — discard.
+      await kv.delete(partialKey).catch(() => {});
     }
 
-    const season = getCurrentSeason();
-    let seasonalGallery;
-    try {
-      const seasonalData = await generateCatalogText(
-        buildSeasonalPrompt(season),
-        apiKey,
-        systemMessage
-      );
-      seasonalGallery =
-        seasonalData && typeof seasonalData === "object" ? seasonalData : { items: {} };
-    } catch (err) {
-      if (err.message && err.message.startsWith("Pollinations 402")) {
-        keepLock = true;
-        console.error(
-          `[content-api] catalog seasonal 402 for ${catalogKey}: ${err.message}; ` +
-            `stopping — lock expires in ${CATALOG_GENERATION_LOCK_TTL_S}s, next request retries`
-        );
-        return;
-      }
-      console.warn(`[content-api] catalog seasonal failed: ${err.message}; using empty gallery`);
-      seasonalGallery = {
-        title: `${season} Collection`,
-        subtitle: "Seasonal coloring pages",
-        items: {},
-      };
-    }
-
-    const totalItems = countCatalogItems({ categories });
-    const catalog = {
-      brand: { name: "ColorVerse", tagline: "Free AI-Generated Coloring Pages" },
-      seasonal_gallery: seasonalGallery,
-      categories,
-      _meta: {
-        generatedAt: Date.now(),
-        totalItems,
-        categoryCount: keys.length,
-        season,
-        style: styleKey || "classic",
-        seed: seed || null,
-        generatedBy: uid || "anonymous",
-      },
-    };
-    await kv.put(catalogKey, JSON.stringify(catalog));
-    console.log(
-      `[content-api] catalog ${catalogKey} generated (${totalItems} items, uid=${uid || "n/a"})`
+    // --- Strategy 1: Parallel ---------------------------------------------
+    const parallelResult = await generateCatalogParallel(
+      kv,
+      catalogKey,
+      env,
+      styleKey,
+      seed,
+      deadline
     );
+
+    if (parallelResult.success) {
+      // Success — reset failcount.
+      await kv.delete(`catalog:failcount:${catalogKey}`).catch(() => {});
+      return;
+    }
+
+    if (parallelResult.keepLock) {
+      // ≥50% 402 — keep lock and increment failcount.
+      keepLock = true;
+      await kv
+        .put(`catalog:failcount:${catalogKey}`, String(failCount + 1), { expirationTtl: 3600 })
+        .catch(() => {});
+      console.error(
+        `[content-api] catalog 402 exhaustion for ${catalogKey}; failcount=${failCount + 1}`
+      );
+      return;
+    }
+
+    // Parallel failed (deadline expired or partial write). Fall back to chain.
+    if (deadline.expired()) {
+      console.log(`[content-api] parallel deadline expired for ${catalogKey}; starting chain mode`);
+      await generateCatalogChained(kv, catalogKey, env, styleKey, seed, null, deadline);
+      return;
+    }
+
+    // Other failure — increment failcount.
+    await kv
+      .put(`catalog:failcount:${catalogKey}`, String(failCount + 1), { expirationTtl: 3600 })
+      .catch(() => {});
   } catch (err) {
-    console.error(`[content-api] catalog generation for ${catalogKey} crashed: ${err.message}`);
+    if (
+      err.message &&
+      (err.message.includes("PROVIDER_402") || err.message.includes("PROVIDER_402"))
+    ) {
+      keepLock = true;
+      await kv
+        .put(`catalog:failcount:${catalogKey}`, String(failCount + 1), { expirationTtl: 3600 })
+        .catch(() => {});
+      console.error(
+        `[content-api] catalog 402 for ${catalogKey}; failcount incremented to ${failCount + 1}`
+      );
+    } else {
+      console.error(`[content-api] catalog generation for ${catalogKey} crashed: ${err.message}`);
+    }
   } finally {
-    // Release the lock we own (acquired here, or handed in by the miss path)
-    // unless generation stopped on a 402, where the lock is kept on purpose.
     if (!keepLock && (acquired || lockHeld)) {
       try {
         await kv.delete(lockKey);
@@ -585,14 +1014,72 @@ async function handleCatalog(request, env, ctx) {
     });
   }
 
-  // --- Miss: generation flow (lock -> rate limit -> 202 + background) --------
+  // --- Miss: generation flow (failcount -> lock -> rate limit -> 202 + background) ---
+
+  // 0. Failcount kill-switch: if generation has failed too many times,
+  //    serve the legacy catalog instead (same as DISABLE_WORKER_GEN).
+  try {
+    const fcRaw = await env.SITE_DATA.get(`catalog:failcount:${catalogKey}`);
+    const maxFails = Number(env.CATALOG_MAX_FAILS) || CATALOG_MAX_FAILS;
+    if (parseInt(fcRaw || "0", 10) >= maxFails) {
+      const legacy = await env.SITE_DATA.get("site-data.json");
+      if (legacy) {
+        return createJSONResponse(JSON.parse(legacy), 200, {
+          "Cache-Control": "public, max-age=86400",
+          ...corsMethods(request, env),
+        });
+      }
+      return errorResponse("site-data.json not found in KV", 404, request, env);
+    }
+  } catch (err) {
+    console.warn(`[content-api] failcount read error: ${err.message}`);
+  }
 
   // 1. Generation lock: try to claim the catalogKey. If another request is
-  //    already generating it, bail out with 202 + Retry-After.
+  //    already generating it, check for a partial and potentially resume
+  //    the chain in this request's waitUntil.
   const lockKey = `catalog:generating:${catalogKey}`;
   try {
     const held = await env.SITE_DATA.get(lockKey);
     if (held !== null) {
+      // Check for a fresh partial — if it exists, this request can continue
+      // the chain rather than just bailing with 202.
+      const partialKey = `catalog:partial:${catalogKey}`;
+      const partialRaw = await env.SITE_DATA.get(partialKey);
+      if (partialRaw) {
+        let parsed;
+        try {
+          parsed = JSON.parse(partialRaw);
+        } catch {
+          parsed = null;
+        }
+        if (parsed && Date.now() - parsed.startedAt < CATALOG_PARTIAL_TTL_MS) {
+          // Delete the lock — chain mode uses the partial as the coordinator.
+          await env.SITE_DATA.delete(lockKey).catch(() => {});
+          // Continue the chain in this request.
+          const gen = generateCatalogChained(
+            env.SITE_DATA,
+            catalogKey,
+            env,
+            styleKey,
+            seed,
+            parsed,
+            null // chain creates its own fresh deadline per batch
+          );
+          if (typeof ctx?.waitUntil === "function") {
+            ctx.waitUntil(gen);
+          } else {
+            gen.catch(err =>
+              console.warn(`[content-api] chain resume (no waitUntil) failed: ${err.message}`)
+            );
+          }
+          return createJSONResponse({ status: "generating" }, 202, {
+            "Retry-After": String(CATALOG_RETRY_AFTER_S),
+            ...corsMethods(request, env),
+          });
+        }
+      }
+      // No fresh partial — bail with 202.
       return createJSONResponse({ status: "generating" }, 202, {
         "Retry-After": String(CATALOG_RETRY_AFTER_S),
         ...corsMethods(request, env),

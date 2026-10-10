@@ -12,6 +12,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import worker from "../src/index.js";
 import { stringToHash } from "../../shared/utils.js";
+import { CATEGORY_KEYS } from "../../shared/constants.js";
 
 // ---------------------------------------------------------------------------
 // Test doubles
@@ -374,5 +375,248 @@ describe("GET /catalog", () => {
     expect(res.status).toBe(503);
     expect(body.error).toBe("KV not configured");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Hybrid/resilient generation tests
+  // ---------------------------------------------------------------------------
+
+  it("9. Parallel generation — all succeed", async () => {
+    const res = await worker.fetch(makeRequest("/catalog"), env, ctx);
+    expect(res.status).toBe(202);
+
+    await ctx.flush();
+
+    const raw = await kv.get("catalog:default");
+    const cat = JSON.parse(raw);
+    expect(cat.categories).toBeDefined();
+    expect(Object.keys(cat.categories)).toHaveLength(25);
+    expect(Object.keys(cat.seasonal_gallery.items)).toHaveLength(12);
+    // countCatalogItems only counts categories, not seasonal.
+    expect(cat._meta.totalItems).toBe(25); // 25 * 1 item per category
+    expect(cat._meta.categoryCount).toBe(25);
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it("10. Parallel generation — partial failures (non-402)", async () => {
+    // Make 13 categories fail with a generic error, 13 succeed.
+    const failKeys = new Set(CATEGORY_KEYS.slice(0, 13));
+    const customFetch = vi.fn(async (url, opts) => {
+      const body = JSON.parse(opts.body);
+      const userPrompt = body.messages.find(m => m.role === "user").content;
+      const catKey = userPrompt.match(/for the "([^"]+)" category/)?.[1] || "unknown";
+      if (catKey === "__seasonal__" || userPrompt.includes("seasonal coloring page items")) {
+        return new Response(JSON.stringify(llmChatBody(llmCategoryResponse("seasonal"))), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (failKeys.has(catKey)) {
+        return new Response(JSON.stringify({ error: "boom" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify(llmChatBody(llmCategoryResponse(catKey))), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", customFetch);
+
+    const res = await worker.fetch(makeRequest("/catalog"), env, ctx);
+    expect(res.status).toBe(202);
+
+    await ctx.flush();
+
+    const raw = await kv.get("catalog:default");
+    const cat = JSON.parse(raw);
+    expect(cat.categories).toBeDefined();
+    expect(Object.keys(cat.categories)).toHaveLength(25);
+    // All 25 keys exist (13 real + 13 fallback, but 26 keys total so 25+seasonal)
+    // Note: 13 failed categories get fallback { items: {} }, 12 succeed with real items.
+    // + seasonal.
+    expect(cat._meta.categoryCount).toBe(25);
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("11. Parallel generation — 402 on ≥50%", async () => {
+    // Make 14+ calls reject with 402.
+    const cat402Set = new Set(CATEGORY_KEYS.slice(0, 14));
+    const customFetch = vi.fn(async (url, opts) => {
+      const body = JSON.parse(opts.body);
+      const userPrompt = body.messages.find(m => m.role === "user").content;
+      const catKey = userPrompt.match(/for the "([^"]+)" category/)?.[1] || "unknown";
+      if (catKey === "__seasonal__" || userPrompt.includes("seasonal coloring page items")) {
+        return new Response(JSON.stringify(llmChatBody({ items: {} })), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (cat402Set.has(catKey)) {
+        return new Response(JSON.stringify({ error: "Payment required" }), {
+          status: 402,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify(llmChatBody(llmCategoryResponse(catKey))), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", customFetch);
+
+    const res = await worker.fetch(makeRequest("/catalog"), env, ctx);
+    expect(res.status).toBe(202);
+
+    await ctx.flush();
+
+    // Catalog should NOT be written (≥50% 402).
+    const raw = await kv.get("catalog:default");
+    expect(raw).toBeNull();
+    // Lock should be kept.
+    expect(await kv.get("catalog:generating:catalog:default")).toBe("1");
+    // Failcount should be incremented.
+    const fc = await kv.get("catalog:failcount:catalog:default");
+    expect(fc).toBe("1");
+
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("12. Chain mode — fresh start (deadline=0 forces chain)", async () => {
+    // deadline=0 means makeDeadline hits expired() immediately.
+    // The parallel batch loop breaks at the first deadline check, writing nothing.
+    // The orchestrator sees keepLock=false + deadline.expired() → starts chain mode.
+    // In chain mode, it generates CATALOG_CHAIN_BATCH_SIZE (5) categories.
+    const chainEnv = makeEnv({
+      SITE_DATA: kv,
+      CATALOG_GEN_DEADLINE_MS: "0",
+      CATALOG_CHAIN_BATCH_SIZE: "5",
+    });
+    const chainCtx = makeCtx();
+    const chainFetch = mockFetchDefault();
+
+    const res = await worker.fetch(makeRequest("/catalog"), chainEnv, chainCtx);
+    expect(res.status).toBe(202);
+
+    // Wait for the background job to run.
+    await chainCtx.flush();
+
+    // Check that a partial was written (chain mode saved progress).
+    const partialRaw = await kv.get("catalog:partial:catalog:default");
+    expect(partialRaw).not.toBeNull();
+    const partial = JSON.parse(partialRaw);
+    expect(partial.completedKeys.length).toBe(5);
+    expect(partial.remainingKeys.length).toBe(20);
+
+    // Reset KV and fetch mocks for next test.
+    kv.store.clear();
+    await kv.put("catalog:default", JSON.stringify(makeCatalog(Date.now())));
+    kv.resetMockCalls();
+
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("13. Chain mode — resume from existing partial", async () => {
+    // Pre-seed a partial with 5 categories completed (first 5 keys).
+    const preSeeded = {
+      categories: {},
+      completedKeys: CATEGORY_KEYS.slice(0, 5), // 5 done
+      remainingKeys: CATEGORY_KEYS.slice(5), // 20 remaining
+      seasonalDone: false,
+      startedAt: Date.now() - 60_000,
+      styleKey: "",
+      seed: "",
+    };
+    await kv.put("catalog:partial:catalog:default", JSON.stringify(preSeeded), {
+      expirationTtl: 300,
+    });
+
+    // Pre-set the lock so handleCatalog sees lock-held + partial.
+    await kv.put("catalog:generating:catalog:default", "1", { expirationTtl: 300 });
+
+    const res = await worker.fetch(makeRequest("/catalog"), env, ctx);
+    expect(res.status).toBe(202);
+
+    // handleCatalog schedules a chain continuation in waitUntil.
+    expect(ctx.waitUntil).toHaveBeenCalledTimes(1);
+    await ctx.flush();
+
+    // Partial should have 10 completed (5 pre-seeded + 5 from this batch).
+    const partialRaw = await kv.get("catalog:partial:catalog:default");
+    expect(partialRaw).not.toBeNull();
+    const partial = JSON.parse(partialRaw);
+    expect(partial.completedKeys.length).toBe(10);
+
+    // Lock should be released (chain writes partial, doesn't keep lock).
+    expect(await kv.get("catalog:generating:catalog:default")).toBeNull();
+  });
+
+  it("14. Chain mode — stale partial discarded", async () => {
+    // Pre-seed a stale partial (started 11 min ago).
+    const stalePartial = {
+      categories: {},
+      completedKeys: [],
+      remainingKeys: [...CATEGORY_KEYS],
+      seasonalDone: false,
+      startedAt: Date.now() - 660_000, // 11 minutes ago
+      styleKey: "",
+      seed: "",
+    };
+    await kv.put("catalog:partial:catalog:default", JSON.stringify(stalePartial), {
+      expirationTtl: 300,
+    });
+
+    const staleRes = await worker.fetch(makeRequest("/catalog"), env, ctx);
+    expect(staleRes.status).toBe(202);
+    await ctx.flush();
+
+    // Partial should be gone (discarded), and a fresh catalog should be in KV.
+    const afterPartial = await kv.get("catalog:partial:catalog:default");
+    expect(afterPartial).toBeNull();
+
+    const catRaw = await kv.get("catalog:default");
+    const cat = JSON.parse(catRaw);
+    expect(cat.categories).toBeDefined();
+    expect(Object.keys(cat.categories)).toHaveLength(25);
+
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("15. Failcount ≥ 3 serves legacy site-data.json", async () => {
+    // Pre-seed failcount = 3.
+    await kv.put("catalog:failcount:catalog:default", "3");
+
+    // Also pre-seed legacy data.
+    const legacy = makeCatalog();
+    legacy._meta.legacy = true;
+    await kv.put("site-data.json", JSON.stringify(legacy));
+
+    const res = await worker.fetch(makeRequest("/catalog"), env, ctx);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("public, max-age=86400");
+    expect(body._meta.legacy).toBe(true);
+    // No generation should be scheduled.
+    expect(ctx.waitUntil).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("16. Failcount resets on success", async () => {
+    // Pre-seed failcount = 2.
+    await kv.put("catalog:failcount:catalog:default", "2");
+
+    const res = await worker.fetch(makeRequest("/catalog"), env, ctx);
+    expect(res.status).toBe(202);
+    await ctx.flush();
+
+    // Failcount should be deleted after successful generation.
+    const fc = await kv.get("catalog:failcount:catalog:default");
+    expect(fc).toBeNull();
   });
 });
