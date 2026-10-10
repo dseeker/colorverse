@@ -577,12 +577,45 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
       break;
     }
 
-    // Fire all calls in this batch concurrently.
-    const results = await Promise.allSettled(batch.map(entry => entry.promise));
+    // Fire all calls in this batch concurrently. Race against the deadline
+    // so we can collect partial results if CF's waitUntil is about to kill
+    // us — a partial catalog with real content is better than none.
+    const batchPromises = batch.map(async entry => {
+      try {
+        const value = await entry.promise;
+        return { status: "fulfilled", value, entry };
+      } catch (reason) {
+        return { status: "rejected", reason, entry };
+      }
+    });
 
-    for (let i = 0; i < results.length; i++) {
-      const r = results[i];
-      const entry = batch[i];
+    const timeoutMs = deadline.remaining();
+    const timeout = new Promise(resolve => setTimeout(() => resolve("__timeout__"), timeoutMs));
+    const settled = [];
+    const raceResult = await Promise.race([
+      Promise.all(batchPromises).then(all => {
+        settled.push(...all);
+        return "__done__";
+      }),
+      timeout,
+    ]);
+
+    // If the timeout won, collect whatever settled by polling each promise
+    // (they may have resolved before the timeout but after all() started).
+    if (raceResult === "__timeout__") {
+      for (const p of batchPromises) {
+        const state = await Promise.race([p, Promise.resolve(null)]);
+        if (state !== null) {
+          settled.push(state);
+        }
+      }
+    }
+
+    for (const r of settled) {
+      if (!r || !r.entry) {
+        continue;
+      }
+      const entry = r.entry;
 
       if (r.status === "fulfilled") {
         if (entry.type === "category") {
@@ -624,6 +657,15 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
     return { success: false, keepLock: true };
   }
 
+  // If we collected zero real results (no categories + no seasonal) AND the
+  // deadline expired, don't fill with fallbacks and don't write an empty
+  // catalog — the orchestrator should switch to chain mode. Any real
+  // content we did collect is written below with fallbacks filling gaps.
+  const realCategoryCount = Object.keys(categories).length;
+  if (realCategoryCount === 0 && !seasonalHasResult && deadline.expired()) {
+    return { success: false, keepLock: false };
+  }
+
   // Fill missing categories with fallbacks.
   for (const key of categoryKeys) {
     if (!categories[key]) {
@@ -633,12 +675,6 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
   // Fill missing seasonal.
   if (!seasonalHasResult) {
     seasonalGallery = seasonFallback;
-  }
-
-  // If the deadline has already expired (no calls were made), do NOT write
-  // an empty/fallback catalog — the orchestrator should switch to chain mode.
-  if (deadline.expired()) {
-    return { success: false, keepLock: false };
   }
 
   // Assemble the final catalog.
@@ -1017,10 +1053,13 @@ async function handleCatalog(request, env, ctx) {
     });
   }
 
-  // --- Miss: generation flow (failcount -> lock -> rate limit -> 202 + background) ---
+  // --- Miss: generation flow (lock -> rate limit -> 202 + background) ---
 
   // 0. Failcount kill-switch: if generation has failed too many times,
   //    serve the legacy catalog instead (same as DISABLE_WORKER_GEN).
+  //    NOTE: this runs only on a KV miss — if a fresh catalog exists above
+  //    (line 995), it's already been served. This prevents the failcount
+  //    from intercepting after a successful generation wrote the catalog.
   try {
     const fcRaw = await env.SITE_DATA.get(`catalog:failcount:${catalogKey}`);
     const maxFails = Number(env.CATALOG_MAX_FAILS) || CATALOG_MAX_FAILS;
