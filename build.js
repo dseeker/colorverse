@@ -19,6 +19,8 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import { stringToHash, getCurrentSeason, sleep, fetchWithTimeout } from "./workers/shared/utils.js";
+import { CATEGORIES, CATEGORY_KEYS, POLLINATIONS_CONFIG } from "./workers/shared/constants.js";
 
 dotenv.config();
 
@@ -26,10 +28,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // --- Configuration ---
+// API endpoints + image model chain come from the shared constants
+// (workers/shared/constants.js) so build.js and the CF Workers never drift.
 const CONFIG = {
   apiKey: process.env.POLLINATIONS_API_KEY || "",
-  textApiUrl: "https://gen.pollinations.ai/v1/chat/completions",
-  imageApiUrl: "https://gen.pollinations.ai/image",
+  textApiUrl: POLLINATIONS_CONFIG.TEXT_BASE_URL,
+  imageApiUrl: POLLINATIONS_CONFIG.IMAGE_BASE_URL,
   distDir: path.join(__dirname, "dist"),
   imagesDir: path.join(__dirname, "dist", "images"),
   dataFile: path.join(__dirname, "dist", "site-data.json"),
@@ -42,174 +46,11 @@ const CONFIG = {
   delayBetweenImages: 1500, // ms between requests within a batch (Seed tier = 1req/5s)
   model: "openai",
   // Model fallback chain (first 200 wins). Decided 2026-10-09.
-  imageModel: "microsoft/mai-image-2.6-flash",
-  imageModelFallbacks: [
-    "microsoft/mai-image-2.6-flash",
-    "microsoft/mai-image-2.6",
-    "openai/gpt-image-2",
-    "black-forest-labs/flux.1-schnell",
-  ],
-};
-
-// --- Category definitions (mirrors app.js getCategoryInfo) ---
-const CATEGORIES = {
-  animals: {
-    title: "Animal Kingdom",
-    description: "Discover the wonderful world of animals from cute pets to wild creatures.",
-    keywords: ["animals", "wildlife", "pets", "zoo", "creatures"],
-  },
-  fantasy: {
-    title: "Fantasy & Magic",
-    description: "Enter magical realms filled with dragons, unicorns, and mystical adventures.",
-    keywords: ["fantasy", "magic", "dragons", "unicorns", "mystical"],
-  },
-  mandalas: {
-    title: "Mandala Meditation",
-    description: "Find peace and focus with intricate mandala patterns for mindful coloring.",
-    keywords: ["mandalas", "meditation", "patterns", "zen", "mindfulness"],
-  },
-  vehicles: {
-    title: "Vehicles & Transportation",
-    description: "Explore cars, trucks, planes, and all kinds of amazing vehicles.",
-    keywords: ["vehicles", "cars", "trucks", "planes", "transportation"],
-  },
-  nature: {
-    title: "Nature & Landscapes",
-    description: "Beautiful scenes from nature including forests, mountains, and gardens.",
-    keywords: ["nature", "landscapes", "trees", "flowers", "outdoors"],
-  },
-  food: {
-    title: "Delicious Food & Treats",
-    description: "Tasty treats, healthy foods, and culinary delights to color.",
-    keywords: ["food", "treats", "cooking", "desserts", "cuisine"],
-  },
-  space: {
-    title: "Space & Astronomy",
-    description: "Blast off to explore planets, stars, and cosmic adventures.",
-    keywords: ["space", "planets", "stars", "astronomy", "rockets"],
-  },
-  abstract: {
-    title: "Abstract Art",
-    description: "Creative abstract designs and artistic patterns for imagination.",
-    keywords: ["abstract", "art", "patterns", "creative", "artistic"],
-  },
-  flowers: {
-    title: "Beautiful Flowers",
-    description: "Gorgeous floral designs from simple blooms to elaborate bouquets.",
-    keywords: ["flowers", "floral", "gardens", "blooms", "botanical"],
-  },
-  ocean: {
-    title: "Ocean & Sea Life",
-    description: "Dive into underwater worlds filled with sea creatures and coral reefs.",
-    keywords: ["ocean", "sea", "marine", "underwater", "aquatic"],
-  },
-  dinosaurs: {
-    title: "Prehistoric Dinosaurs",
-    description: "Travel back in time to the age of mighty dinosaurs and ancient creatures.",
-    keywords: ["dinosaurs", "prehistoric", "fossils", "ancient", "paleontology"],
-  },
-  mythical: {
-    title: "Mythical Creatures",
-    description: "Legendary beings from folklore and mythology around the world.",
-    keywords: ["mythical", "legends", "folklore", "creatures", "mythology"],
-  },
-  birds: {
-    title: "Birds & Flight",
-    description: "Soar with beautiful birds from tiny hummingbirds to majestic eagles.",
-    keywords: ["birds", "flight", "wings", "feathers", "avian"],
-  },
-  architecture: {
-    title: "Buildings & Architecture",
-    description: "Explore amazing buildings, castles, and architectural wonders.",
-    keywords: ["architecture", "buildings", "castles", "monuments", "structures"],
-  },
-  sports: {
-    title: "Sports & Recreation",
-    description: "Active sports, games, and recreational activities for all ages.",
-    keywords: ["sports", "games", "recreation", "athletics", "competition"],
-  },
-  memes: {
-    title: "Internet Memes & Pop Culture",
-    description: "Fun and trendy internet memes, viral content, and pop culture references.",
-    keywords: ["memes", "internet", "viral", "trending", "pop culture"],
-  },
-  adult_zen: {
-    title: "Adult Zen & Sophistication",
-    description: "Complex, sophisticated designs for adult colorists seeking detailed meditation.",
-    keywords: ["adult", "sophisticated", "complex", "detailed", "zen"],
-  },
-  spicy_bold: {
-    title: "Bold & Spicy Designs",
-    description: "Edgy, bold patterns with attitude - skulls, tattoo-style, and rock themes.",
-    keywords: ["bold", "edgy", "skulls", "tattoo", "rock"],
-  },
-  children_characters: {
-    title: "Cute Children's Characters",
-    description:
-      "Beloved children's characters and friendly cartoon companions for young colorists.",
-    keywords: ["children", "characters", "cartoon", "friendly", "kids"],
-  },
-  vintage_retro: {
-    title: "Vintage & Retro Vibes",
-    description: "Nostalgic designs from past decades with classic style and charm.",
-    keywords: ["vintage", "retro", "classic", "nostalgic", "antique"],
-  },
-  gaming_tech: {
-    title: "Gaming & Technology",
-    description: "Video game characters, retro gaming, robots, and futuristic technology.",
-    keywords: ["gaming", "technology", "robots", "futuristic", "digital"],
-  },
-  holidays: {
-    title: "Holidays & Celebrations",
-    description: "Festive designs for all holidays and special celebrations year-round.",
-    keywords: ["holidays", "celebrations", "festive", "seasonal", "traditions"],
-  },
-  music_dance: {
-    title: "Music & Dance",
-    description: "Musical instruments, dance poses, and rhythm-inspired artistic designs.",
-    keywords: ["music", "dance", "instruments", "rhythm", "performance"],
-  },
-  steampunk: {
-    title: "Steampunk & Victorian",
-    description: "Intricate steampunk machinery, Victorian elegance, and clockwork mechanisms.",
-    keywords: ["steampunk", "victorian", "gears", "clockwork", "mechanical"],
-  },
-  tribal_ethnic: {
-    title: "Tribal & Cultural Patterns",
-    description: "Beautiful traditional patterns and designs from cultures around the world.",
-    keywords: ["tribal", "cultural", "traditional", "ethnic", "patterns"],
-  },
+  imageModel: POLLINATIONS_CONFIG.DEFAULT_MODEL,
+  imageModelFallbacks: POLLINATIONS_CONFIG.IMAGE_MODEL_FALLBACKS,
 };
 
 // --- Helpers ---
-function stringToHash(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash);
-}
-
-function getCurrentSeason() {
-  const month = new Date().getMonth();
-  if (month >= 2 && month <= 4) {
-    return "spring";
-  }
-  if (month >= 5 && month <= 7) {
-    return "summer";
-  }
-  if (month >= 8 && month <= 10) {
-    return "autumn";
-  }
-  return "winter";
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 function sanitizeFilename(str) {
   return str
     .replace(/[^a-z0-9_-]/gi, "_")
@@ -219,28 +60,34 @@ function sanitizeFilename(str) {
 
 // --- AI Text Generation ---
 async function callTextAPI(prompt, model = CONFIG.model) {
-  const response = await fetch(CONFIG.textApiUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Authorization: `Bearer ${CONFIG.apiKey}`,
+  // 60s timeout: LLM JSON generation can be slow, but never let a hung
+  // request stall the build indefinitely.
+  const response = await fetchWithTimeout(
+    CONFIG.textApiUrl,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${CONFIG.apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.",
+          },
+          { role: "user", content: prompt },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.5,
+        referrer: CONFIG.referrer,
+      }),
     },
-    body: JSON.stringify({
-      model,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.",
-        },
-        { role: "user", content: prompt },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.5,
-      referrer: CONFIG.referrer,
-    }),
-  });
+    60000
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -453,7 +300,7 @@ async function build() {
   if (!imagesOnly) {
     console.log("\n📝 Step 1: Generating text content...\n");
 
-    const categoryKeys = Object.keys(CATEGORIES);
+    const categoryKeys = CATEGORY_KEYS;
     const categoriesToBuild = catLimit ? categoryKeys.slice(0, catLimit) : categoryKeys;
 
     const categories = {};
