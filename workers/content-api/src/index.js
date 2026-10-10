@@ -247,7 +247,10 @@ async function callGemini(model, body, apiKey) {
 
 const CATALOG_DEFAULT_KEY = "catalog:default";
 const CATALOG_TTL_MS = 24 * 60 * 60 * 1000;
-const CATALOG_GENERATION_LOCK_TTL_S = 300;
+// Lock TTL matches the CF waitUntil wall-clock limit (~30s). If the lock
+// expires, the generation died (waitUntil was killed) and the next request
+// retries. A longer TTL would block retries for minutes after a killed job.
+const CATALOG_GENERATION_LOCK_TTL_S = 30;
 const CATALOG_MAX_GENS_PER_HOUR = 5;
 const CATALOG_RETRY_AFTER_S = 10;
 const CATALOG_ITEMS_PER_CATEGORY = 20;
