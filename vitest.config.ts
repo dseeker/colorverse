@@ -8,8 +8,10 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/tests/setup.ts"],
-    // Only include tests from src/tests, exclude Playwright E2E tests
-    include: ["src/tests/**/*.test.{ts,js}"],
+    // Tests from src/tests plus the Cloudflare Worker unit tests
+    // (workers/content-api/test — plain vitest, KV/fetch mocked; see the
+    // file header for a note on @cloudflare/vitest-pool-workers).
+    include: ["src/tests/**/*.test.{ts,js}", "workers/**/*.test.{ts,js}"],
     exclude: [
       "**/node_modules/**",
       "**/dist/**",
