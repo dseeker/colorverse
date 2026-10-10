@@ -310,12 +310,14 @@ async function downloadImage(prompt, seed, outputPath, width, height) {
         );
         await sleep(waitMs);
       } else if (status === 402) {
-        // Balance exhausted — wait longer, balance may refill over time
-        const waitMs = Math.min(60000 * attempt, 300000);
+        // Balance exhausted — don't retry this model, try next in the chain.
+        // The next model may be on a different tier; if all are exhausted, the
+        // chain throws and the build fails fast instead of waiting 5+ min per model.
         process.stdout.write(
-          `\n  💸 Balance exhausted (402). Waiting ${(waitMs / 1000).toFixed(0)}s before retry ${attempt}/${MAX_RETRIES}... [${body.substring(0, 80)}]`
+          `\n  💸 Balance exhausted (402) for model=${model}, trying next model... [${body.substring(0, 80)}]`
         );
-        await sleep(waitMs);
+        lastError = new Error(`Image API 402 for model=${model}: balance exhausted`);
+        break;
       } else if (status === 400 || status === 404) {
         // Bad request / not found — don't retry this model, try next
         process.stdout.write(`\n  ✖ model=${model} returned ${status}, trying next model...`);
