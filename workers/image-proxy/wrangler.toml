@@ -11,3 +11,10 @@ ALLOWED_ORIGINS = "https://dseeker.github.io"
 [[kv_namespaces]]
 binding = "SITE_DATA"
 id = "ff1368ad7005423b8e866d7bd8c98ef2"
+
+# Generated image cache. Create via: npx wrangler kv:namespace create IMAGE_CACHE
+# (replace the placeholder id before deploying; the route degrades gracefully
+# to edge-cache-only if the binding is absent)
+[[kv_namespaces]]
+binding = "IMAGE_CACHE"
+id = "REPLACE_WITH_IMAGE_CACHE_ID"
