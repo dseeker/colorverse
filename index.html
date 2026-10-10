@@ -1387,6 +1387,12 @@
             CONTENT_API_URL: '',
             IMAGE_PROXY_URL: 'https://colorverse-image-proxy.daniel-bca.workers.dev',
             DATA_URL: 'https://colorverse-image-proxy.daniel-bca.workers.dev/data',
+            // Worker-centric image + catalog mode (Round 2):
+            // true = fetch /catalog from content-api (CONTENT_API_URL) +
+            // request images through image-proxy /image (server-side model
+            // fallback chain + API key). OFF until Phase 3 deploy/prime/flip;
+            // when off, all client behavior is identical to the legacy path.
+            WORKER_IMAGE_MODE: false,
             // Analytics is OFF by default. Flip ENABLE_ANALYTICS to true and
             // set ANALYTICS_ENDPOINT to collect events. See docs/ANALYTICS.md.
             ENABLE_ANALYTICS: false,

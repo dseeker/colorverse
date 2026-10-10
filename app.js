@@ -64,6 +64,22 @@ const STATIC_IMAGES_BASE = window.__COLORVERSE_IMAGES_BASE__ || "./images";
 // paths that would 404.
 const STATIC_IMAGES_ENABLED = !!window.__COLORVERSE_STATIC_IMAGES__;
 
+// --- Worker-centric image + catalog mode (Round 2) ---
+// When on, the client fetches the catalog from the content-api /catalog route
+// (instead of the legacy image-proxy /data route) and requests images through
+// the image-proxy /image route (model fallback chain + API key owned server-side).
+// Feature-flagged OFF until Phase 3 (deploy + prime + flip). When off, every
+// code path below is byte-for-byte identical to the legacy behavior.
+const WORKER_IMAGE_MODE = !!window._env?.WORKER_IMAGE_MODE;
+// Content-api base URL for the /catalog route (empty until deployed; see
+// window._env in index.html). When WORKER_IMAGE_MODE is on but this is empty,
+// the catalog fetch falls back to the legacy DATA_URL.
+const WORKER_CONTENT_API_URL = window._env?.CONTENT_API_URL || "";
+// Maximum number of /catalog polls while the worker is generating a fresh
+// catalog (202 + Retry-After). 12 polls × 10s ≈ 2 min, matching the worker's
+// 120s generation-lock TTL.
+const CATALOG_MAX_POLLS = 12;
+
 // In static mode, map item keys to local image paths
 let staticImageMap = null; // Populated on load in static mode
 
@@ -136,6 +152,88 @@ function stringToHash(str) {
     hash = hash & hash; // Convert to 32-bit integer
   }
   return Math.abs(hash);
+}
+
+// --- Worker-centric mode: user identity + catalog fetch (Round 2) ---
+// Creates (or reuses) a stable per-browser user id and returns its djb2 hash.
+// The raw uuid is never sent to the network — only the hash is (as the
+// X-ColorVerse-UID header on /catalog and the uid query param on /image), so
+// it stays out of CF logs, browser history, and shared URLs.
+function getOrCreateUserId() {
+  const KEY = "colorverse-user-id";
+  let uid;
+  try {
+    uid = localStorage.getItem(KEY);
+  } catch {
+    uid = null; // localStorage can throw in private-browsing edge cases
+  }
+  if (!uid) {
+    uid =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
+    try {
+      localStorage.setItem(KEY, uid);
+    } catch (e) {
+      console.warn("Failed to persist user id:", e);
+    }
+  }
+  // Hash before sending — keeps raw uuid out of CF logs/browser history
+  return stringToHash(uid).toString(16);
+}
+
+// Compute once at load; stable for the lifetime of the page session.
+const hashedUid = getOrCreateUserId();
+
+// Fetch the catalog from the content-api /catalog route, polling while the
+// worker generates a fresh catalog (202 + Retry-After). Resolves with the
+// parsed catalog (same site-data.json shape) or null when the worker is
+// unreachable / exhausted, so callers can fall back to the legacy path.
+async function fetchWorkerCatalog(styleKey = "", seed = "") {
+  if (!WORKER_CONTENT_API_URL) {
+    console.warn(
+      "[WorkerMode] WORKER_IMAGE_MODE is on but CONTENT_API_URL is empty — falling back to legacy data route"
+    );
+    return null;
+  }
+  const url = `${WORKER_CONTENT_API_URL}/catalog?style=${encodeURIComponent(
+    styleKey
+  )}&seed=${encodeURIComponent(seed)}`;
+  const headers = { "X-ColorVerse-UID": hashedUid };
+
+  for (let attempt = 0; attempt <= CATALOG_MAX_POLLS; attempt++) {
+    try {
+      const response = await fetch(url, { headers });
+      if (response.status === 202) {
+        // Catalog is being generated — poll after Retry-After (default 10s)
+        const retryAfterHeader = response.headers.get("Retry-After");
+        const retryAfter = retryAfterHeader ? parseFloat(retryAfterHeader) : NaN;
+        const delayMs = Number.isFinite(retryAfter) ? retryAfter * 1000 : 10000;
+        if (attempt < CATALOG_MAX_POLLS) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          continue;
+        }
+        console.warn("[WorkerMode] Catalog still generating after max polls");
+        return null;
+      }
+      if (response.status === 200) {
+        const data = await response.json();
+        if (!data || typeof data !== "object" || !data.categories) {
+          console.warn("[WorkerMode] Catalog response missing categories, falling back");
+          return null;
+        }
+        return data;
+      }
+      // 503 (unconfigured/kill-switch), 502, 500, 404 — fall back to legacy
+      console.warn(`[WorkerMode] Catalog fetch ${response.status}, falling back to legacy route`);
+      return null;
+    } catch (err) {
+      // Network error (offline, CORS, worker down) — fall back to legacy
+      console.warn(`[WorkerMode] Catalog fetch network error, falling back: ${err.message}`);
+      return null;
+    }
+  }
+  return null;
 }
 
 /**
@@ -403,6 +501,39 @@ function changeColoringStyle(newStyle) {
 
   // Reload all images on the page with new style
   reloadAllImages();
+
+  // Worker-centric mode: re-fetch the catalog for the new style. The worker
+  // may return 202 (generating) for an unprimed custom catalog — the polling
+  // in fetchWorkerCatalog handles that while the loading state is shown.
+  if (WORKER_IMAGE_MODE) {
+    reFetchWorkerCatalogForStyle(newStyle);
+  }
+}
+
+// Re-fetch + re-render the catalog after a style change (WORKER_IMAGE_MODE
+// only). Fire-and-forget: the current page stays usable while the worker
+// generates/refreshes the style-specific catalog.
+function reFetchWorkerCatalogForStyle(styleKey) {
+  showLoading(true);
+  fetchWorkerCatalog(styleKey, "")
+    .then(data => {
+      showLoading(false);
+      if (data) {
+        siteData = data;
+        staticImageMap = buildStaticImageMap(data);
+        saveToCache(data);
+        debug.log(`[WorkerMode] Re-fetched catalog for style "${styleKey}"`);
+        reloadAllImages();
+      } else {
+        console.warn(
+          `[WorkerMode] Catalog re-fetch for style "${styleKey}" failed — keeping current catalog`
+        );
+      }
+    })
+    .catch(err => {
+      showLoading(false);
+      console.warn(`[WorkerMode] Catalog re-fetch error: ${err.message}`);
+    });
 }
 
 function reloadAllImages() {
@@ -986,7 +1117,10 @@ function setupLazyLoading() {
 // --- Cache Constants ---
 const CACHE_KEY_SITE_DATA = "colorverse-site-data";
 const CACHE_KEY_TIMESTAMP = "colorverse-cache-timestamp";
-const CACHE_KEY_IMAGE_URLS = "colorverse-image-urls";
+// v2: bumped from "colorverse-image-urls" so stale legacy URLs (with model=
+// and key= params) from pre-WORKER_IMAGE_MODE sessions don't persist after
+// the flag flips — the /image route URL shape has no model/key params.
+const CACHE_KEY_IMAGE_URLS = "colorverse-image-urls-v2";
 const CACHE_DURATION = {
   HOURS: 6, // Cache expires after 6 hours in production
   DEV_MINUTES: 10, // Cache expires after 10 minutes in dev mode
@@ -1182,6 +1316,22 @@ function getImageUrl(prompt, params = {}) {
     // If image proxy is configured, route through it (keeps API key server-side)
     const imageProxyUrl = window._env?.IMAGE_PROXY_URL;
     if (imageProxyUrl) {
+      if (WORKER_IMAGE_MODE) {
+        // /image route: the worker owns the model fallback chain + API key, so
+        // model, key, referrer, enhance, quality, nologo are all dropped from
+        // the client URL. The prompt is the cache key — keep the assembly
+        // above (style-first, deterministic) exactly as-is.
+        const imageQuery = new URLSearchParams({
+          prompt: coloringPrompt,
+          seed: seed,
+          width: fullParams.width,
+          height: fullParams.height,
+          uid: hashedUid,
+        });
+        const imageUrl = `${imageProxyUrl}/image?${imageQuery.toString()}`;
+        imageUrlCache.set(cacheKey, imageUrl);
+        return imageUrl;
+      }
       const proxyParams = new URLSearchParams(query);
       proxyParams.set("prompt", coloringPrompt);
       const imageUrl = `${imageProxyUrl}?${proxyParams.toString()}`;
@@ -4136,6 +4286,26 @@ function shouldRefreshCache() {
 async function generateSiteData() {
   debug.log("Initializing site data...");
   showLoading(true); // Ensure loading is shown during generation
+
+  // --- Worker-centric mode: fetch catalog from the content-api /catalog route ---
+  // Feature-flagged (window._env.WORKER_IMAGE_MODE). The response body is the
+  // same site-data.json shape, so downstream code is unchanged. Falls back to
+  // the legacy DATA_URL route on 503 / network error / empty CONTENT_API_URL.
+  if (WORKER_IMAGE_MODE) {
+    debug.log("[WorkerMode] Loading catalog from content-api /catalog route...");
+    const catalogData = await fetchWorkerCatalog(currentColoringStyle, "");
+    if (catalogData) {
+      siteData = catalogData;
+      staticImageMap = buildStaticImageMap(catalogData);
+      saveToCache(catalogData);
+      debug.log(
+        `[WorkerMode] Loaded ${Object.keys(catalogData.categories || {}).length} categories from /catalog`
+      );
+      showLoading(false);
+      return catalogData;
+    }
+    console.warn("[WorkerMode] Catalog fetch failed, falling back to legacy data route");
+  }
 
   // --- Static mode: load pre-generated data from JSON ---
   if (STATIC_MODE) {
