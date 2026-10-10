@@ -13,9 +13,10 @@ ALLOWED_ORIGINS = "https://dseeker.github.io"
 #   npx wrangler secret put ANALYTICS_ADMIN_TOKEN (required to read /events/stats;
 #                                                   if unset, /events/stats returns 403)
 
-# Analytics aggregate counters. Create the namespace once, then update the
-# id below with its output:
+# Analytics aggregate counters. To enable the dashboard, create a KV namespace
+# and add the binding back (uncomment and fill in the id):
 #   npx wrangler kv:namespace create ANALYTICS_KV
-[[kv_namespaces]]
-binding = "ANALYTICS_KV"
-id = "REPLACE_WITH_ANALYTICS_KV_NAMESPACE_ID"
+#   # then paste the returned id below and re-deploy
+# [[kv_namespaces]]
+# binding = "ANALYTICS_KV"
+# id = "..."
