@@ -655,21 +655,24 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
   }
 
   // Await the seasonal call that we started concurrently with the categories.
-  // Race it against the deadline — if the deadline expired, we let the seasonal
-  // call go (it already ran in parallel with the categories, so it had the
-  // full deadline window to complete). This avoids the seasonal call being
-  // starved, since it started at the same time as the category calls rather
-  // than after they completed.
+  // The seasonal call has been running in parallel with the category batch,
+  // so it's had the full category batch time to complete. Give it a short
+  // grace period (5s) beyond the deadline — the seasonal call is one LLM
+  // request and likely close to done. If it still hasn't settled, use the
+  // fallback. This is independent of the main deadline so the seasonal call
+  // isn't starved even when categories use the full deadline window.
+  const SEASONAL_GRACE_MS = 5000;
   try {
     seasonalGallery = await Promise.race([
       seasonalPromise,
-      new Promise(resolve => setTimeout(() => resolve("__timeout__"), deadline.remaining())),
+      new Promise(resolve => setTimeout(() => resolve("__timeout__"), SEASONAL_GRACE_MS)),
     ]);
     if (seasonalGallery === "__timeout__") {
       seasonalGallery = null;
-      console.warn("[content-api] parallel seasonal: deadline expired, using fallback");
+      console.warn("[content-api] parallel seasonal: timed out after 5s grace, using fallback");
     } else {
       seasonalHasResult = true;
+      console.log("[content-api] parallel seasonal: generated successfully");
     }
   } catch (err) {
     const msg = (err && err.message) || "";
