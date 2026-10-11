@@ -564,15 +564,17 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
     );
   }
 
+  // Start the seasonal call FIRST, before the category calls, so it gets
+  // queued first at the provider (OpenRouter/Gemini). When 26 concurrent
+  // calls hit the provider, the seasonal call (started first) is most likely
+  // to complete first. We await it separately AFTER collecting category
+  // results.
+  const seasonalPromise = makeSeasonalCall();
+
   const calls = [];
   for (const key of categoryKeys) {
     calls.push({ type: "category", key, promise: makeCategoryCall(key, CATEGORIES[key]) });
   }
-  // Start the seasonal call NOW, concurrently with the category calls, so it
-  // isn't starved by the deadline racing against 26 concurrent calls. We
-  // await it separately AFTER collecting category results, giving it the
-  // full deadline window to complete in parallel with the categories.
-  const seasonalPromise = makeSeasonalCall();
 
   // If batching, split into chunks and process sequentially.
   const rawBatch = Number(env.CATALOG_PARALLEL_BATCH);
