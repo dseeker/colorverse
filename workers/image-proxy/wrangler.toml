@@ -16,3 +16,6 @@ id = "ff1368ad7005423b8e866d7bd8c98ef2"
 binding = "IMAGE_CACHE"
 id = "81e752c6ad7f4c65928c27359921b1e5"
 preview_id = "49b4f3897aac4d3fa0a979d72056262b"
+
+[ai]
+binding = "AI"

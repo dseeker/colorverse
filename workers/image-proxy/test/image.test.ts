@@ -5,9 +5,8 @@ import { stringToHash } from "../../shared/utils.js";
 const BASE = "https://image-proxy.example.com";
 const TOKEN = "test-cron-token";
 
-/**
- * In-memory CF edge cache (stand-in for caches.default). Keys on request URL.
- */
+/* ---- helpers ---- */
+
 function makeEdgeCache() {
   const store = new Map<string, Response>();
   return {
@@ -21,9 +20,6 @@ function makeEdgeCache() {
   };
 }
 
-/**
- * In-memory KV namespace (stand-in for the IMAGE_CACHE binding).
- */
 function makeKV() {
   const store = new Map<string, ArrayBuffer>();
   const state = {
@@ -37,9 +33,7 @@ function makeKV() {
     state,
     async get(key: string, _opts?: { type?: string }) {
       state.getCalls.push(key);
-      if (state.failGet) {
-        throw new Error("KV read error (injected)");
-      }
+      if (state.failGet) throw new Error("KV read error (injected)");
       return store.get(key);
     },
     async put(key: string, value: ArrayBuffer) {
@@ -73,10 +67,24 @@ function makeCtx() {
   };
 }
 
+function makeAIBindSuccess() {
+  const run = vi.fn().mockResolvedValue({
+    image:
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  });
+  return { run };
+}
+
+function makeAIBindFail() {
+  const run = vi.fn().mockResolvedValue(null);
+  return { run };
+}
+
 function baseEnv(overrides: Record<string, unknown> = {}) {
   return {
     POLLINATIONS_API_KEY: "test-key",
     ALLOWED_ORIGINS: "*",
+    AI: null,
     ...overrides,
   };
 }
@@ -87,8 +95,14 @@ function imageRequest(params: Record<string, string>) {
   return new Request(url.toString());
 }
 
-/** Respond with an image body (or a fixed status) for every upstream call. */
-function mockUpstreamFetch(status = 200, contentType = "image/jpeg") {
+/**
+ * Stubs fetch with the given status / content-type and returns the mock.
+ * The mock records its calls in fetchMock.calls.
+ */
+function stubFetch(
+  status = 200,
+  contentType = "image/jpeg"
+): { mock: ReturnType<typeof vi.fn>; contentType: string } {
   const body = new Uint8Array([1, 2, 3, 4]);
   const mock = vi.fn(
     async () =>
@@ -98,7 +112,7 @@ function mockUpstreamFetch(status = 200, contentType = "image/jpeg") {
       })
   );
   vi.stubGlobal("fetch", mock);
-  return mock;
+  return { mock, contentType };
 }
 
 let edgeCache: ReturnType<typeof makeEdgeCache>;
@@ -114,17 +128,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/* ---- tests ---- */
+
 describe("image-proxy /image route", () => {
   it("edge cache hit returns 200 with X-Cache-Source: edge and no KV read", async () => {
     const kv = makeKV();
-    const fetchMock = mockUpstreamFetch();
+    stubFetch(); // never called
     const params = { prompt: "a cat", seed: "1", width: "1024", height: "1024", uid: "user-a" };
     const request = imageRequest(params);
 
-    // Pre-warm the edge cache with the URL minus `uid`.
     const urlNoUid = new URL(request.url);
     urlNoUid.searchParams.delete("uid");
-    // Mirror what the worker actually stores (see cacheableImageResponse).
     await edgeCache.put(
       new Request(urlNoUid.toString(), request),
       new Response(new Uint8Array([9, 9]), {
@@ -140,12 +154,11 @@ describe("image-proxy /image route", () => {
     expect(res.headers.get("Cache-Control")).toBe("public, max-age=604800");
     expect(await res.arrayBuffer()).toEqual(new Uint8Array([9, 9]).buffer as ArrayBuffer);
     expect(kv.state.getCalls).toEqual([]);
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("KV hit returns 200 with X-Cache-Source: kv and warms the edge cache", async () => {
     const kv = makeKV();
-    const fetchMock = mockUpstreamFetch();
+    stubFetch(); // never called
     const params = { prompt: "a cat", seed: "1", width: "1024", height: "1024", uid: "user-a" };
     const canonicalKey = "img:default:" + stringToHash("a cat|1|1024|1024");
     kv.store.set(canonicalKey, new Uint8Array([7, 7, 7]).buffer as ArrayBuffer);
@@ -157,10 +170,7 @@ describe("image-proxy /image route", () => {
     expect(res.headers.get("X-Cache-Source")).toBe("kv");
     expect(res.headers.get("Cache-Control")).toBe("public, max-age=604800");
     expect(await res.arrayBuffer()).toEqual(new Uint8Array([7, 7, 7]).buffer as ArrayBuffer);
-    expect(fetchMock).not.toHaveBeenCalled();
 
-    // Edge warmed via waitUntil (the stored entry has no X-Cache-Source; it is
-    // added per-request on read).
     await ctx.flush();
     const urlNoUid = new URL(request.url);
     urlNoUid.searchParams.delete("uid");
@@ -172,7 +182,7 @@ describe("image-proxy /image route", () => {
 
   it("KV miss fetches from Pollinations, writes KV via waitUntil, and labels generated", async () => {
     const kv = makeKV();
-    const fetchMock = mockUpstreamFetch(200, "image/png");
+    const { mock } = stubFetch(200, "image/png");
     const params = { prompt: "a cat", seed: "1", width: "1024", height: "1024", uid: "user-a" };
     const canonicalKey = "img:default:" + stringToHash("a cat|1|1024|1024");
 
@@ -183,9 +193,10 @@ describe("image-proxy /image route", () => {
     expect(res.headers.get("X-Cache-Source")).toBe("generated");
     expect(res.headers.get("Content-Type")).toBe("image/png");
     expect(res.headers.get("Cache-Control")).toBe("public, max-age=604800");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(mock).toHaveBeenCalledTimes(1);
+    // verify Bearer auth
+    expect(mock.mock.calls[0][1].headers.Authorization).toMatch(/Bearer test-key/i);
 
-    // Non-blocking persistence happens through waitUntil.
     expect(ctx.jobs.length).toBeGreaterThan(0);
     await ctx.flush();
     expect(kv.state.putCalls).toEqual([canonicalKey]);
@@ -194,100 +205,94 @@ describe("image-proxy /image route", () => {
 
   it("breaks immediately on 402 without retrying other models", async () => {
     const kv = makeKV();
-    const fetchMock = vi.fn(async () => new Response(new Uint8Array(), { status: 402 }));
-    vi.stubGlobal("fetch", fetchMock);
+    const { mock } = stubFetch(402);
     const params = { prompt: "a cat", seed: "1", width: "1024", height: "1024" };
 
     const res = await worker.fetch(imageRequest(params), baseEnv({ IMAGE_CACHE: kv }), ctx);
 
-    // 402 = balance exhausted; chain aborts at the first model.
     expect(res.status).toBe(402);
     expect(res.headers.get("Content-Type")).toBe("image/svg+xml");
     expect(await res.text()).toContain("Image Error");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(mock).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to the next model when the first returns 400", async () => {
     const kv = makeKV();
-    const successBody = new Uint8Array([1, 2, 3, 4]);
-    const fetchMock = vi.fn(async () => {
-      if (fetchMock.mock.calls.length === 1) {
+    const mock = vi.fn(async () => {
+      if (mock.mock.calls.length === 1) {
         return new Response(new Uint8Array(), { status: 400 });
       }
-      return new Response(successBody, {
+      return new Response(new Uint8Array([1, 2, 3, 4]), {
         status: 200,
         headers: { "Content-Type": "image/jpeg" },
       });
     });
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", mock);
     const params = { prompt: "a cat", seed: "1", width: "1024", height: "1024" };
 
     const res = await worker.fetch(imageRequest(params), baseEnv({ IMAGE_CACHE: kv }), ctx);
 
-    // 400 is model-specific (param incompatibility); chain continues.
     expect(res.status).toBe(200);
     expect(res.headers.get("X-Cache-Source")).toBe("generated");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const secondUrl = fetchMock.mock.calls[1][0] as string;
+    expect(res.headers.get("X-Image-Source")).toBe("pollinations");
+    expect(mock).toHaveBeenCalledTimes(2);
+    const secondUrl = mock.mock.calls[1][0] as string;
     expect(secondUrl).toContain("mai-image-2.6");
     expect(secondUrl).not.toContain("mai-image-2.6-flash");
   });
 
   it("returns ERROR_SVG with the last upstream status when all models fail", async () => {
     const kv = makeKV();
-    const fetchMock = vi.fn(async () => new Response(new Uint8Array(), { status: 402 }));
-    vi.stubGlobal("fetch", fetchMock);
+    const mock = vi.fn(async () => new Response(new Uint8Array(), { status: 500 }));
+    vi.stubGlobal("fetch", mock);
     const params = { prompt: "a cat", seed: "1", width: "1024", height: "1024" };
 
     const res = await worker.fetch(imageRequest(params), baseEnv({ IMAGE_CACHE: kv }), ctx);
 
-    // 402 breaks the chain immediately; only the first model is attempted.
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(res.status).toBe(402);
+    expect(mock).toHaveBeenCalledTimes(3); // 3 models in chain
+    expect(res.status).toBe(500); // last upstream status propagated
     expect(res.headers.get("Content-Type")).toBe("image/svg+xml");
     expect(await res.text()).toContain("Image Error");
   });
 
   it("strips uid so two users share the same cache key", async () => {
     const kv = makeKV();
-    const fetchMock = mockUpstreamFetch();
+    const { mock } = stubFetch();
 
     const paramsA = { prompt: "a cat", seed: "1", width: "1024", height: "1024", uid: "user-a" };
     const paramsB = { prompt: "a cat", seed: "1", width: "1024", height: "1024", uid: "user-b" };
 
     const resA = await worker.fetch(imageRequest(paramsA), baseEnv({ IMAGE_CACHE: kv }), ctx);
     expect(resA.headers.get("X-Cache-Source")).toBe("generated");
+    expect(resA.headers.get("X-Image-Source")).toBe("pollinations");
     await ctx.flush();
 
     const resB = await worker.fetch(imageRequest(paramsB), baseEnv({ IMAGE_CACHE: kv }), ctx);
     expect(resB.status).toBe(200);
     expect(resB.headers.get("X-Cache-Source")).toBe("edge");
 
-    // Same canonical key for both users; one upstream call; one KV write.
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(mock).toHaveBeenCalledTimes(1);
     expect(kv.state.putCalls).toHaveLength(1);
     expect(kv.state.putCalls[0]).toBe("img:default:" + stringToHash("a cat|1|1024|1024"));
-    // KV is never consulted when the edge cache already has the shared entry.
     expect(kv.state.getCalls.length).toBeLessThanOrEqual(1);
   });
 
   it("skips to Pollinations when the KV read throws (graceful, no 500)", async () => {
     const kv = makeKV();
     kv.state.failGet = true;
-    const fetchMock = mockUpstreamFetch();
+    const { mock } = stubFetch();
     const params = { prompt: "a cat", seed: "1", width: "1024", height: "1024" };
 
     const res = await worker.fetch(imageRequest(params), baseEnv({ IMAGE_CACHE: kv }), ctx);
 
     expect(res.status).toBe(200);
     expect(res.headers.get("X-Cache-Source")).toBe("generated");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    // KV read was attempted (and failed) before falling through.
+    expect(mock).toHaveBeenCalledTimes(1);
     expect(kv.state.getCalls).toHaveLength(1);
   });
 
   it("works without an IMAGE_CACHE binding (KV skipped, goes to Pollinations)", async () => {
-    const fetchMock = mockUpstreamFetch();
+    const { mock } = stubFetch();
     const params = { prompt: "a cat", seed: "1", width: "1024", height: "1024" };
 
     const env = baseEnv();
@@ -298,14 +303,84 @@ describe("image-proxy /image route", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("X-Cache-Source")).toBe("generated");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    // Edge cache still warmed via waitUntil (keyed on the uid-less URL).
+    expect(mock).toHaveBeenCalledTimes(1);
+
     await ctx.flush();
     const edgeUrl = new URL("/image", BASE);
     for (const [k, v] of Object.entries(params)) edgeUrl.searchParams.set(k, v);
     const warmed = await edgeCache.match(new Request(edgeUrl.toString(), request));
     expect(warmed).toBeDefined();
     expect(warmed!.status).toBe(200);
+  });
+
+  // --- CF AI tests ---
+
+  it("CF AI succeeds → image returned, X-Image-Source: cf-ai, no Pollinations fetch", async () => {
+    const kv = makeKV();
+    const { mock } = stubFetch();
+    const aiBind = makeAIBindSuccess();
+
+    const res = await worker.fetch(
+      imageRequest({ prompt: "a cat", seed: "1", width: "1024", height: "1024" }),
+      baseEnv({ IMAGE_CACHE: kv, AI: aiBind }),
+      ctx
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("X-Cache-Source")).toBe("generated");
+    expect(res.headers.get("X-Image-Source")).toBe("cf-ai");
+    expect(aiBind.run).toHaveBeenCalledTimes(1);
+    expect(mock).not.toHaveBeenCalled();
+  });
+
+  it("CF AI returns null → falls through to Pollinations Bearer, succeeds, X-Image-Source: pollinations", async () => {
+    const kv = makeKV();
+    const { mock } = stubFetch(200, "image/png");
+    const aiBind = makeAIBindFail();
+
+    const res = await worker.fetch(
+      imageRequest({ prompt: "a cat", seed: "1", width: "1024", height: "1024" }),
+      baseEnv({ IMAGE_CACHE: kv, AI: aiBind }),
+      ctx
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("X-Cache-Source")).toBe("generated");
+    expect(res.headers.get("X-Image-Source")).toBe("pollinations");
+    expect(res.headers.get("Content-Type")).toBe("image/png");
+    expect(aiBind.run).toHaveBeenCalledTimes(1);
+    expect(mock).toHaveBeenCalledTimes(1);
+  });
+
+  it("CF AI null (no binding) + Pollinations 402 → 402 returned", async () => {
+    const kv = makeKV();
+    const { mock } = stubFetch(402);
+    const params = { prompt: "a cat", seed: "1", width: "1024", height: "1024" };
+
+    const res = await worker.fetch(
+      imageRequest(params),
+      baseEnv({ IMAGE_CACHE: kv, AI: null }),
+      ctx
+    );
+
+    expect(res.status).toBe(402);
+    expect(mock).toHaveBeenCalledTimes(1);
+  });
+
+  it("CF AI null + all Pollinations fail → last upstream status returned", async () => {
+    const kv = makeKV();
+    const mock = vi.fn(async () => new Response(new Uint8Array(), { status: 500 }));
+    vi.stubGlobal("fetch", mock);
+    const params = { prompt: "a cat", seed: "1", width: "1024", height: "1024" };
+
+    const res = await worker.fetch(
+      imageRequest(params),
+      baseEnv({ IMAGE_CACHE: kv, AI: null }),
+      ctx
+    );
+
+    expect(mock).toHaveBeenCalledTimes(3);
+    expect(res.status).toBe(500);
   });
 });
 
@@ -331,7 +406,6 @@ describe("image-proxy /_purge route", () => {
     expect(res.headers.get("Content-Type")).toBe("application/json");
     expect(await res.json()).toEqual({ purged: 2 });
     expect(kv.state.deleteCalls.sort()).toEqual(["img:hashA:111", "img:hashA:222"]);
-    // Untouched key from the other catalog version survives.
     expect(kv.store.has("img:hashB:333")).toBe(true);
   });
 

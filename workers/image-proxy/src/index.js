@@ -19,7 +19,12 @@
  *   IMAGE_CACHE — generated image bytes, keyed "img:{catalogHash}:{hash}"
  */
 
-import { POLLINATIONS_CONFIG, ERROR_SVG } from "../../shared/constants.js";
+import {
+  POLLINATIONS_CONFIG,
+  ERROR_SVG,
+  POLLINATIONS_MODEL_FALLBACKS,
+  CF_AI_MODEL,
+} from "../../shared/constants.js";
 import { corsHeaders, fetchWithTimeout, stringToHash } from "../../shared/utils.js";
 
 const IMAGE_CACHE_TTL = 60 * 60 * 24 * 7; // 7 days
@@ -89,44 +94,91 @@ function floorDimension(value) {
 }
 
 /**
- * Model fallback loop. Tries each model in `modelChain` in order; the first 200
- * wins. A 402 aborts immediately (balance exhausted — all models use same
- * account); a 400/404 or network error falls through to the next model
- * (different models accept different params).
+ * Try CF Workers AI (flux-2-klein-4b) for image generation.
+ * Returns { ok, status, body, contentType, source } on success, null on failure.
+ */
+async function tryCfAi(env, prompt) {
+  if (!env.AI) {
+    return null;
+  }
+  const boundary = "----cvBoundary" + Math.random().toString(16).slice(2);
+  const formBody =
+    `--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\n${prompt}\r\n` +
+    `--${boundary}--\r\n`;
+  try {
+    const response = await env.AI.run(CF_AI_MODEL, {
+      multipart: {
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(formBody));
+            controller.close();
+          },
+        }),
+        contentType: `multipart/form-data; boundary=${boundary}`,
+      },
+    });
+    if (!response?.image) {
+      return null;
+    }
+    const binaryString = atob(response.image);
+    const bytes = Uint8Array.from(binaryString, c => c.codePointAt(0));
+    return {
+      ok: true,
+      status: 200,
+      body: bytes.buffer,
+      contentType: "image/jpeg",
+      source: "cf-ai",
+    };
+  } catch (err) {
+    console.warn("CF AI failed:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Image generation fallback chain:
+ *   1. CF Workers AI (primary, in-network, no API key)
+ *   2. Pollinations (Bearer auth fallback chain)
  *
- * Returns { ok: true, status, body, contentType } on success, or
+ * Pollinations semantics: first 200 wins. 402 aborts chain (balance exhausted).
+ * 400/404/network error falls through to next model.
+ *
+ * Returns { ok: true, status, body, contentType, source } on success, or
  * { ok: false, status } (the last observed upstream error status) on failure.
  */
-async function runModelFallback(prompt, baseParams, modelChain) {
+async function runImageFallbackChain(env, prompt, baseParams, modelChain) {
+  // 1. Try CF Workers AI first
+  const cfResult = await tryCfAi(env, prompt);
+  if (cfResult?.ok) {
+    return cfResult;
+  }
+
   let lastErrorStatus = 502;
+
+  // 2. Fall through to Pollinations model chain (Bearer auth)
   for (const model of modelChain) {
     const params = new URLSearchParams({ ...baseParams, model });
-    const upstreamUrl = `${POLLINATIONS_CONFIG.IMAGE_BASE_URL}/${encodeURIComponent(prompt)}?${params}`;
-
+    const url = `${POLLINATIONS_CONFIG.IMAGE_BASE_URL}/${encodeURIComponent(prompt)}?${params}`;
     try {
-      const upstream = await fetchWithTimeout(upstreamUrl, {}, 60000);
-
-      if (!upstream.ok) {
-        console.error(
-          `[image-proxy] Upstream ${upstream.status} for model=${model}: ${upstreamUrl.substring(0, 120)}`
-        );
-        lastErrorStatus = upstream.status;
-        // 402 → balance exhausted, no point retrying (all models use same account).
-        // 400 → model-specific bad request (params/model combo), try next model.
-        // 404 → model not found, try next model.
-        if (upstream.status === 402) {
-          break;
-        }
-        continue;
+      const response = await fetchWithTimeout(
+        url,
+        {
+          headers: { Authorization: `Bearer ${env.POLLINATIONS_API_KEY}` },
+        },
+        POLLINATIONS_CONFIG.TIMEOUT
+      );
+      if (response.status === 200) {
+        const body = await response.arrayBuffer();
+        const contentType = response.headers.get("content-type") || "image/jpeg";
+        return { ok: true, status: 200, body, contentType, source: "pollinations" };
       }
-
-      const contentType = upstream.headers.get("Content-Type") || "image/jpeg";
-      const body = await upstream.arrayBuffer();
-      return { ok: true, status: 200, body, contentType };
+      lastErrorStatus = response.status;
+      if (response.status === 402) {
+        break;
+      } // balance exhausted, no point trying more
+      // 400, 404, other → continue to next model
     } catch (err) {
-      console.error(`[image-proxy] fetch error for model=${model}: ${err.message}`);
-      lastErrorStatus = 502;
-      // network error → try next model
+      console.warn(`Pollinations ${model} failed:`, err.message);
       continue;
     }
   }
@@ -262,23 +314,18 @@ async function serveCachedImage(request, url, env, ctx) {
     }
   }
 
-  // 3. Pollinations fallback chain
+  // 3. CF AI + Pollinations fallback chain
   const baseParams = {
     width,
     height,
     seed,
     nologo: "true",
     referrer: "dseeker.github.io",
-    key: apiKey,
     enhance: url.searchParams.get("enhance") || "false",
     quality: url.searchParams.get("quality") || "medium",
   };
 
-  const result = await runModelFallback(
-    prompt,
-    baseParams,
-    POLLINATIONS_CONFIG.IMAGE_MODEL_FALLBACKS
-  );
+  const result = await runImageFallbackChain(env, prompt, baseParams, POLLINATIONS_MODEL_FALLBACKS);
   if (!result.ok) {
     return svgResponse(ERROR_SVG, result.status, cors);
   }
@@ -291,7 +338,16 @@ async function serveCachedImage(request, url, env, ctx) {
     cache.put(edgeKey, cacheableImageResponse(result.body.slice(0), result.contentType).clone())
   );
 
-  return imageResponse(result.body.slice(0), result.contentType, cors, "generated");
+  return new Response(result.body.slice(0), {
+    status: 200,
+    headers: {
+      "Content-Type": result.contentType,
+      "Cache-Control": `public, max-age=${IMAGE_CACHE_TTL}`,
+      "X-Cache-Source": "generated",
+      "X-Image-Source": result.source,
+      ...cors,
+    },
+  });
 }
 
 /**
@@ -387,11 +443,8 @@ export default {
     // First 200 wins; fall back on any non-200 or network error.
     const requestedModel = url.searchParams.get("model");
     const modelChain = requestedModel
-      ? [
-          requestedModel,
-          ...POLLINATIONS_CONFIG.IMAGE_MODEL_FALLBACKS.filter(m => m !== requestedModel),
-        ]
-      : POLLINATIONS_CONFIG.IMAGE_MODEL_FALLBACKS;
+      ? [requestedModel, ...POLLINATIONS_MODEL_FALLBACKS.filter(m => m !== requestedModel)]
+      : POLLINATIONS_MODEL_FALLBACKS;
 
     const baseParams = {
       width: floorDimension(url.searchParams.get("width") || DEFAULT_IMAGE_DIMENSION),
@@ -399,7 +452,6 @@ export default {
       seed: url.searchParams.get("seed") || String(Math.floor(Math.random() * 100000)),
       nologo: "true",
       referrer: "dseeker.github.io",
-      key: apiKey,
       // enhance=false so style keywords in the prompt aren't rewritten away
       // by Pollinations' prompt-enhancer. Decided 2026-10-09.
       enhance: url.searchParams.get("enhance") || "false",
@@ -418,7 +470,7 @@ export default {
       });
     }
 
-    const result = await runModelFallback(prompt, baseParams, modelChain);
+    const result = await runImageFallbackChain(env, prompt, baseParams, modelChain);
     if (!result.ok) {
       return svgResponse(ERROR_SVG, result.status, cors);
     }
@@ -428,6 +480,7 @@ export default {
       headers: {
         "Content-Type": result.contentType,
         "Cache-Control": `public, max-age=${IMAGE_CACHE_TTL}`,
+        "X-Image-Source": result.source,
         ...cors,
       },
     });
