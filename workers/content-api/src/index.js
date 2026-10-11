@@ -568,10 +568,11 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
   for (const key of categoryKeys) {
     calls.push({ type: "category", key, promise: makeCategoryCall(key, CATEGORIES[key]) });
   }
-  // Seasonal is generated separately AFTER categories complete, so it isn't
-  // starved by the deadline racing against 26 concurrent calls. Categories
-  // are the bulk of the catalog; seasonal is one extra call that can use
-  // whatever time remains on the deadline.
+  // Start the seasonal call NOW, concurrently with the category calls, so it
+  // isn't starved by the deadline racing against 26 concurrent calls. We
+  // await it separately AFTER collecting category results, giving it the
+  // full deadline window to complete in parallel with the categories.
+  const seasonalPromise = makeSeasonalCall();
 
   // If batching, split into chunks and process sequentially.
   const rawBatch = Number(env.CATALOG_PARALLEL_BATCH);
@@ -653,28 +654,32 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
     }
   }
 
-  // Generate the seasonal gallery separately, after the category batch
-  // completes. This avoids the seasonal call being starved when the deadline
-  // races against 26 concurrent calls — categories are the bulk of the
-  // catalog, so they run first. Seasonal uses whatever time remains.
-  if (!deadline.expired()) {
-    try {
-      seasonalGallery = await Promise.race([
-        makeSeasonalCall(),
-        new Promise(resolve => setTimeout(() => resolve("__timeout__"), deadline.remaining())),
-      ]);
-      if (seasonalGallery === "__timeout__") {
-        seasonalGallery = null;
-      } else {
-        seasonalHasResult = true;
-      }
-    } catch (err) {
-      const msg = (err && err.message) || "";
-      if (msg === "PROVIDER_402") {
-        provider402Count++;
-      }
-      // Non-402: seasonal stays null, filled with fallback below.
+  // Await the seasonal call that we started concurrently with the categories.
+  // Race it against the deadline — if the deadline expired, we let the seasonal
+  // call go (it already ran in parallel with the categories, so it had the
+  // full deadline window to complete). This avoids the seasonal call being
+  // starved, since it started at the same time as the category calls rather
+  // than after they completed.
+  try {
+    seasonalGallery = await Promise.race([
+      seasonalPromise,
+      new Promise(resolve => setTimeout(() => resolve("__timeout__"), deadline.remaining())),
+    ]);
+    if (seasonalGallery === "__timeout__") {
+      seasonalGallery = null;
+      console.warn("[content-api] parallel seasonal: deadline expired, using fallback");
+    } else {
+      seasonalHasResult = true;
     }
+  } catch (err) {
+    const msg = (err && err.message) || "";
+    if (msg === "PROVIDER_402") {
+      provider402Count++;
+      console.warn("[content-api] parallel seasonal: 402, will use fallback");
+    } else {
+      console.warn(`[content-api] parallel seasonal: ${msg}, using fallback`);
+    }
+    // Non-402: seasonal stays null, filled with fallback below.
   }
 
   const season = getCurrentSeason();
@@ -689,12 +694,13 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
     return { success: false, keepLock: true };
   }
 
-  // If we collected zero real results (no categories + no seasonal) AND the
-  // deadline expired, don't fill with fallbacks and don't write an empty
-  // catalog — the orchestrator should switch to chain mode. Any real
+  // If we collected zero real category results AND the deadline expired,
+  // don't fill with fallbacks and don't write an empty catalog — the
+  // orchestrator should switch to chain mode. Seasonal alone isn't worth
+  // writing a catalog for; chain mode will regenerate it. Any real category
   // content we did collect is written below with fallbacks filling gaps.
   const realCategoryCount = Object.keys(categories).length;
-  if (realCategoryCount === 0 && !seasonalHasResult && deadline.expired()) {
+  if (realCategoryCount === 0 && deadline.expired()) {
     return { success: false, keepLock: false };
   }
 
