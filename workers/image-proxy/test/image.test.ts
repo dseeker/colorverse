@@ -192,41 +192,45 @@ describe("image-proxy /image route", () => {
     expect(kv.store.get(canonicalKey)).toEqual(new Uint8Array([1, 2, 3, 4]).buffer as ArrayBuffer);
   });
 
-  it("falls back to the next model when the first returns 402", async () => {
+  it("breaks immediately on 402 without retrying other models", async () => {
     const kv = makeKV();
-    const first = new Uint8Array([1, 2, 3, 4]);
+    const fetchMock = vi.fn(async () => new Response(new Uint8Array(), { status: 402 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const params = { prompt: "a cat", seed: "1", width: "1024", height: "1024" };
+
+    const res = await worker.fetch(imageRequest(params), baseEnv({ IMAGE_CACHE: kv }), ctx);
+
+    // 402 = balance exhausted; chain aborts at the first model.
+    expect(res.status).toBe(402);
+    expect(res.headers.get("Content-Type")).toBe("image/svg+xml");
+    expect(await res.text()).toContain("Image Error");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the next model when the first returns 400", async () => {
+    const kv = makeKV();
+    const successBody = new Uint8Array([1, 2, 3, 4]);
     const fetchMock = vi.fn(async () => {
       if (fetchMock.mock.calls.length === 1) {
-        return new Response(new Uint8Array(), { status: 402 });
+        return new Response(new Uint8Array(), { status: 400 });
       }
-      return new Response(first, { status: 200, headers: { "Content-Type": "image/jpeg" } });
+      return new Response(successBody, {
+        status: 200,
+        headers: { "Content-Type": "image/jpeg" },
+      });
     });
     vi.stubGlobal("fetch", fetchMock);
     const params = { prompt: "a cat", seed: "1", width: "1024", height: "1024" };
 
     const res = await worker.fetch(imageRequest(params), baseEnv({ IMAGE_CACHE: kv }), ctx);
 
+    // 400 is model-specific (param incompatibility); chain continues.
     expect(res.status).toBe(200);
     expect(res.headers.get("X-Cache-Source")).toBe("generated");
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    // Second attempt uses the second model in the fallback chain.
     const secondUrl = fetchMock.mock.calls[1][0] as string;
     expect(secondUrl).toContain("mai-image-2.6");
     expect(secondUrl).not.toContain("mai-image-2.6-flash");
-  });
-
-  it("breaks immediately on 400 without retrying other models", async () => {
-    const kv = makeKV();
-    const fetchMock = vi.fn(async () => new Response(new Uint8Array(), { status: 400 }));
-    vi.stubGlobal("fetch", fetchMock);
-    const params = { prompt: "a cat", seed: "1", width: "1024", height: "1024" };
-
-    const res = await worker.fetch(imageRequest(params), baseEnv({ IMAGE_CACHE: kv }), ctx);
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(res.status).toBe(400);
-    expect(res.headers.get("Content-Type")).toBe("image/svg+xml");
-    expect(await res.text()).toContain("Image Error");
   });
 
   it("returns ERROR_SVG with the last upstream status when all models fail", async () => {
@@ -237,8 +241,8 @@ describe("image-proxy /image route", () => {
 
     const res = await worker.fetch(imageRequest(params), baseEnv({ IMAGE_CACHE: kv }), ctx);
 
-    // Full fallback chain is exhausted (4 models).
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    // 402 breaks the chain immediately; only the first model is attempted.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(res.status).toBe(402);
     expect(res.headers.get("Content-Type")).toBe("image/svg+xml");
     expect(await res.text()).toContain("Image Error");

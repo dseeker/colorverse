@@ -70,9 +70,29 @@ function cacheableImageResponse(body, contentType) {
 }
 
 /**
+ * Minimum image dimension. 768 is the floor accepted by MAI-family models
+ * ("'width' must be at least 768 pixels"), and is fine for every other model
+ * in the chain. We floor any request up to this so the first (preferred)
+ * model succeeds without falling through on a 400 — the client requests
+ * 300/400/600 for thumbnails, but Pollinations rejects those from MAI.
+ */
+const DEFAULT_IMAGE_DIMENSION = 768;
+const MIN_IMAGE_DIMENSION = 768;
+
+/** Floors a dimension value up to MIN_IMAGE_DIMENSION. */
+function floorDimension(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) {
+    return String(DEFAULT_IMAGE_DIMENSION);
+  }
+  return n < MIN_IMAGE_DIMENSION ? String(MIN_IMAGE_DIMENSION) : String(Math.round(n));
+}
+
+/**
  * Model fallback loop. Tries each model in `modelChain` in order; the first 200
- * wins. A 400/404 aborts immediately (bad request — no point retrying other
- * models); any other non-200 or a network error falls through to the next model.
+ * wins. A 402 aborts immediately (balance exhausted — all models use same
+ * account); a 400/404 or network error falls through to the next model
+ * (different models accept different params).
  *
  * Returns { ok: true, status, body, contentType } on success, or
  * { ok: false, status } (the last observed upstream error status) on failure.
@@ -91,8 +111,10 @@ async function runModelFallback(prompt, baseParams, modelChain) {
           `[image-proxy] Upstream ${upstream.status} for model=${model}: ${upstreamUrl.substring(0, 120)}`
         );
         lastErrorStatus = upstream.status;
-        // 400/404 → bad request, no point retrying other models
-        if (upstream.status === 400 || upstream.status === 404) {
+        // 402 → balance exhausted, no point retrying (all models use same account).
+        // 400 → model-specific bad request (params/model combo), try next model.
+        // 404 → model not found, try next model.
+        if (upstream.status === 402) {
           break;
         }
         continue;
@@ -190,8 +212,8 @@ async function serveCachedImage(request, url, env, ctx) {
   }
 
   const seed = url.searchParams.get("seed") || String(Math.floor(Math.random() * 100000));
-  const width = url.searchParams.get("width") || "1024";
-  const height = url.searchParams.get("height") || "1024";
+  const width = floorDimension(url.searchParams.get("width") || DEFAULT_IMAGE_DIMENSION);
+  const height = floorDimension(url.searchParams.get("height") || DEFAULT_IMAGE_DIMENSION);
   const catalogHash = url.searchParams.get("catalogHash") || "default";
 
   // Edge-cache key: the full URL minus `uid`, so identical images share the
@@ -372,8 +394,8 @@ export default {
       : POLLINATIONS_CONFIG.IMAGE_MODEL_FALLBACKS;
 
     const baseParams = {
-      width: url.searchParams.get("width") || "1024",
-      height: url.searchParams.get("height") || "1024",
+      width: floorDimension(url.searchParams.get("width") || DEFAULT_IMAGE_DIMENSION),
+      height: floorDimension(url.searchParams.get("height") || DEFAULT_IMAGE_DIMENSION),
       seed: url.searchParams.get("seed") || String(Math.floor(Math.random() * 100000)),
       nologo: "true",
       referrer: "dseeker.github.io",
