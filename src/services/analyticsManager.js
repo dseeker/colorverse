@@ -19,7 +19,7 @@
  *   - IPs, user agents, or any user identifiers
  *   - search query contents (we only send query length if ever instrumented)
  *   - newsletter email addresses
- *   - item titles, descriptions, prompts, or any AI-generated content
+ *   - item titles, descriptions, prompts, or any generated content
  *   - localStorage / favorites contents
  *
  * The endpoint is configurable so events can flow to Cloudflare Workers

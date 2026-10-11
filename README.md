@@ -1,6 +1,6 @@
-# ColorVerse - Free AI-Generated Coloring Pages
+# ColorVerse - Free Personalized Coloring Pages
 
-ColorVerse is a web application that provides free, AI-generated coloring pages. Users can browse categories, view daily picks, and download or print high-quality coloring pages.
+ColorVerse is a web application that provides free, personalized coloring pages, individually created on demand. Users can browse categories, view daily picks, and download or print high-quality coloring pages.
 
 ## Quick Start - Local Development
 
@@ -72,7 +72,7 @@ If you're using Puppeteer for automated testing or screenshots:
 
 **If images don't load:**
 
-- Check your internet connection (AI images require external API calls)
+- Check your internet connection (images require external API calls)
 - Clear browser cache and refresh
 - Check browser console for any CORS or network errors
 

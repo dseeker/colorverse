@@ -80,7 +80,7 @@ function makeRequest(path, headers = {}) {
 /** Build a valid cached catalog payload. */
 function makeCatalog(generatedAt = Date.now()) {
   return {
-    brand: { name: "ColorVerse", tagline: "Free AI-Generated Coloring Pages" },
+    brand: { name: "ColorVerse", tagline: "Personalized Coloring Pages Made Just for You" },
     seasonal_gallery: {
       title: "Winter Collection",
       subtitle: "Seasonal coloring pages",

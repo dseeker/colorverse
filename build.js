@@ -334,7 +334,7 @@ async function build() {
         `Generate 12 seasonal coloring page items for ${season}. Output JSON: { "title": "${season} Collection", "subtitle": "Seasonal coloring pages", "items": { "seasonal_1": { "title": "...", "description": "..." }, ... 12 items } }. Titles must be creative and evocative.`
       );
       siteData = {
-        brand: { name: "ColorVerse", tagline: "Free AI-Generated Coloring Pages" },
+        brand: { name: "ColorVerse", tagline: "Personalized Coloring Pages Made Just for You" },
         seasonal_gallery: seasonalData,
         categories,
         _meta: {
@@ -351,7 +351,7 @@ async function build() {
     } catch (err) {
       console.log(`  ⚠ Seasonal gallery failed: ${err.message.substring(0, 60)}`);
       siteData = {
-        brand: { name: "ColorVerse", tagline: "Free AI-Generated Coloring Pages" },
+        brand: { name: "ColorVerse", tagline: "Personalized Coloring Pages Made Just for You" },
         seasonal_gallery: { title: `${season} Collection`, items: {} },
         categories,
         _meta: {

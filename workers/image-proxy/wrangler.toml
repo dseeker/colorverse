@@ -12,13 +12,7 @@ ALLOWED_ORIGINS = "https://dseeker.github.io"
 binding = "SITE_DATA"
 id = "ff1368ad7005423b8e866d7bd8c98ef2"
 
-# Generated image cache. To enable per-image KV caching, create the namespace
-# and uncomment the binding (replace the id with the returned value):
-#   npx wrangler kv:namespace create IMAGE_CACHE
-#   # then paste the returned id below and re-deploy
-# The /image route degrades gracefully to edge-cache-only when this binding is
-# absent — it still serves images and warms the CF edge cache, just without a
-# persistent KV layer across edges.
-# [[kv_namespaces]]
-# binding = "IMAGE_CACHE"
-# id = "..."
+[[kv_namespaces]]
+binding = "IMAGE_CACHE"
+id = "81e752c6ad7f4c65928c27359921b1e5"
+preview_id = "49b4f3897aac4d3fa0a979d72056262b"

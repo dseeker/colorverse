@@ -1,5 +1,5 @@
 /**
- * ColorVerse - Free AI-Generated Coloring Pages
+ * ColorVerse - Free Personalized Coloring Pages
  * Main application script
  */
 
@@ -354,8 +354,8 @@ const COLORING_STYLES = {
   painted_preview: {
     name: "Painted Preview",
     prompt:
-      "PROFESSIONAL WATERCOLOR painting style, artistic coloring book illustration FULLY COLORED with gentle shading and shadows, soft painterly textures, harmonious color palette, skilled colorist technique, traditional art medium appearance, watercolor paper texture, artistic brush strokes, NOT line art but PAINTED ARTWORK",
-    description: "See how it would look when professionally colored with watercolors",
+      "hand-colored with colored pencils, visible pencil strokes and slight color spills outside the lines, modest limited pencil palette with soft pastel and earthy tones, slightly uneven color application, manual hand-coloring feel, not digitally rendered, not photorealistic, not 3D, coloring page coloring, simple gentle pencil textures, slightly imperfect human touch, gentle shading with colored pencil",
+    description: "A hand-colored preview with simple colored pencils — accessible, not perfect",
   },
 };
 
@@ -499,41 +499,121 @@ function changeColoringStyle(newStyle) {
   const styleName = COLORING_STYLES[newStyle]?.name || "Classic Style";
   showToast(`Switched to ${styleName}`, "success", 2000);
 
-  // Reload all images on the page with new style
-  reloadAllImages();
+  // Reflect the style in the URL hash so share links reproduce the same
+  // image. We only augment #item/ routes — category and home keep a clean
+  // hash, since the style applies image-by-image via getImageUrl() anyway.
+  syncStyleToHash(newStyle);
 
-  // Worker-centric mode: re-fetch the catalog for the new style. The worker
-  // may return 202 (generating) for an unprimed custom catalog — the polling
-  // in fetchWorkerCatalog handles that while the loading state is shown.
-  if (WORKER_IMAGE_MODE) {
-    reFetchWorkerCatalogForStyle(newStyle);
+  // Reload all images on the page with new style. The style prefix is
+  // applied at image-request time in getImageUrl(), so the catalog content
+  // (titles, descriptions, item structure) is style-agnostic and does NOT
+  // need to be re-fetched from the worker on a style change.
+  reloadAllImages();
+}
+
+// Update the URL hash on #item/<cat>/<item> routes to carry ?style=<key>,
+// so copy-pasting the URL reproduces the same image. No-op on other routes.
+function syncStyleToHash(styleKey) {
+  const hash = window.location.hash || "";
+  if (!hash.startsWith("#item/")) {
+    return;
+  }
+  const path = hash.substring("#item/".length);
+  const [catAndItem, queryString] = path.split("?");
+  const [categoryKey, itemKeyRaw] = catAndItem.split("/");
+  if (!categoryKey || !itemKeyRaw) {
+    return;
+  }
+  const params = new URLSearchParams(queryString || "");
+  if (styleKey && styleKey !== "classic") {
+    params.set("style", styleKey);
+  } else {
+    params.delete("style"); // classic = default, keep the URL clean
+  }
+  const qs = params.toString();
+  const newHash = `#item/${categoryKey}/${itemKeyRaw}${qs ? "?" + qs : ""}`;
+  if (newHash !== hash) {
+    // replaceState avoids a second hashchange event / re-render
+    history.replaceState(null, "", newHash);
   }
 }
 
-// Re-fetch + re-render the catalog after a style change (WORKER_IMAGE_MODE
-// only). Fire-and-forget: the current page stays usable while the worker
-// generates/refreshes the style-specific catalog.
-function reFetchWorkerCatalogForStyle(styleKey) {
-  showLoading(true);
-  fetchWorkerCatalog(styleKey, "")
-    .then(data => {
-      showLoading(false);
-      if (data) {
-        siteData = data;
-        staticImageMap = buildStaticImageMap(data);
-        saveToCache(data);
-        debug.log(`[WorkerMode] Re-fetched catalog for style "${styleKey}"`);
-        reloadAllImages();
-      } else {
-        console.warn(
-          `[WorkerMode] Catalog re-fetch for style "${styleKey}" failed — keeping current catalog`
-        );
-      }
-    })
-    .catch(err => {
-      showLoading(false);
-      console.warn(`[WorkerMode] Catalog re-fetch error: ${err.message}`);
-    });
+// --- Item snapshot in share URL ---
+// The share URL carries the item's title + description so the link is
+// self-contained: even if the catalog regenerates with different prompts
+// (or the item key is deleted entirely), a recipient sees the same image.
+// Encoding is base64url (URL-safe, no padding). We also set ?cat=<title>
+// so the breadcrumb can render the category name even if the category no
+// longer exists in the current catalog.
+function encodeItemSnapshot(str) {
+  // base64url: standard base64 with +/→-_, stripped padding
+  const b64 = btoa(unescape(encodeURIComponent(str)));
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function decodeItemSnapshot(b64url) {
+  if (!b64url) {
+    return null;
+  }
+  try {
+    const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    return decodeURIComponent(escape(atob(padded)));
+  } catch (e) {
+    return null;
+  }
+}
+
+// Stamp the current item's title + description into the URL hash so the
+// Share button (which reads window.location.href) carries the snapshot.
+// Called from renderItem after the item data is resolved.
+function syncItemSnapshotToHash(itemData, category) {
+  const hash = window.location.hash || "";
+  if (!hash.startsWith("#item/")) {
+    return;
+  }
+  const path = hash.substring("#item/".length);
+  const [catAndItem, queryString] = path.split("?");
+  const [categoryKey, itemKeyRaw] = catAndItem.split("/");
+  if (!categoryKey || !itemKeyRaw) {
+    return;
+  }
+  const params = new URLSearchParams(queryString || "");
+  if (itemData?.title) {
+    params.set("t", encodeItemSnapshot(itemData.title));
+  }
+  if (itemData?.description) {
+    params.set("d", encodeItemSnapshot(itemData.description));
+  }
+  if (category?.title) {
+    params.set("cat", encodeItemSnapshot(category.title));
+  }
+  const qs = params.toString();
+  const newHash = `#item/${categoryKey}/${itemKeyRaw}${qs ? "?" + qs : ""}`;
+  if (newHash !== hash) {
+    history.replaceState(null, "", newHash);
+  }
+}
+
+// Parse the snapshot (t, d, cat) from the current hash, if present.
+function readItemSnapshotFromHash() {
+  const hash = window.location.hash || "";
+  if (!hash.startsWith("#item/")) {
+    return null;
+  }
+  const path = hash.substring("#item/".length);
+  const [, queryString] = path.split("?");
+  if (!queryString) {
+    return null;
+  }
+  const params = new URLSearchParams(queryString);
+  const t = decodeItemSnapshot(params.get("t"));
+  const d = decodeItemSnapshot(params.get("d"));
+  const cat = decodeItemSnapshot(params.get("cat"));
+  if (!t && !d) {
+    return null;
+  }
+  return { title: t, description: d, categoryTitle: cat };
 }
 
 function reloadAllImages() {
@@ -1263,9 +1343,10 @@ function getImageUrl(prompt, params = {}) {
     // Create coloring prompt with STYLE-FIRST approach for maximum effect
     let coloringPrompt;
     if (styleConfig && styleConfig.prompt) {
-      // Special handling for painted preview style - generate colored artwork instead of line art
+      // Special handling for painted preview style - generate colored artwork instead of line art.
+      // Hand-colored pencil aesthetic, not watercolor/3D.
       if (currentColoringStyle === "painted_preview") {
-        coloringPrompt = `${styleConfig.prompt}, beautiful illustration of ${enhancedPrompt}, artistic watercolor painting, gentle shading and highlights, professional coloring technique, harmonious color scheme, painterly style`;
+        coloringPrompt = `${styleConfig.prompt}, coloring page of ${enhancedPrompt}, hand-colored with colored pencils, visible pencil strokes, limited pencil palette, slightly imperfect, not digitally rendered`;
         if (DEBUG_MODE) {
           debug.log(`Applied PAINTED PREVIEW style - generating COLORED artwork`);
         }
@@ -1487,6 +1568,31 @@ function applyTheme(themeName) {
   // 1. Remove all theme classes and add the selected one
   bodyElement.classList.remove("theme-light", "theme-dark", "theme-colorful");
   bodyElement.classList.add(`theme-${themeName}`);
+
+  // 1b. Toggle Tailwind `dark` class on <html> and swap body utilities.
+  // Tailwind config uses darkMode: 'class', so <html> must carry `dark`.
+  // Also clear the inline backgroundColor set by initThemeHandlers so the
+  // utility classes (bg-gray-50 / dark:bg-gray-900) can take effect.
+  const htmlEl = document.documentElement;
+  bodyElement.classList.remove(
+    "bg-gray-50",
+    "text-gray-900",
+    "dark:bg-gray-900",
+    "dark:text-gray-100"
+  );
+  bodyElement.style.backgroundColor = "";
+  if (themeName === "dark") {
+    htmlEl.classList.add("dark");
+    bodyElement.classList.add("dark:bg-gray-900", "dark:text-gray-100");
+    bodyElement.style.backgroundColor = "#121826";
+  } else if (themeName === "colorful") {
+    htmlEl.classList.remove("dark");
+    bodyElement.classList.add("bg-gray-50", "text-gray-900");
+    bodyElement.style.backgroundColor = "#f0f9ff";
+  } else {
+    htmlEl.classList.remove("dark");
+    bodyElement.classList.add("bg-gray-50", "text-gray-900");
+  }
 
   // 2. Save the selection in local storage
   localStorage.setItem("colorverse-theme", themeName);
@@ -2153,7 +2259,7 @@ function renderSeasonalGallery(data) {
       width: 300,
       height: 300,
       itemKey: itemKey,
-      seed: getDeterministicSeedFromItemKey(itemKey), // ✅ Strong deterministic hash
+      seed: getDeterministicSeed("seasonal", itemKey), // match detail view's seed
     });
     const escItemTitle = escapeHtml(item.title);
     const escItemDesc = escapeHtml(item.description);
@@ -2511,7 +2617,14 @@ function renderItem(itemData, categoryKey, itemKey) {
     return '<p class="text-center text-red-500">Item not found.</p>';
   }
 
-  const category = siteData.categories[categoryKey];
+  const category = siteData.categories[categoryKey] ||
+    siteData.seasonal_gallery || { title: categoryKey.replace(/_/g, " "), items: {} };
+
+  // Stamp the item's title + description into the URL hash so the Share
+  // button (which reads window.location.href) carries a self-contained
+  // snapshot. This is a no-op if the hash already carries a matching
+  // snapshot. We do it before rendering so the share URL is ready.
+  syncItemSnapshotToHash(itemData, category);
 
   // Create a unique cache key for this specific item
   const itemCacheKey = `colorverse-item-cache-${categoryKey}-${itemKey}`;
@@ -2590,8 +2703,6 @@ function renderItem(itemData, categoryKey, itemKey) {
           <a href="#category/${categoryKey}" class="hover:underline hover:text-primary-600 mx-1">${escCatTitle}</a> &raquo;
           <span class="mx-1 font-medium">${escTitle}</span>
         </nav>
-        <h1 class="text-3xl font-bold mb-2" style="color: var(--text-color);">${escTitle}</h1>
-        <p class="mb-6" style="color: var(--text-color);">${escDesc}</p>
 
         <div class="p-4 shadow-lg rounded-lg flex flex-col lg:flex-row gap-6"
             style="background-color: var(--card-bg); color: var(--card-text); border: 1px solid var(--border-color);">
@@ -2659,6 +2770,9 @@ function renderItem(itemData, categoryKey, itemKey) {
                  </div>
             </div>
         </div>
+
+        <h1 class="text-3xl font-bold mt-6 mb-2" style="color: var(--text-color);">${escTitle}</h1>
+        <p class="mb-6" style="color: var(--text-color);">${escDesc}</p>
 
         <!-- Placeholder for Ads -->
         <div class="mt-8 p-4 rounded-lg text-center border"
@@ -3130,7 +3244,7 @@ function printColoringPage(title) {
                 <h1>${escPageTitle} - Coloring Page</h1>
                 <img src="${imgSrc}" alt="${escPageTitle}">
                 <div class="footer">
-                    <p>Downloaded from ColorVerse - Free Coloring Pages & AI Art</p>
+                    <p>Downloaded from ColorVerse - Free Personalized Coloring Pages</p>
                     <p class="no-print">
                         <button onclick="window.print();" class="print-button">
                             Click to Print
@@ -3610,7 +3724,7 @@ function updateSEO({ type, categoryKey, category, item, itemKey, title, descript
   const fullUrl = window.location.href.split("#")[0] + window.location.hash;
   let seoTitle = seo.siteName;
   let seoDescription =
-    "Free AI-generated coloring pages for kids and adults. Download and print high-quality coloring sheets.";
+    "Free personalized coloring pages for kids and adults. Download and print high-quality coloring sheets.";
   let image = null;
   const schemas = [];
 
@@ -3896,17 +4010,74 @@ function handleRouteChange() {
       } else if (hash.startsWith("#item/")) {
         const parts = hash.substring("#item/".length).split("/");
         if (parts.length === 2) {
+          // The itemKey may carry a query string for shareable state:
+          //   #item/<categoryKey>/<itemKey>?style=<styleKey>
+          // The style applies before rendering so a pasted link reproduces
+          // the exact same image the sender was looking at.
+          const [itemKeyRaw, queryString] = parts[1].split("?");
+          const itemKey = itemKeyRaw;
           const categoryKey = parts[0];
-          const itemKey = parts[1];
+          const itemParams = new URLSearchParams(queryString || "");
+          const styleParam = itemParams.get("style");
+          if (styleParam && COLORING_STYLES[styleParam] && styleParam !== currentColoringStyle) {
+            currentColoringStyle = styleParam;
+            imageUrlCache.clear();
+            const styleName = COLORING_STYLES[styleParam].name || styleParam;
+            showToast(`Applied shared style: ${styleName}`, "info", 2000);
+            // Reflect the style in the dropdown if it's on the page
+            const styleSelector = document.getElementById("style-selector");
+            if (styleSelector) {
+              styleSelector.value = styleParam;
+            }
+          }
 
           let itemData = null;
+          let categoryData = null;
 
           // Check if it's a seasonal item
           if (categoryKey === "seasonal" && siteData?.seasonal_gallery?.items?.[itemKey]) {
             itemData = siteData.seasonal_gallery.items[itemKey];
+            categoryData = {
+              title: siteData.seasonal_gallery.title,
+              items: siteData.seasonal_gallery.items,
+            };
           } else {
             // Regular category item
-            itemData = siteData?.categories?.[categoryKey]?.items?.[itemKey];
+            categoryData = siteData?.categories?.[categoryKey];
+            itemData = categoryData?.items?.[itemKey];
+          }
+
+          // Fall back to / augment with the snapshot encoded in the URL.
+          // This keeps shared links working across catalog regenerations:
+          // if the item was deleted or its description changed, the
+          // snapshot's title + description still drive the image.
+          const snapshot = readItemSnapshotFromHash();
+          if (snapshot) {
+            if (!itemData) {
+              // Item no longer in the catalog — reconstruct from snapshot
+              itemData = {
+                title: snapshot.title || itemKey.replace(/_/g, " "),
+                description: snapshot.description || snapshot.title || itemKey.replace(/_/g, " "),
+              };
+              // Category may also be gone — reconstruct a minimal shell
+              if (!categoryData) {
+                categoryData = {
+                  title: snapshot.categoryTitle || categoryKey.replace(/_/g, " "),
+                  items: {},
+                };
+              }
+              showToast("Showing shared page (item not in current catalog)", "info", 3000);
+            } else {
+              // Item exists — prefer the snapshot's description so the
+              // image matches what the sender saw, but keep the live item's
+              // other fields intact.
+              if (snapshot.description) {
+                itemData.description = snapshot.description;
+              }
+              if (snapshot.title) {
+                itemData.title = snapshot.title;
+              }
+            }
           }
 
           mainContent.innerHTML = renderItem(itemData, categoryKey, itemKey);
@@ -3982,7 +4153,7 @@ function handleRouteChange() {
                         
                         <ul class="list-disc ml-6 mb-6 space-y-2 text-gray-700 dark:text-gray-300">
                             <li>Keep our coloring pages completely free for everyone</li>
-                            <li>Develop new features and improve our AI generation technology</li>
+                            <li>Develop new features and improve our personalization technology</li>
                             <li>Add more diverse categories and designs</li>
                             <li>Cover our server and development costs</li>
                             <li>Keep ads minimal and non-intrusive</li>
@@ -5101,7 +5272,7 @@ function getSampleSiteData() {
   return {
     brand: {
       name: "ColorVerse",
-      vision: "Inspiring creativity through AI-generated coloring pages for everyone.",
+      vision: "Inspiring creativity through personalized coloring pages made for everyone.",
     },
     seasonal_gallery: {
       title: seasonalTheme.name,

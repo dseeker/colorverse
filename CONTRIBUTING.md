@@ -113,5 +113,5 @@ Do not bypass the hook with `--no-verify` except for a deliberate local-only com
   them when `IMAGE_PROXY_URL` / `CONTENT_API_URL` are configured.
 - The `_cv()` helper in `index.html` (Base64 + XOR) is a **deterrent against casual
   view-source copying, not real security**. Prefer the worker path for anything new.
-- All AI-generated content interpolated into HTML must go through `escapeHtml` /
+- All generated content interpolated into HTML must go through `escapeHtml` /
   `escapeJsAttr` (`app.js`) — the same rule applies to any new render code.

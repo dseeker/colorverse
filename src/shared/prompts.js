@@ -123,8 +123,8 @@ export const COLORING_STYLES = {
   painted_preview: {
     name: "Painted Preview",
     prompt:
-      "PROFESSIONAL WATERCOLOR painting style, artistic coloring book illustration FULLY COLORED with gentle shading and shadows, soft painterly textures, harmonious color palette, skilled colorist technique, traditional art medium appearance, watercolor paper texture, artistic brush strokes, NOT line art but PAINTED ARTWORK",
-    description: "See how it would look when professionally colored with watercolors",
+      "hand-colored with colored pencils, visible pencil strokes and slight color spills outside the lines, modest limited pencil palette with soft pastel and earthy tones, slightly uneven color application, manual hand-coloring feel, not digitally rendered, not photorealistic, not 3D, coloring page coloring, simple gentle pencil textures, slightly imperfect human touch, gentle shading with colored pencil",
+    description: "A hand-colored preview with simple colored pencils — accessible, not perfect",
   },
 };
 
@@ -168,9 +168,9 @@ export function buildColoringPrompt(itemDescription, styleKey, season) {
   let coloringPrompt;
   if (styleConfig && styleConfig.prompt) {
     // Special handling for painted preview style — generate colored artwork
-    // instead of line art.
+    // instead of line art. Hand-colored pencil aesthetic, not watercolor/3D.
     if (styleKey === "painted_preview") {
-      coloringPrompt = `${styleConfig.prompt}, beautiful illustration of ${enhancedPrompt}, artistic watercolor painting, gentle shading and highlights, professional coloring technique, harmonious color scheme, painterly style`;
+      coloringPrompt = `${styleConfig.prompt}, coloring page of ${enhancedPrompt}, hand-colored with colored pencils, visible pencil strokes, limited pencil palette, slightly imperfect, not digitally rendered`;
     } else {
       // Put style at the BEGINNING for maximum priority and effect, and echo
       // it at the end to emphasize it to the model.

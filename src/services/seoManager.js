@@ -102,7 +102,7 @@ class SEOManager {
       name: this.siteName,
       url: this.siteUrl,
       description:
-        "Free AI-generated coloring pages for kids and adults. Download and print high-quality coloring sheets.",
+        "Free personalized coloring pages for kids and adults. Download and print high-quality coloring sheets.",
       potentialAction: {
         "@type": "SearchAction",
         target: `${this.siteUrl}/#search?q={search_term_string}`,

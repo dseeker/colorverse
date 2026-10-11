@@ -185,7 +185,7 @@ event) is in [ANALYTICS.md](./ANALYTICS.md).
 
 ## Security
 
-- **XSS:** all AI-generated text is untrusted. `escapeHtml()` / `escapeJsAttr()`
+- **XSS:** all generated text is untrusted. `escapeHtml()` / `escapeJsAttr()`
   (`app.js:82-98`) wrap every interpolation of `item.title` / `item.description` into
   `innerHTML` templates and `onclick` attribute args — 50+ call sites. The
   2026-10-04/05 escape pass (see `CHANGES.md`) covered all render functions, including the
@@ -208,7 +208,7 @@ event) is in [ANALYTICS.md](./ANALYTICS.md).
 
 ## Build & deploy
 
-- `build.js` (`npm run build`) generates `dist/`: AI-generated `site-data.json`,
+- `build.js` (`npm run build`) generates `dist/`: generated `site-data.json`,
   downloaded JPGs (concurrency + backoff for Pollinations 429/402), `sitemap.xml`, and a
   copy of the app with static-mode flags injected into `dist/index.html`. Requires
   `POLLINATIONS_API_KEY` in `.env`.

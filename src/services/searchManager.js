@@ -207,12 +207,12 @@ class SearchManager {
                 <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer category-card"
                      onclick="window.showItemDetail('${result.category}', '${result.item.key}')">
                     <div class="aspect-square overflow-hidden bg-gray-100 relative">
-                        <img src="${PLACEHOLDER_IMAGE}" 
-                             data-src="${window.getImageUrl ? window.getImageUrl(result.item.prompt || result.item.title || result.item.name, { width: 400, height: 400, seed: result.item.key ? window.stringToHash(result.item.key) : Math.floor(Math.random() * 100000) }) : ""}" 
-                             alt="${result.item.title || result.item.name} coloring page - Free printable ${result.category} coloring sheet for kids" 
+                        <img src="${PLACEHOLDER_IMAGE}"
+                             data-src="${window.getImageUrl ? window.getImageUrl(result.item.description, { width: 400, height: 400, seed: window.getDeterministicSeed ? window.getDeterministicSeed(result.category, result.item.key) : result.item.key ? window.stringToHash(result.item.key) : Math.floor(Math.random() * 100000) }) : ""}"
+                             alt="${result.item.title || result.item.name} coloring page - Free printable ${result.category} coloring sheet for kids"
                              class="w-full h-full object-cover lazy-load"
                              loading="lazy"
-                             data-prompt="${result.item.prompt || result.item.title || result.item.name}"
+                             data-prompt="${result.item.description}"
                              data-width="400"
                              data-height="400"
                              data-seed="${result.item.key ? window.stringToHash(result.item.key) : Math.floor(Math.random() * 100000)}">

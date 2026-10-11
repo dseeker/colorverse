@@ -457,7 +457,7 @@ Output a JSON object with this structure:
   "description": "${categoryInfo.description}",
   "keywords": ${JSON.stringify(categoryInfo.keywords)},
   "items": {
-    "${categoryKey}_item_1": { "title": "Creative Unique Title", "description": "Detailed description for AI image generation" },
+    "${categoryKey}_item_1": { "title": "Creative Unique Title", "description": "Detailed description for generating the image" },
     ... exactly ${itemCount} items
   }
 }
@@ -465,7 +465,7 @@ Output a JSON object with this structure:
 REQUIREMENTS:
 - Exactly ${itemCount} items with keys "${categoryKey}_item_1" through "${categoryKey}_item_${itemCount}"
 - Each title MUST be unique, creative, and evocative (NOT generic like "Sample" or "Item")
-- Descriptions must be detailed enough for AI image generation of black and white coloring pages
+- Descriptions must be detailed enough for generating black and white coloring pages
 - Include variety: some simple for beginners, some complex for advanced colorists
 ${seedNote}
 Output ONLY the JSON object.`;
@@ -722,7 +722,7 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
 
   // Assemble the final catalog.
   const catalog = {
-    brand: { name: "ColorVerse", tagline: "Free AI-Generated Coloring Pages" },
+    brand: { name: "ColorVerse", tagline: "Personalized Coloring Pages Made Just for You" },
     seasonal_gallery: seasonalGallery,
     categories,
     _meta: {
@@ -846,7 +846,7 @@ async function generateCatalogChained(kv, catalogKey, env, styleKey, seed, parti
   if (partial.remainingKeys.length === 0 && partial.seasonalDone) {
     // Assemble final catalog.
     const catalog = {
-      brand: { name: "ColorVerse", tagline: "Free AI-Generated Coloring Pages" },
+      brand: { name: "ColorVerse", tagline: "Personalized Coloring Pages Made Just for You" },
       seasonal_gallery: partial.categories[seasonKey] || { items: {} },
       categories: partial.categories,
       _meta: {

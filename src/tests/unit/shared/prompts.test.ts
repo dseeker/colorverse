@@ -73,13 +73,13 @@ describe("Shared Prompt Module (src/shared/prompts.js)", () => {
       );
     });
 
-    it("should use the colored watercolor template for the painted_preview style", () => {
+    it("should use the hand-colored pencil template for the painted_preview style", () => {
       const style = COLORING_STYLES["painted_preview"];
       const item = "a sunset over the ocean";
       const prompt = buildColoringPrompt(item, "painted_preview");
 
       expect(prompt).toBe(
-        `${style.prompt}, beautiful illustration of ${item}, artistic watercolor painting, gentle shading and highlights, professional coloring technique, harmonious color scheme, painterly style`
+        `${style.prompt}, coloring page of ${item}, hand-colored with colored pencils, visible pencil strokes, limited pencil palette, slightly imperfect, not digitally rendered`
       );
     });
 

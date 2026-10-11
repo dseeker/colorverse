@@ -1,7 +1,7 @@
 {
   "name": "colorverse",
   "version": "1.0.0",
-  "description": "Free AI-Generated Coloring Pages",
+  "description": "Free Personalized Coloring Pages",
   "type": "module",
   "main": "app.js",
   "scripts": {
