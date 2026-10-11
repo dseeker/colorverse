@@ -537,7 +537,7 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
   const systemMessage = buildCatalogSystemMessage(styleSuffix);
 
   const categoryKeys = Object.keys(CATEGORIES);
-  const totalExpected = categoryKeys.length + 1; // 25 categories + seasonal
+  const totalExpected = categoryKeys.length; // 25 categories (seasonal generated separately)
 
   // Build a category prompt call (returns categoryKey → data).
   function makeCategoryCall(key, info) {
@@ -568,7 +568,10 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
   for (const key of categoryKeys) {
     calls.push({ type: "category", key, promise: makeCategoryCall(key, CATEGORIES[key]) });
   }
-  calls.push({ type: "seasonal", promise: makeSeasonalCall() });
+  // Seasonal is generated separately AFTER categories complete, so it isn't
+  // starved by the deadline racing against 26 concurrent calls. Categories
+  // are the bulk of the catalog; seasonal is one extra call that can use
+  // whatever time remains on the deadline.
 
   // If batching, split into chunks and process sequentially.
   const rawBatch = Number(env.CATALOG_PARALLEL_BATCH);
@@ -635,28 +638,42 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
       if (r.status === "fulfilled") {
         if (entry.type === "category") {
           categories[entry.key] = r.value;
-        } else {
-          seasonalGallery = r.value;
-          seasonalHasResult = true;
         }
       } else {
         const msg = (r.reason && r.reason.message) || "";
         if (msg === "PROVIDER_402") {
           provider402Count++;
           // On 402, do NOT add a fallback — leave missing to be filled later.
-          if (entry.type === "category") {
-            console.warn(`[content-api] parallel category ${entry.key}: 402, will use fallback`);
-          }
+          console.warn(`[content-api] parallel category ${entry.key}: 402, will use fallback`);
         } else {
           // Non-402 error: use fallback.
-          if (entry.type === "category") {
-            categories[entry.key] = { ...CATEGORIES[entry.key], items: {} };
-          } else {
-            seasonalGallery = { items: {} };
-            seasonalHasResult = true;
-          }
+          categories[entry.key] = { ...CATEGORIES[entry.key], items: {} };
         }
       }
+    }
+  }
+
+  // Generate the seasonal gallery separately, after the category batch
+  // completes. This avoids the seasonal call being starved when the deadline
+  // races against 26 concurrent calls — categories are the bulk of the
+  // catalog, so they run first. Seasonal uses whatever time remains.
+  if (!deadline.expired()) {
+    try {
+      seasonalGallery = await Promise.race([
+        makeSeasonalCall(),
+        new Promise(resolve => setTimeout(() => resolve("__timeout__"), deadline.remaining())),
+      ]);
+      if (seasonalGallery === "__timeout__") {
+        seasonalGallery = null;
+      } else {
+        seasonalHasResult = true;
+      }
+    } catch (err) {
+      const msg = (err && err.message) || "";
+      if (msg === "PROVIDER_402") {
+        provider402Count++;
+      }
+      // Non-402: seasonal stays null, filled with fallback below.
     }
   }
 
