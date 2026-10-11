@@ -12,17 +12,21 @@ export const REGENERATION_CYCLE = {
 export const POLLINATIONS_CONFIG = {
   IMAGE_BASE_URL: "https://gen.pollinations.ai/image",
   TEXT_BASE_URL: "https://gen.pollinations.ai/v1/chat/completions",
-  // Model fallback chain (try in order; first 200 wins).
-  // Decided 2026-10-09 after visual comparison of 24 test images.
+  // Default model used by build.js for catalog/image generation.
+  // Image-proxy worker uses the new CF AI -> Pollinations fallback chain instead.
   DEFAULT_MODEL: "microsoft/mai-image-2.6-flash",
-  IMAGE_MODEL_FALLBACKS: [
-    "microsoft/mai-image-2.6-flash",
-    "microsoft/mai-image-2.6",
-    "openai/gpt-image-2",
-    "black-forest-labs/flux.1-schnell",
-  ],
   TIMEOUT: 30000,
 };
+
+// Primary: CF Workers AI (in-network, no API key, ~104 neurons/image -> 96 free/day on 10k neurons)
+export const CF_AI_MODEL = "@cf/black-forest-labs/flux-2-klein-4b";
+
+// Fallback: Pollinations (Bearer auth, ~1s response time vs 5s for ?key=)
+export const POLLINATIONS_MODEL_FALLBACKS = [
+  "microsoft/mai-image-2.6-flash", // MAI-flash (12s, user-preferred quality)
+  "microsoft/mai-image-2.6", // MAI full (25s, highest quality)
+  "black-forest-labs/flux.1-schnell", // Pollinations Flux (4s, fast fallback)
+];
 
 export const PLACEHOLDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
   <rect width="400" height="400" fill="#f0f0f0"/>
