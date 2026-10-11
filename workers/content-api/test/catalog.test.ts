@@ -442,24 +442,47 @@ describe("GET /catalog", () => {
   });
 
   it("11. Parallel generation — 402 on ≥50%", async () => {
-    // Make 14+ calls reject with 402.
+    // Make 14+ calls reject with 402 from ALL providers (Pollinations +
+    // OpenRouter + Gemini all return 402, so the chain exhausts with 402).
     const cat402Set = new Set(CATEGORY_KEYS.slice(0, 14));
     const customFetch = vi.fn(async (url, opts) => {
-      const body = JSON.parse(opts.body);
-      const userPrompt = body.messages.find(m => m.role === "user").content;
-      const catKey = userPrompt.match(/for the "([^"]+)" category/)?.[1] || "unknown";
-      if (catKey === "__seasonal__" || userPrompt.includes("seasonal coloring page items")) {
+      const urlString = String(url);
+      const isPollinations = urlString.includes("pollinations");
+      let userPrompt = "";
+      if (opts && opts.body) {
+        const body = JSON.parse(opts.body);
+        if (body.messages) {
+          userPrompt = (body.messages.find(m => m.role === "user") || {}).content || "";
+        } else if (body.contents) {
+          userPrompt = (body.contents[0]?.parts || []).map((p: any) => p.text || "").join(" ");
+        }
+      }
+      const catKey =
+        userPrompt.match(/for the "([^"]+)" category/)?.[1] ||
+        (userPrompt.includes("seasonal") ? "__seasonal__" : "unknown");
+
+      // Seasonal always succeeds (on Pollinations).
+      if (
+        (catKey === "__seasonal__" || userPrompt.includes("seasonal coloring page items")) &&
+        isPollinations
+      ) {
         return new Response(JSON.stringify(llmChatBody({ items: {} })), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
       }
-      if (cat402Set.has(catKey)) {
+      // 14 categories get 402 from every provider — the body text contains
+      // the category name, so check against the raw body string too.
+      const bodyStr = opts && opts.body ? String(opts.body) : "";
+      const is402Cat =
+        cat402Set.has(catKey) || [...cat402Set].some(k => bodyStr.includes(`"${k}"`));
+      if (is402Cat) {
         return new Response(JSON.stringify({ error: "Payment required" }), {
           status: 402,
           headers: { "Content-Type": "application/json" },
         });
       }
+      // Non-402 categories succeed.
       return new Response(JSON.stringify(llmChatBody(llmCategoryResponse(catKey))), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -467,7 +490,14 @@ describe("GET /catalog", () => {
     });
     vi.stubGlobal("fetch", customFetch);
 
-    const res = await worker.fetch(makeRequest("/catalog"), env, ctx);
+    // Provide all three keys so the chain tries all providers.
+    const env402 = makeEnv({
+      SITE_DATA: kv,
+      OPENROUTER_API_KEY: "test-or-key",
+      GOOGLE_GEMINI_API_KEY: "test-gem-key",
+    });
+
+    const res = await worker.fetch(makeRequest("/catalog"), env402, ctx);
     expect(res.status).toBe(202);
 
     await ctx.flush();
@@ -475,7 +505,7 @@ describe("GET /catalog", () => {
     // Catalog should NOT be written (≥50% 402).
     const raw = await kv.get("catalog:default");
     expect(raw).toBeNull();
-    // Lock should be kept.
+    // Lock should be kept (keepLock=true on ≥50% 402).
     expect(await kv.get("catalog:generating:catalog:default")).toBe("1");
     // Failcount should be incremented.
     const fc = await kv.get("catalog:failcount:catalog:default");

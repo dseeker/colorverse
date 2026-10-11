@@ -247,10 +247,10 @@ async function callGemini(model, body, apiKey) {
 
 const CATALOG_DEFAULT_KEY = "catalog:default";
 const CATALOG_TTL_MS = 24 * 60 * 60 * 1000;
-// Lock TTL matches the CF waitUntil wall-clock limit (~30s). If the lock
-// expires, the generation died (waitUntil was killed) and the next request
-// retries. A longer TTL would block retries for minutes after a killed job.
-const CATALOG_GENERATION_LOCK_TTL_S = 30;
+// Lock TTL — Cloudflare KV requires expirationTtl >= 60. We want this close
+// to the CF waitUntil wall-clock limit (~30s) so a killed job doesn't block
+// retries for long, but KV enforces a 60s minimum.
+const CATALOG_GENERATION_LOCK_TTL_S = 60;
 const CATALOG_MAX_GENS_PER_HOUR = 5;
 const CATALOG_RETRY_AFTER_S = 10;
 const CATALOG_ITEMS_PER_CATEGORY = 20;
@@ -310,7 +310,12 @@ function makeDeadline(ms) {
  * @returns {Promise<object>}
  */
 async function generateCatalogTextWithFallback(prompt, env, systemMessage) {
+  let lastError = "";
+  let providersTried = 0;
+  let providers402 = 0;
+
   // --- 1. Pollinations ---------------------------------------------------
+  providersTried++;
   try {
     const pollBody = {
       model: CATALOG_TEXT_MODEL_POLLINATIONS,
@@ -327,7 +332,8 @@ async function generateCatalogTextWithFallback(prompt, env, systemMessage) {
       CATALOG_ITEM_TIMEOUT_MS
     );
     if (pollRes.status === 402) {
-      throw new Error("PROVIDER_402");
+      providers402++;
+      throw new Error("Pollinations 402: balance exhausted");
     }
     if (!pollRes.ok) {
       const text = await pollRes.text().catch(() => "");
@@ -340,15 +346,14 @@ async function generateCatalogTextWithFallback(prompt, env, systemMessage) {
     }
     return JSON.parse(content);
   } catch (err) {
-    if (err.message === "PROVIDER_402") {
-      throw err;
-    }
+    lastError = err.message;
     console.warn(
       `[content-api] catalog text Pollinations failed, trying OpenRouter: ${err.message}`
     );
   }
 
   // --- 2. OpenRouter -----------------------------------------------------
+  providersTried++;
   try {
     if (!env.OPENROUTER_API_KEY) {
       throw new Error("OpenRouter key not set");
@@ -364,7 +369,8 @@ async function generateCatalogTextWithFallback(prompt, env, systemMessage) {
     };
     const orRes = await callOpenRouter(orBody, env.OPENROUTER_API_KEY);
     if (orRes.status === 402 || orRes.status === 401) {
-      throw new Error("PROVIDER_402");
+      providers402++;
+      throw new Error(`OpenRouter ${orRes.status}: balance/auth exhausted`);
     }
     if (!orRes.ok) {
       const text = await orRes.text().catch(() => "");
@@ -377,13 +383,12 @@ async function generateCatalogTextWithFallback(prompt, env, systemMessage) {
     }
     return JSON.parse(content);
   } catch (err) {
-    if (err.message === "PROVIDER_402") {
-      throw err;
-    }
+    lastError = err.message;
     console.warn(`[content-api] catalog text OpenRouter failed, trying Gemini: ${err.message}`);
   }
 
   // --- 3. Gemini ---------------------------------------------------------
+  providersTried++;
   try {
     if (!env.GOOGLE_GEMINI_API_KEY) {
       throw new Error("Gemini key not set");
@@ -397,6 +402,10 @@ async function generateCatalogTextWithFallback(prompt, env, systemMessage) {
       generationConfig: { response_mime_type: "application/json" },
     };
     const gemRes = await callGemini(CATALOG_TEXT_MODEL_GEMINI, gemBody, env.GOOGLE_GEMINI_API_KEY);
+    if (gemRes.status === 402 || gemRes.status === 401) {
+      providers402++;
+      throw new Error(`Gemini ${gemRes.status}: balance/auth exhausted`);
+    }
     if (!gemRes.ok) {
       const text = await gemRes.text().catch(() => "");
       throw new Error(`Gemini ${gemRes.status}: ${text.substring(0, 200)}`);
@@ -409,10 +418,16 @@ async function generateCatalogTextWithFallback(prompt, env, systemMessage) {
     }
     return JSON.parse(content);
   } catch (err) {
-    throw new Error(
-      `All text providers exhausted: Pollinations, OpenRouter, Gemini — ${err.message}`
-    );
+    lastError = err.message;
   }
+
+  // All providers exhausted. If every provider that was tried returned 402,
+  // throw "PROVIDER_402" so the parallel strategy can count balance-exhaustion
+  // failures separately from other errors.
+  if (providers402 === providersTried) {
+    throw new Error("PROVIDER_402");
+  }
+  throw new Error(`All text providers exhausted: Pollinations, OpenRouter, Gemini — ${lastError}`);
 }
 
 function buildCatalogSystemMessage(styleSuffix) {
