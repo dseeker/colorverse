@@ -661,7 +661,7 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
   // request and likely close to done. If it still hasn't settled, use the
   // fallback. This is independent of the main deadline so the seasonal call
   // isn't starved even when categories use the full deadline window.
-  const SEASONAL_GRACE_MS = 5000;
+  const SEASONAL_GRACE_MS = 10000;
   try {
     seasonalGallery = await Promise.race([
       seasonalPromise,
