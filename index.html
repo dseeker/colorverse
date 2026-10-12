@@ -643,7 +643,7 @@
 
     <a href="#main-content" class="skip-link">Skip to main content</a>
 
-    <div id="page-container" class="flex-grow pt-20">
+    <div id="page-container" class="flex-grow pt-16 sm:pt-20">
         <!-- Increased padding-top to prevent breadcrumbs from being cut off -->
         <header class="bg-gradient-to-r from-cyan-500 to-blue-500 p-3 sm:p-4 shadow-md fixed top-0 left-0 right-0 z-50">
             <div class="container mx-auto flex justify-between items-center">
@@ -662,13 +662,13 @@
                         </svg>
                     </div>
                     <div>
-                        <div class="text-xl sm:text-3xl font-bold">
+                        <div class="text-lg sm:text-3xl font-bold">
                             <a href="#" class="flex items-center">
                                 ColorVerse
-                                <span class="ml-2 text-xs bg-yellow-400 text-black px-2 py-0.5 rounded-full">Beta</span>
+                                <span class="ml-1 text-xs bg-yellow-400 text-black px-1.5 py-0.5 rounded-full hidden sm:inline-block">Beta</span>
                             </a>
                         </div>
-                        <p class="text-xs sm:text-sm mt-1 opacity-90">Personalized Coloring Pages Made Just for You</p>
+                        <p class="text-xs sm:text-sm mt-1 opacity-90 hidden sm:block">Personalized Coloring Pages Made Just for You</p>
                     </div>
                 </div>
                 <nav aria-label="Main" class="flex flex-wrap items-center justify-end">
@@ -712,9 +712,10 @@
 
                         <!-- Donate Button -->
                         <a href="#donate"
-                            class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-3 sm:px-4 rounded-lg transition duration-300 flex items-center">
-                            <i class="fas fa-heart mr-1 sm:mr-2" aria-hidden="true"><span class="ml-1 hidden sm:inline">Donate</span></i>
-                            <span class="sm:hidden">Donate</span>
+                            class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-3 sm:px-4 rounded-lg transition duration-300 flex items-center"
+                            title="Donate" aria-label="Donate">
+                            <i class="fas fa-heart" aria-hidden="true"></i>
+                            <span class="ml-1 hidden sm:inline">Donate</span>
                         </a>
 
                         <!-- Hamburger Toggle (mobile only) -->
