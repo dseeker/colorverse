@@ -3851,11 +3851,11 @@ function renderSearchPage(query) {
             <h1 class="text-3xl font-bold mb-4"><i class="fas fa-search mr-3" aria-hidden="true"></i>${window.t("search.page_h1")}</h1>
             <form id="search-form" class="flex gap-3 max-w-xl" role="search">
                 <input type="search" id="search-page-input" name="q" value="${escapeHtml(query || "")}"
-                    placeholder="Try dragon, mandala, animals..."
+                    placeholder="${window.t("search.form_placeholder")}"
                     class="flex-1 rounded-lg px-4 py-2 text-gray-800 bg-white border-none focus:outline-none focus:ring-2 focus:ring-white"
                     aria-label="Search coloring pages">
                 <button type="submit" class="bg-primary-700 hover:bg-primary-800 text-white font-medium px-5 py-2 rounded-lg transition-colors">
-                    <i class="fas fa-search mr-2"></i>Search
+                    <i class="fas fa-search mr-2"></i>${window.t("search.form_button")}
                 </button>
             </form>
         </div>
@@ -3865,10 +3865,8 @@ function renderSearchPage(query) {
     html += `
         <div class="text-center py-16">
             <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
-            <h2 class="text-2xl font-semibold text-gray-600 dark:text-gray-300 mb-2">Search our collection</h2>
-            <p class="text-gray-500 dark:text-gray-400 mb-6">
-                Type a keyword above to find coloring pages by name, category, or theme.
-            </p>
+            <h2 class="text-2xl font-semibold text-gray-600 dark:text-gray-300 mb-2">${window.t("search.searching_title")}</h2>
+            <p class="text-gray-500 dark:text-gray-400 mb-6">${window.t("search.searching_desc")}</p>
             <div class="flex flex-wrap justify-center gap-2">
                 ${["animals", "fantasy", "mandalas", "space", "dinosaurs", "flowers"]
                   .map(
@@ -3886,8 +3884,8 @@ function renderSearchPage(query) {
   if (!window.SearchManager) {
     html += `
         <div class="text-center py-16">
-            <h2 class="text-2xl font-semibold text-gray-600 dark:text-gray-300 mb-2">Search unavailable</h2>
-            <p class="text-gray-500 dark:text-gray-400">The search service could not be loaded. Please try again later.</p>
+            <h2 class="text-2xl font-semibold text-gray-600 dark:text-gray-300 mb-2">${window.t("search.unavailable_title")}</h2>
+            <p class="text-gray-500 dark:text-gray-400">${window.t("search.unavailable_desc")}</p>
         </div>
     `;
     return html;
