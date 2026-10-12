@@ -47,13 +47,14 @@ function jsonError(message, status, cors) {
  * Final client-facing image response. `source` labels where the bytes came
  * from: edge | kv | generated.
  */
-function imageResponse(body, contentType, cors, source) {
+function imageResponse(body, contentType, cors, source, extraHeaders) {
   return new Response(body, {
     status: 200,
     headers: {
       "Content-Type": contentType,
       "Cache-Control": `public, max-age=${IMAGE_CACHE_TTL}`,
       "X-Cache-Source": source,
+      ...(extraHeaders || {}),
       ...cors,
     },
   });
@@ -290,6 +291,7 @@ async function serveCachedImage(request, url, env, ctx) {
       headers: {
         ...Object.fromEntries(edgeHit.headers),
         "X-Cache-Source": "edge",
+        "X-Image-Source": "cache",
         ...cors,
       },
     });
@@ -307,7 +309,9 @@ async function serveCachedImage(request, url, env, ctx) {
         );
         // KV stores raw bytes only, so the content type is the Pollinations
         // default (image/jpeg) rather than a passthrough of upstream headers.
-        return imageResponse(bytes.slice(0), "image/jpeg", cors, "kv");
+        return imageResponse(bytes.slice(0), "image/jpeg", cors, "kv", {
+          "X-Image-Source": "cache",
+        });
       }
     } catch (err) {
       console.error(`[image-proxy] KV read error: ${err.message}`);
@@ -466,7 +470,11 @@ export default {
     if (cachedResponse) {
       return new Response(cachedResponse.body, {
         status: cachedResponse.status,
-        headers: { ...Object.fromEntries(cachedResponse.headers), ...cors },
+        headers: {
+          ...Object.fromEntries(cachedResponse.headers),
+          "X-Image-Source": "cache",
+          ...cors,
+        },
       });
     }
 

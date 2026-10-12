@@ -151,6 +151,7 @@ describe("image-proxy /image route", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("X-Cache-Source")).toBe("edge");
+    expect(res.headers.get("X-Image-Source")).toBe("cache");
     expect(res.headers.get("Cache-Control")).toBe("public, max-age=604800");
     expect(await res.arrayBuffer()).toEqual(new Uint8Array([9, 9]).buffer as ArrayBuffer);
     expect(kv.state.getCalls).toEqual([]);
@@ -168,6 +169,7 @@ describe("image-proxy /image route", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("X-Cache-Source")).toBe("kv");
+    expect(res.headers.get("X-Image-Source")).toBe("cache");
     expect(res.headers.get("Cache-Control")).toBe("public, max-age=604800");
     expect(await res.arrayBuffer()).toEqual(new Uint8Array([7, 7, 7]).buffer as ArrayBuffer);
 
@@ -177,6 +179,7 @@ describe("image-proxy /image route", () => {
     const warmed = await edgeCache.match(new Request(urlNoUid.toString(), request));
     expect(warmed).toBeDefined();
     expect(warmed!.headers.get("X-Cache-Source")).toBeNull();
+    expect(warmed!.headers.get("X-Image-Source")).toBeNull();
     expect(warmed!.status).toBe(200);
   });
 
@@ -270,6 +273,7 @@ describe("image-proxy /image route", () => {
     const resB = await worker.fetch(imageRequest(paramsB), baseEnv({ IMAGE_CACHE: kv }), ctx);
     expect(resB.status).toBe(200);
     expect(resB.headers.get("X-Cache-Source")).toBe("edge");
+    expect(resB.headers.get("X-Image-Source")).toBe("cache");
 
     expect(mock).toHaveBeenCalledTimes(1);
     expect(kv.state.putCalls).toHaveLength(1);
