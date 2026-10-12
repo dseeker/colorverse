@@ -1197,11 +1197,28 @@ async function handleCatalog(request, env, ctx) {
     const current = parseInt((await env.SITE_DATA.get(rateKey)) || "0", 10) || 0;
     if (current >= CATALOG_MAX_GENS_PER_HOUR) {
       await env.SITE_DATA.delete(lockKey).catch(() => {});
-      return errorResponse(
-        "Too many catalog generation requests; try again later",
-        429,
-        request,
-        env
+      // Dynamic Retry-After: 1 full window slot (3600s / max requests),
+      // clamped to [5, 600] seconds. Gives the client an accurate backoff
+      // instead of a guess.
+      const slotSeconds = Math.max(5, Math.min(600, Math.ceil(3600 / CATALOG_MAX_GENS_PER_HOUR)));
+      // Window resets at the next hour boundary
+      const windowMs = hourBucket * 3600000;
+      const windowEndMs = windowMs + 3600000;
+      const resetUnix = Math.ceil(windowEndMs / 1000);
+      return new Response(
+        JSON.stringify({ error: "Too many catalog generation requests; try again later" }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(slotSeconds),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": String(resetUnix),
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-ColorVerse-UID",
+          },
+        }
       );
     }
     await env.SITE_DATA.put(rateKey, String(current + 1), {
