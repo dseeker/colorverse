@@ -2001,11 +2001,11 @@ function renderAllCategoriesPage(data) {
 
   let html = `
         <nav aria-label="breadcrumb" class="mb-6 mt-2 text-sm py-2" style="color: var(--text-color);">
-            <a href="#" class="hover:underline hover:text-primary-600">Home</a> &raquo;
-            <span class="mx-1 font-medium">All Categories</span>
+            <a href="#" class="hover:underline hover:text-primary-600">${window.t("breadcrumb_home")}</a> &raquo;
+            <span class="mx-1 font-medium">${window.t("all_categories.title")}</span>
         </nav>
-        
-        <h1 class="text-4xl font-bold mb-4" style="color: var(--text-color);">All Categories</h1>
+
+        <h1 class="text-4xl font-bold mb-4" style="color: var(--text-color);">${window.t("all_categories.title")}</h1>
         <p class="text-lg mb-8" style="color: var(--text-color); opacity: 0.8;">
             Explore our complete collection of ${Object.keys(data.categories).length} coloring page categories. 
             From animals and nature to fantasy and mandalas, find the perfect coloring pages for every mood and skill level.
@@ -2061,7 +2061,7 @@ function renderAllCategoriesPage(data) {
                     <div class="flex items-center justify-between text-sm" style="color: var(--text-color); opacity: 0.6;">
                         <span class="flex items-center">
                             <i class="fas fa-palette mr-1"></i>
-                            ${itemCount} ${itemCount === 1 ? "page" : "pages"}
+                            ${itemCount} ${window.t(`category.items_count_${itemCount === 1 ? "one" : "other"}`, { count: itemCount })}
                         </span>
                         <span class="text-primary-600 group-hover:underline">
                             Explore →
@@ -3903,9 +3903,9 @@ function renderSearchPage(query) {
     html += `
         <div class="text-center py-16">
             <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
-            <h2 class="text-2xl font-semibold text-gray-600 dark:text-gray-300 mb-2">No results found</h2>
-            <p class="text-gray-500 dark:text-gray-400 mb-6">We couldn't find any coloring pages matching &quot;${escapeHtml(trimmed)}&quot;.</p>
-            <a href="#" class="inline-block bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">Return Home</a>
+            <h2 class="text-2xl font-semibold text-gray-600 dark:text-gray-300 mb-2">${window.t("search.no_results_title")}</h2>
+            <p class="text-gray-500 dark:text-gray-400 mb-6">${window.t("search.no_results_desc", { query: escapeHtml(trimmed) })}</p>
+            <a href="#" class="inline-block bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">${window.t("search.return_home")}</a>
         </div>
     `;
     return html;
@@ -3914,7 +3914,7 @@ function renderSearchPage(query) {
   html += `
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Results for &quot;${escapeHtml(trimmed)}&quot;</h2>
-            <span class="text-gray-600 dark:text-gray-400">${results.length} coloring pages found</span>
+            <span class="text-gray-600 dark:text-gray-400">${window.t("search.results_count", { count: results.length })}</span>
         </div>
 
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">

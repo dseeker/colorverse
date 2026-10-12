@@ -80,5 +80,15 @@
   "category.sort_newest": "Neueste",
   "category.sort_az": "A-Z",
   "category.items_count_2": "{{count}} Elemente",
-  "search.results_count_2": "{{count}} Malvorlagen gefunden"
+  "search.results_count_2": "{{count}} Malvorlagen gefunden",
+  "breadcrumb_home": "Startseite",
+  "daily_pick.breadcrumb_title": "Heutige Empfehlung",
+  "daily_pick.browse_category": "Kategorie {{category}} durchsuchen",
+  "daily_pick.desc": "T\u00e4glich eine neue, handausgew\u00e4hlte Malvorlage. Herunterladen, ausdrucken und ausmalen!",
+  "daily_pick.h1": "Heutige Empfehlung",
+  "daily_pick.print": "Diese Seite drucken",
+  "daily_pick.tips_header": "Farbtipps f\u00fcr die heutige Empfehlung",
+  "item.browse_category": "Kategorie {{category}} durchsuchen",
+  "search.breadcrumb": "Suche",
+  "search.page_h1": "Malvorlagen finden"
 }

@@ -1457,6 +1457,24 @@
                 });
             }
 
+            // Language selector update function
+            function updateLanguageSelector(locale) {
+                var langSelector = document.getElementById('language-selector');
+                if (langSelector && window.cvI18n) {
+                    var locales = window.cvI18n.getLocales();
+                    langSelector.innerHTML = '';
+                    locales.forEach(function(loc) {
+                        var option = document.createElement('option');
+                        option.value = loc.code;
+                        option.textContent = loc.name;
+                        if (loc.code === locale) {
+                            option.selected = true;
+                        }
+                        langSelector.appendChild(option);
+                    });
+                }
+            }
+
             // Theme switching functionality
             var themeLight = document.getElementById('theme-light');
             const themeDark = document.getElementById('theme-dark');
