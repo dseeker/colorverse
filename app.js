@@ -1750,9 +1750,9 @@ function renderHomepage(data) {
     <!-- Featured Categories Section -->
     <section class="mb-12">
         <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold">Featured Categories</h2>
+            <h2 class="text-2xl font-bold">${window.t("homepage.featured")}</h2>
             <a href="#all-categories" class="text-primary-600 hover:text-primary-800 font-medium flex items-center">
-                View All <i class="fas fa-arrow-right ml-2"></i>
+                ${window.t("homepage.view_all")} <i class="fas fa-arrow-right ml-2"></i>
             </a>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -2381,6 +2381,12 @@ function renderRecentAdditions(data) {
             </a>
         `;
   });
+
+  html += `
+        <div class="text-center mt-8">
+            <p class="text-gray-500">${window.t("homepage.newsletter_desc")}</p>
+        </div>
+    `;
 
   return html;
 }
