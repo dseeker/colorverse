@@ -10,7 +10,7 @@ const PLACEHOLDER_IMAGE =
  * Escape HTML special characters to prevent XSS when interpolating
  * user/AI-generated content into HTML template strings.
  */
-function escapeHtml(value) {
+export function escapeHtml(value) {
   if (value === null || value === undefined) {
     return "";
   }
@@ -223,7 +223,7 @@ class SearchManager {
           result.item.description || "Click to view and print this free coloring page!"
         );
         return `
-            <div class="relative group" data-item-full='${JSON.stringify(result.item).replace(/'/g, "&#39;")}'>
+            <div class="relative group" data-item-full='${escapeHtml(JSON.stringify(result.item))}'>
                 ${window.FavoritesManager ? window.FavoritesManager.createFavoriteButton(result.category, result.item) : ""}
                 <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer category-card"
                      onclick="window.showItemDetail('${escapeHtml(result.category)}', '${escapeHtml(result.item.key || "")}')">

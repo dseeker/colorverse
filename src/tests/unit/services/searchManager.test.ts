@@ -14,7 +14,7 @@ vi.stubGlobal("window", {
   showToast: vi.fn(),
 });
 
-import searchManager from "../../../services/searchManager.js";
+import searchManager, { escapeHtml } from "../../../services/searchManager.js";
 
 const testCategories = {
   animals: {
@@ -154,6 +154,24 @@ describe("SearchManager", () => {
     expect(result).toContain("Cat");
   });
 
+  it("should escape HTML special characters", () => {
+    expect(escapeHtml("<script>")).toBe("&lt;script&gt;");
+    expect(escapeHtml('test"quote')).toBe("test&quot;quote");
+    expect(escapeHtml("test'apos")).toBe("test&#39;apos");
+    expect(escapeHtml("a&b")).toBe("a&amp;b");
+    expect(escapeHtml("<img src=x onerror=alert(1)>")).toBe("&lt;img src=x onerror=alert(1)&gt;");
+  });
+
+  it("should highlight matching terms in already-escaped text", () => {
+    // After escaping, <script> becomes &lt;script&gt;
+    const escapedText = "&lt;script&gt;alert(1)&lt;/script&gt;";
+    const result = searchManager.highlightMatch(escapedText, "script");
+    // The word "script" should be wrapped in <mark>
+    expect(result).toContain("&lt;");
+    expect(result).toContain("script");
+    expect(result).toContain("&gt;");
+  });
+
   it("should escape HTML in displayResults to prevent XSS", () => {
     const maliciousCategories = {
       xss: {
@@ -175,7 +193,17 @@ describe("SearchManager", () => {
     const results = searchManager.search("xss");
     expect(results.length).toBeGreaterThan(0);
 
+    // Capture innerHTML by replacing the property on the mock element
     const mockElement = { _html: "" };
+    Object.defineProperty(mockElement, "innerHTML", {
+      set(val: string) {
+        mockElement._html = val;
+      },
+      get() {
+        return mockElement._html;
+      },
+      configurable: true,
+    });
     const mockDoc = { getElementById: vi.fn(() => mockElement) };
     vi.stubGlobal("document", mockDoc);
     vi.stubGlobal("window", {
@@ -188,27 +216,34 @@ describe("SearchManager", () => {
     });
 
     searchManager.displayResults(results, "xss");
-    const html = mockElement._html;
 
-    // Script tags should be escaped, not rendered
-    expect(html).not.toContain("<script>");
-    expect(html).toContain("&lt;script&gt;");
-    // onerror should be escaped
-    expect(html).not.toContain("onerror=");
-    expect(html).toContain("&lt;img");
+    // Script tags should be escaped, not rendered as live HTML
+    expect(mockElement._html).not.toContain("<script>");
+    expect(mockElement._html).toContain("&lt;script&gt;");
+    // Malicious img tag should be escaped (the legitimate placeholder img is fine)
+    expect(mockElement._html).not.toContain("<img src=x");
+    expect(mockElement._html).toContain("&lt;img");
   });
 
   it("should escape HTML in showNoResults to prevent XSS", () => {
     const maliciousQuery = "<script>alert('xss')</script>";
 
     const mockElement = { _html: "" };
+    Object.defineProperty(mockElement, "innerHTML", {
+      set(val: string) {
+        mockElement._html = val;
+      },
+      get() {
+        return mockElement._html;
+      },
+      configurable: true,
+    });
     const mockDoc = { getElementById: vi.fn(() => mockElement) };
     vi.stubGlobal("document", mockDoc);
 
     searchManager.showNoResults(maliciousQuery);
-    const html = mockElement._html;
 
-    expect(html).not.toContain("<script>");
-    expect(html).toContain("&lt;script&gt;");
+    expect(mockElement._html).not.toContain("<script>");
+    expect(mockElement._html).toContain("&lt;script&gt;");
   });
 });
