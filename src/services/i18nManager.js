@@ -7,7 +7,7 @@
 
 /* global i18next */
 
-const SUPPORTED_LOCALES = ["en", "pt"];
+const SUPPORTED_LOCALES = ["en", "de", "pt"];
 const FALLBACK = "en";
 const STORAGE_KEY = "cv_i18n_locale";
 
