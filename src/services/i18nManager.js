@@ -107,7 +107,7 @@ export async function switchLocale(newLocale) {
 export function getLocales() {
   return SUPPORTED_LOCALES.map(code => ({
     code,
-    name: code === "pt" ? "Portugu\u00eas" : "English",
+    name: code === "pt" ? "Portugu\u00eas" : code === "de" ? "Deutsch" : "English",
   }));
 }
 

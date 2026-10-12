@@ -425,3 +425,13 @@ Commercial use, including but not limited to selling, distributing, or incorpora
 ---
 
 **Note:** This project is for educational and personal use. Please respect the terms of service of the Pollinations AI API and any included resources.
+
+## i18n Implementation Summary
+
+- **Initial Commit**: This commit includes the complete i18n infrastructure implementation.
+- **Key Features**:
+  - i18next integration via CDN
+  - English and Portuguese locale files
+  - Auto-detection of user's locale
+  - Language switcher in the navbar
+  - Comprehensive translations across the application

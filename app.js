@@ -1917,14 +1917,14 @@ function renderHomepage(data) {
     <section class="mt-16 mb-8 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl p-8 text-white">
         <div class="md:flex items-center justify-between">
             <div class="md:w-2/3 mb-6 md:mb-0">
-                <h2 class="text-2xl font-bold mb-2">Stay Inspired</h2>
-                <p>Subscribe to our newsletter for weekly coloring pages, tips, and creative inspiration.</p>
+                <h2 class="text-2xl font-bold mb-2">${window.t("homepage.newsletter_title")}</h2>
+                <p>${window.t("homepage.newsletter_desc")}</p>
             </div>
             <div class="md:w-1/3">
                 <form id="newsletter-form" class="flex">
-                    <input type="email" placeholder="Your email address" class="px-4 py-3 rounded-l-lg w-full text-gray-800" required aria-label="Email for newsletter">
+                    <input type="email" placeholder="${window.t("footer.subscribe_email")}" class="px-4 py-3 rounded-l-lg w-full text-gray-800" required aria-label="${window.t("footer.subscribe_email")}">
                     <button type="submit" class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold px-4 py-3 rounded-r-lg transition duration-300">
-                        Subscribe
+                        ${window.t("footer.subscribe_btn")}
                     </button>
                 </form>
             </div>
@@ -2429,9 +2429,9 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
         <div class="mb-6 flex flex-wrap gap-4 items-center">
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow px-4 py-2 flex flex-wrap gap-3">
                 <span class="text-gray-700 dark:text-gray-300">Sort by:</span>
-                <button onclick="sortCategory('${categoryKey}', 'popular')" class="${sortBy === "popular" ? "bg-primary-100 text-primary-800 dark:bg-primary-800 dark:text-primary-100" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"} px-3 py-1 rounded-md text-sm transition-colors">Popular</button>
-                <button onclick="sortCategory('${categoryKey}', 'newest')" class="${sortBy === "newest" ? "bg-primary-100 text-primary-800 dark:bg-primary-800 dark:text-primary-100" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"} px-3 py-1 rounded-md text-sm transition-colors">Newest</button>
-                <button onclick="sortCategory('${categoryKey}', 'az')" class="${sortBy === "az" ? "bg-primary-100 text-primary-800 dark:bg-primary-800 dark:text-primary-100" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"} px-3 py-1 rounded-md text-sm transition-colors">A-Z</button>
+                <button onclick="sortCategory('${categoryKey}', 'popular')" class="${sortBy === "popular" ? "bg-primary-100 text-primary-800 dark:bg-primary-800 dark:text-primary-100" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"} px-3 py-1 rounded-md text-sm transition-colors">${window.t("category.sort_popular")}</button>
+                <button onclick="sortCategory('${categoryKey}', 'newest')" class="${sortBy === "newest" ? "bg-primary-100 text-primary-800 dark:bg-primary-800 dark:text-primary-100" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"} px-3 py-1 rounded-md text-sm transition-colors">${window.t("category.sort_newest")}</button>
+                <button onclick="sortCategory('${categoryKey}', 'az')" class="${sortBy === "az" ? "bg-primary-100 text-primary-800 dark:bg-primary-800 dark:text-primary-100" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"} px-3 py-1 rounded-md text-sm transition-colors">${window.t("category.sort_az")}</button>
             </div>
             <div class="ml-auto">
                 <span class="text-gray-600 dark:text-gray-400 text-sm">${totalPages * itemsPerPage} items across ${totalPages} pages</span>
@@ -3841,14 +3841,14 @@ function renderSearchPage(query) {
   let html = `
         <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 dark:text-gray-400 py-2">
             <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
-                <i class="fas fa-home mr-1"></i> Home
+                <i class="fas fa-home mr-1"></i> ${window.t("breadcrumb_home")}
             </a>
             <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
-            <span class="font-medium text-gray-800 dark:text-gray-200">Search</span>
+            <span class="font-medium text-gray-800 dark:text-gray-200">${window.t("search.breadcrumb")}</span>
         </nav>
 
         <div class="bg-gradient-to-r from-primary-500 to-primary-700 rounded-xl p-6 text-white mb-8">
-            <h1 class="text-3xl font-bold mb-4"><i class="fas fa-search mr-3" aria-hidden="true"></i>Find a Coloring Page</h1>
+            <h1 class="text-3xl font-bold mb-4"><i class="fas fa-search mr-3" aria-hidden="true"></i>${window.t("search.page_h1")}</h1>
             <form id="search-form" class="flex gap-3 max-w-xl" role="search">
                 <input type="search" id="search-page-input" name="q" value="${escapeHtml(query || "")}"
                     placeholder="Try dragon, mandala, animals..."
