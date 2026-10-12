@@ -2842,6 +2842,27 @@ function renderItem(itemData, categoryKey, itemKey) {
             style="background-color: var(--bg-color); color: var(--text-color); border-color: var(--border-color); opacity: 0.8;">
             ${window.t("item.advertisement_placeholder") || "Advertisement Placeholder"}
         </div>
+
+        <!-- Suggested Palettes -->
+        ${
+          window.PalettesManager && window.PalettesManager.getSuggestedPalettes
+            ? (() => {
+                const suggestedPalettes = window.PalettesManager.getSuggestedPalettes();
+                if (suggestedPalettes && suggestedPalettes.length > 0) {
+                  let paletteHtml = `<div class="suggested-palettes mt-8"><h2 class="text-xl font-bold mb-4">${window.t ? window.t("item.suggested_palettes") || "Suggested Palettes" : "Suggested Palettes"}</h2><div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">`;
+                  suggestedPalettes.forEach(palette => {
+                    const colorSwatches = palette.colors
+                      .map(c => `<div class="w-full h-8 rounded" style="background:${c}"></div>`)
+                      .join("");
+                    paletteHtml += `<a href="#palette/${palette.id}" class="palette-card block p-3 bg-white rounded-lg shadow hover:shadow-md transition-shadow"><div class="grid grid-cols-5 gap-1 mb-2">${colorSwatches}</div><div class="text-sm font-medium text-gray-800">${escapeHtml(palette.name)}</div></a>`;
+                  });
+                  paletteHtml += `</div></div>`;
+                  return paletteHtml;
+                }
+                return "";
+              })()
+            : ""
+        }
     `;
   return html;
 }
@@ -4383,6 +4404,17 @@ function handleRouteChange() {
             window.t("static.analytics.description") ||
             "Internal analytics dashboard for ColorVerse.",
         });
+      } else if (hash === "#palettes") {
+        // Palette library overview
+        if (window.PalettesManager) {
+          window.PalettesManager.showPalettesView();
+        }
+      } else if (hash.startsWith("#palette/")) {
+        // Single palette detail view
+        const paletteId = hash.substring("#palette/".length);
+        if (window.PalettesManager) {
+          window.PalettesManager.showPaletteDetail(paletteId);
+        }
       } else if (hash.startsWith("#search")) {
         // Search: #search or #search?q=term
         const searchQuery = new URLSearchParams(

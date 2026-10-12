@@ -602,9 +602,10 @@
     <script type="module" src="src/services/cacheManager.js?v=2"></script>
     <!-- i18next CDN -->
     <script src="https://cdn.jsdelivr.net/npm/i18next@23.11.5/dist/umd/i18next.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/i18next-http-backend@1.5.15/dist/umd/i18nextHttpBackend.min.js"></script>
     <!-- i18n Manager -->
     <script type="module" src="src/services/i18nManager.js"></script>
+    <!-- Palettes Manager -->
+    <script type="module" src="src/services/palettesManager.js"></script>
     <!-- Structured Data -->
     <script type="application/ld+json">
     {
@@ -696,6 +697,14 @@
                         <span id="favorites-count" class="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
                         <span class="sr-only">My Favorites</span>
                     </button>
+
+                    <!-- Palettes Button -->
+                    <a href="#palettes"
+                        class="mr-3 p-2 rounded-lg text-white bg-purple-500 hover:bg-purple-600 transition-colors"
+                        title="Color Palettes" aria-label="Color Palettes">
+                        <i class="fas fa-swatchbook" aria-hidden="true"></i>
+                        <span class="sr-only">Color Palettes</span>
+                    </a>
                     
                     <!-- Cache Status Indicator (non-blocking) -->
                     <div id="cache-status-indicator" 
