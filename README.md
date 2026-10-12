@@ -408,9 +408,19 @@ To set up Claude Code Action with OAuth:
 
 ## License
 
-**Strict Non-Commercial Use License**
+This project is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International License](./LICENSE) (CC BY-NC 4.0).
 
-This code is strictly for personal and educational purposes only. Commercial use, including but not limited to selling, distributing, or incorporating this code into commercial products, is explicitly prohibited.
+**You are free to:**
+
+- **Share** -- copy and redistribute the material in any medium or format
+- **Adapt** -- remix, transform, and build upon the material
+
+**Under the following terms:**
+
+- **Attribution** -- You must give appropriate credit, provide a link to the license, and indicate if changes were made.
+- **NonCommercial** -- You may not use the material for commercial purposes.
+
+Commercial use, including but not limited to selling, distributing, or incorporating this code or its generated content into commercial products, is explicitly prohibited. See the full license text in [LICENSE](./LICENSE).
 
 ---
 
