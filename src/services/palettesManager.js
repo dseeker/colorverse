@@ -112,6 +112,9 @@ class PalettesManager {
    * Get suggested palettes (first 4 for coloring page view)
    */
   getSuggestedPalettes(palettesData) {
+    if (!palettesData) {
+      palettesData = palettes;
+    }
     return palettesData.slice(0, 4);
   }
 
@@ -164,6 +167,11 @@ class PalettesManager {
     const mainContent = document.getElementById("main-content");
     if (!mainContent) {
       return;
+    }
+
+    // Default to the full curated palette list if not provided
+    if (!palettesData) {
+      palettesData = palettes;
     }
 
     let html = `
@@ -225,6 +233,11 @@ class PalettesManager {
     const mainContent = document.getElementById("main-content");
     if (!mainContent) {
       return;
+    }
+
+    // Default to the full curated palette list if not provided
+    if (!palettesData) {
+      palettesData = palettes;
     }
 
     const palette = palettesData.find(p => p.id === paletteId);

@@ -76,6 +76,8 @@ export async function initI18n() {
       fallbackLng: FALLBACK,
       interpolation: { escapeValue: false }, // already safe via escapeHtml in app.js
     });
+    // Expose t() globally for classic-script app.js consumption
+    window.t = (key, params) => i18next.t(key, params) || key;
   }
 
   loaded = true;
@@ -87,10 +89,7 @@ export async function switchLocale(newLocale) {
   if (!SUPPORTED_LOCALES.includes(newLocale)) {
     return false;
   }
-  const ok = await initI18n();
-  if (!ok) {
-    return false;
-  }
+  await initI18n();
   try {
     localStorage.setItem(STORAGE_KEY, newLocale);
   } catch {}
@@ -120,6 +119,10 @@ export function getLocale() {
 // Expose globally for classic-script app.js consumption
 // ---------------------------------------------------------------------------
 if (typeof window !== "undefined") {
+  // Safe fallback: returns the key itself if i18next hasn't initialized yet
+  if (!window.t) {
+    window.t = key => key;
+  }
   window.cvI18n = { initI18n, switchLocale, getLocales, getLocale };
 }
 
