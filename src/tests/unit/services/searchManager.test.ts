@@ -153,4 +153,62 @@ describe("SearchManager", () => {
     expect(result).toContain("<mark");
     expect(result).toContain("Cat");
   });
+
+  it("should escape HTML in displayResults to prevent XSS", () => {
+    const maliciousCategories = {
+      xss: {
+        title: "XSS Test",
+        name: "XSS Test",
+        items: {
+          test: {
+            title: "<script>alert('xss')</script>",
+            name: "<script>alert('xss')</script>",
+            key: "test",
+            description: "<img src=x onerror=alert(1)>",
+            tags: [],
+          },
+        },
+      },
+    };
+
+    searchManager.buildSearchIndex(maliciousCategories);
+    const results = searchManager.search("xss");
+    expect(results.length).toBeGreaterThan(0);
+
+    const mockElement = { _html: "" };
+    const mockDoc = { getElementById: vi.fn(() => mockElement) };
+    vi.stubGlobal("document", mockDoc);
+    vi.stubGlobal("window", {
+      ...globalThis.window,
+      SearchManager: searchManager,
+      getImageUrl: vi.fn(),
+      getDeterministicSeed: vi.fn(),
+      stringToHash: vi.fn((s: string) => Math.floor(Math.random() * 100000)),
+      imageObserver: null,
+    });
+
+    searchManager.displayResults(results, "xss");
+    const html = mockElement._html;
+
+    // Script tags should be escaped, not rendered
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+    // onerror should be escaped
+    expect(html).not.toContain("onerror=");
+    expect(html).toContain("&lt;img");
+  });
+
+  it("should escape HTML in showNoResults to prevent XSS", () => {
+    const maliciousQuery = "<script>alert('xss')</script>";
+
+    const mockElement = { _html: "" };
+    const mockDoc = { getElementById: vi.fn(() => mockElement) };
+    vi.stubGlobal("document", mockDoc);
+
+    searchManager.showNoResults(maliciousQuery);
+    const html = mockElement._html;
+
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
 });

@@ -201,6 +201,9 @@ async function fetchWorkerCatalog(styleKey = "", seed = "") {
   )}&seed=${encodeURIComponent(seed)}`;
   const headers = { "X-ColorVerse-UID": hashedUid };
 
+  let rateLimitRetries = 0;
+  const MAX_RATE_LIMIT_RETRIES = 3;
+
   for (let attempt = 0; attempt <= CATALOG_MAX_POLLS; attempt++) {
     try {
       const response = await fetch(url, { headers });
@@ -216,7 +219,40 @@ async function fetchWorkerCatalog(styleKey = "", seed = "") {
         console.warn("[WorkerMode] Catalog still generating after max polls");
         return null;
       }
+      // 429 Too Many Requests — exponential backoff with jitter
+      if (response.status === 429) {
+        rateLimitRetries++;
+        if (rateLimitRetries > MAX_RATE_LIMIT_RETRIES) {
+          console.warn("[WorkerMode] Rate limited after max retries, falling back to legacy route");
+          return null;
+        }
+        // Read dynamic Retry-After or X-RateLimit-Reset headers
+        const retryAfterHeader = response.headers.get("Retry-After");
+        const resetUnix = response.headers.get("X-RateLimit-Reset");
+        let waitSeconds;
+        if (retryAfterHeader && Number.isFinite(parseFloat(retryAfterHeader))) {
+          waitSeconds = parseFloat(retryAfterHeader);
+        } else if (resetUnix) {
+          // Wait until the hour window resets, minus a small buffer
+          waitSeconds = Math.max(
+            1,
+            Math.ceil((parseInt(resetUnix, 10) * 1000 - Date.now()) / 1000)
+          );
+        } else {
+          // Fallback: exponential backoff with jitter
+          waitSeconds = Math.min(300, Math.pow(2, rateLimitRetries));
+        }
+        // Apply jitter: +/-20%
+        const jitter = waitSeconds * (0.8 + Math.random() * 0.4);
+        const delayMs = Math.ceil(jitter * 1000);
+        console.warn(
+          `[WorkerMode] 429 rate limited (attempt ${rateLimitRetries}/${MAX_RATE_LIMIT_RETRIES}), retrying in ${Math.round(jitter)}s`
+        );
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        continue;
+      }
       if (response.status === 200) {
+        rateLimitRetries = 0; // Reset counter on success
         const data = await response.json();
         if (!data || typeof data !== "object" || !data.categories) {
           console.warn("[WorkerMode] Catalog response missing categories, falling back");
@@ -224,7 +260,7 @@ async function fetchWorkerCatalog(styleKey = "", seed = "") {
         }
         return data;
       }
-      // 503 (unconfigured/kill-switch), 502, 500, 404 — fall back to legacy
+      // 503 (unconfigured/kill-switch), 502, 500, 404 — fall back to legacy (no retry for non-429 errors)
       console.warn(`[WorkerMode] Catalog fetch ${response.status}, falling back to legacy route`);
       return null;
     } catch (err) {

@@ -649,4 +649,34 @@ describe("GET /catalog", () => {
     const fc = await kv.get("catalog:failcount:catalog:default");
     expect(fc).toBeNull();
   });
+
+  it("17. Rate limit (429) returns dynamic Retry-After and X-RateLimit headers", async () => {
+    // Pre-seed the hourly rate limit to the maximum (5).
+    const hourBucket = Math.floor(Date.now() / 3600000);
+    await kv.put(`ratelimit:192.168.1.1:${hourBucket}`, "5");
+
+    const res = await worker.fetch(
+      makeRequest("/catalog", { "CF-Connecting-IP": "192.168.1.1" }),
+      env,
+      ctx
+    );
+
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.error).toMatch(/Too many catalog generation requests/i);
+
+    // Dynamic Retry-After should be 3600/5=720, clamped to max 600
+    expect(res.headers.get("Retry-After")).toBe("600");
+    expect(res.headers.get("X-RateLimit-Remaining")).toBe("0");
+    // X-RateLimit-Reset should be the Unix timestamp of the next hour boundary
+    const resetHeader = res.headers.get("X-RateLimit-Reset");
+    expect(resetHeader).toBeTruthy();
+    const resetUnix = parseInt(resetHeader!, 10);
+    const expectedEnd = (hourBucket * 3600 + 3600) * 1000;
+    const expectedReset = Math.ceil(expectedEnd / 1000);
+    expect(resetUnix).toBe(expectedReset);
+
+    // No background generation should be scheduled.
+    expect(ctx.waitUntil).not.toHaveBeenCalled();
+  });
 });
