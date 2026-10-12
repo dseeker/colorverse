@@ -4,22 +4,25 @@
  * Version: 1.0.0
  */
 
-const CACHE_NAME = "colorverse-v2";
-const STATIC_CACHE = "colorverse-static-v2";
+const CACHE_NAME = "colorverse-v3";
+const STATIC_CACHE = "colorverse-static-v3";
 const IMAGE_CACHE = "colorverse-images-v1";
 const API_CACHE = "colorverse-api-v1";
 
-// Assets to cache immediately on install
+// Scope-relative base path (works for subpath deployments like /colorverse/)
+const BASE = self.registration ? self.registration.scope : "/";
+
+// Assets to cache immediately on install (relative to scope)
 const STATIC_ASSETS = [
-  "/",
-  "/index.html",
-  "/app.js",
-  "/offline.html",
-  "/src/services/seoManager.js",
-  "/src/services/favoritesManager.js",
-  "/src/services/searchManager.js",
-  "/src/services/coloringTipsManager.js",
-  "/robots.txt",
+  "./",
+  "./index.html",
+  "./app.js",
+  "./offline.html",
+  "./src/services/seoManager.js",
+  "./src/services/favoritesManager.js",
+  "./src/services/searchManager.js",
+  "./src/services/coloringTipsManager.js",
+  "./robots.txt",
 ];
 
 // External resources to cache
@@ -119,12 +122,16 @@ self.addEventListener("fetch", event => {
 // Helper functions
 function isStaticAsset(request) {
   const url = new URL(request.url);
+  // Path relative to the SW scope (e.g. /colorverse/ → "")
+  const relPath = url.pathname.startsWith(BASE) ? url.pathname.slice(BASE.length) : url.pathname;
   return (
-    STATIC_ASSETS.includes(url.pathname) ||
-    url.pathname.endsWith(".js") ||
-    url.pathname.endsWith(".css") ||
-    url.pathname.endsWith(".html") ||
-    url.pathname === "/"
+    STATIC_ASSETS.includes(relPath) ||
+    STATIC_ASSETS.includes("./" + relPath) ||
+    relPath.endsWith(".js") ||
+    relPath.endsWith(".css") ||
+    relPath.endsWith(".html") ||
+    relPath === "" ||
+    relPath === "/"
   );
 }
 
@@ -164,7 +171,7 @@ async function cacheFirst(request, cacheName) {
   } catch (error) {
     console.error("[SW] Failed to fetch:", request.url, error);
     // Return offline fallback if available
-    return caches.match("/offline.html");
+    return caches.match("./offline.html");
   }
 }
 
@@ -251,8 +258,8 @@ self.addEventListener("push", event => {
     const data = event.data.json();
     const options = {
       body: data.body,
-      icon: "/assets/icon-192x192.png",
-      badge: "/assets/badge-72x72.png",
+      icon: "./assets/icon-192x192.png",
+      badge: "./assets/badge-72x72.png",
       tag: data.tag,
       requireInteraction: true,
     };
@@ -270,7 +277,7 @@ self.addEventListener("notificationclick", event => {
       if (clientList.length > 0) {
         clientList[0].focus();
       } else {
-        clients.openWindow("/");
+        clients.openWindow(BASE);
       }
     })
   );
