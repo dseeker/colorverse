@@ -2375,7 +2375,7 @@ function renderRecentAdditions(data) {
     const escCatTitle = escapeHtml(categoryTitle);
 
     html += `
-            <a href="#item/${categoryKey}/${itemKey}" class="flex-shrink-0 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition duration-300">
+            <a href="#item/${categoryKey}/${itemKey}" class="flex-shrink-0 w-36 sm:w-48 md:w-64 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition duration-300">
                 <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>

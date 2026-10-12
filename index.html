@@ -639,13 +639,13 @@
     </script>
 </head>
 
-<body class="bg-gray-50 text-gray-900 loading flex flex-col min-h-screen">
+<body class="bg-gray-50 text-gray-900 loading flex flex-col min-h-screen overflow-x-hidden">
 
     <a href="#main-content" class="skip-link">Skip to main content</a>
 
     <div id="page-container" class="flex-grow pt-20">
         <!-- Increased padding-top to prevent breadcrumbs from being cut off -->
-        <header class="bg-gradient-to-r from-cyan-500 to-blue-500 p-4 shadow-md fixed top-0 left-0 right-0 z-50">
+        <header class="bg-gradient-to-r from-cyan-500 to-blue-500 p-3 sm:p-4 shadow-md fixed top-0 left-0 right-0 z-50">
             <div class="container mx-auto flex justify-between items-center">
                 <div class="flex items-center">
                     <div class="mr-3 hidden sm:block" aria-hidden="true">
@@ -662,18 +662,18 @@
                         </svg>
                     </div>
                     <div>
-                        <div class="text-3xl font-bold">
+                        <div class="text-xl sm:text-3xl font-bold">
                             <a href="#" class="flex items-center">
                                 ColorVerse
                                 <span class="ml-2 text-xs bg-yellow-400 text-black px-2 py-0.5 rounded-full">Beta</span>
                             </a>
                         </div>
-                        <p class="text-sm mt-1 opacity-90">Personalized Coloring Pages Made Just for You</p>
+                        <p class="text-xs sm:text-sm mt-1 opacity-90">Personalized Coloring Pages Made Just for You</p>
                     </div>
                 </div>
-                <nav aria-label="Main" class="flex items-center">
-                    <!-- Search Bar -->
-                    <div class="relative mr-4 hidden md:block">
+                <nav aria-label="Main" class="flex flex-wrap items-center justify-end">
+                    <!-- Search Bar (desktop only) -->
+                    <div class="relative mr-4 hidden md:block order-1">
                         <input type="text" id="search-input"
                             placeholder="Search coloring pages..."
                             class="bg-white bg-opacity-20 text-white placeholder-gray-200 rounded-lg px-4 py-2 pr-10 border-none focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all w-64"
@@ -682,48 +682,66 @@
                             <i class="fas fa-search" aria-hidden="true"></i>
                         </button>
                     </div>
-                    
-                    <!-- Search Button -->
-                    <a href="#search"
-                        class="mr-3 p-2 rounded-lg text-white bg-indigo-500 hover:bg-indigo-600 transition-colors"
-                        title="Search Coloring Pages">
-                        <i class="fas fa-search" aria-hidden="true"></i>
-                        <span class="sr-only">Search Coloring Pages</span>
-                    </a>
 
-                    <!-- Favorites Button -->
-                    <button id="favorites-toggle"
-                        class="mr-3 p-2 rounded-lg text-white bg-pink-500 hover:bg-pink-600 transition-colors relative"
-                        title="My Favorites" aria-label="My Favorites">
-                        <i class="fas fa-heart" aria-hidden="true"></i>
-                        <span id="favorites-count" class="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
-                        <span class="sr-only">My Favorites</span>
-                    </button>
+                    <!-- Primary actions (always visible) -->
+                    <div class="flex items-center order-2">
+                        <!-- Search Button -->
+                        <a href="#search"
+                            class="mr-2 sm:mr-3 p-2 rounded-lg text-white bg-indigo-500 hover:bg-indigo-600 transition-colors"
+                            title="Search Coloring Pages">
+                            <i class="fas fa-search" aria-hidden="true"></i>
+                            <span class="sr-only">Search Coloring Pages</span>
+                        </a>
 
-                    <!-- Palettes Button -->
-                    <a href="#palettes"
-                        class="mr-3 p-2 rounded-lg text-white bg-purple-500 hover:bg-purple-600 transition-colors"
-                        title="Color Palettes" aria-label="Color Palettes">
-                        <i class="fas fa-swatchbook" aria-hidden="true"></i>
-                        <span class="sr-only">Color Palettes</span>
-                    </a>
-                    
-                    <!-- Cache Status Indicator (non-blocking) -->
-                    <div id="cache-status-indicator" 
-                        class="mr-3 p-2 rounded-lg text-white bg-green-500 bg-opacity-80 transition-all hidden items-center text-xs"
-                        title="Content cache status">
-                        <i class="fas fa-database mr-1"></i>
-                        <span id="cache-status-text">Cached</span>
+                        <!-- Favorites Button -->
+                        <button id="favorites-toggle"
+                            class="mr-2 sm:mr-3 p-2 rounded-lg text-white bg-pink-500 hover:bg-pink-600 transition-colors relative"
+                            title="My Favorites" aria-label="My Favorites">
+                            <i class="fas fa-heart" aria-hidden="true"></i>
+                            <span id="favorites-count" class="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
+                            <span class="sr-only">My Favorites</span>
+                        </button>
+
+                        <!-- Palettes Button -->
+                        <a href="#palettes"
+                            class="mr-2 sm:mr-3 p-2 rounded-lg text-white bg-purple-500 hover:bg-purple-600 transition-colors"
+                            title="Color Palettes" aria-label="Color Palettes">
+                            <i class="fas fa-swatchbook" aria-hidden="true"></i>
+                            <span class="sr-only">Color Palettes</span>
+                        </a>
+
+                        <!-- Donate Button -->
+                        <a href="#donate"
+                            class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-3 sm:px-4 rounded-lg transition duration-300 flex items-center">
+                            <i class="fas fa-heart mr-1 sm:mr-2" aria-hidden="true"><span class="ml-1 hidden sm:inline">Donate</span></i>
+                            <span class="sm:hidden">Donate</span>
+                        </a>
+
+                        <!-- Hamburger Toggle (mobile only) -->
+                        <button id="mobile-menu-toggle" type="button"
+                            class="ml-2 p-2 rounded-lg text-white bg-white bg-opacity-20 hover:bg-opacity-30 transition-colors md:hidden"
+                            title="More options" aria-label="More options" aria-expanded="false" aria-controls="secondary-controls">
+                            <i class="fas fa-bars" aria-hidden="true"></i>
+                        </button>
                     </div>
-                    
-                    <div class="flex items-center mr-6">
+
+                    <!-- Secondary controls (desktop inline, mobile collapsed under hamburger) -->
+                    <div id="secondary-controls" class="order-3 w-full md:w-auto md:ml-4 flex flex-wrap items-center gap-2 md:gap-0 hidden md:flex mt-2 md:mt-0">
+                        <!-- Cache Status Indicator (non-blocking) -->
+                        <div id="cache-status-indicator"
+                            class="mr-0 md:mr-3 p-2 rounded-lg text-white bg-green-500 bg-opacity-80 transition-all hidden items-center text-xs"
+                            title="Content cache status">
+                            <i class="fas fa-database mr-1"></i>
+                            <span id="cache-status-text">Cached</span>
+                        </div>
+
                         <button id="refresh-content"
-                            class="mr-3 p-2 rounded-lg text-white bg-yellow-500 hover:bg-yellow-600 transition-colors"
+                            class="mr-0 md:mr-3 p-2 rounded-lg text-white bg-yellow-500 hover:bg-yellow-600 transition-colors"
                             title="Refresh Content" aria-label="Refresh Content">
                             <i class="fas fa-dice" aria-hidden="true"></i>
                             <span class="sr-only">Refresh Content</span>
                         </button>
-                        <div class="relative mr-3">
+                        <div class="relative mr-0 md:mr-3">
                             <select id="style-selector"
                                 class="bg-white bg-opacity-20 text-white rounded-lg p-2 pr-8 border-none appearance-none focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all cursor-pointer"
                                 title="Coloring Style" aria-label="Coloring style">
@@ -758,11 +776,7 @@
                             <option value="de">DE</option>
                             <option value="pt">PT</option>
                         </select>
-
-                        <a href="#donate"
-                            class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center ml-4">
-                            <i class="fas fa-heart mr-2" aria-hidden="true"></i> Donate
-                        </a>
+                    </div>
                 </nav>
             </div>
         </header>
@@ -1483,6 +1497,19 @@
                         langSelector.appendChild(option);
                     });
                 }
+            }
+
+            // Mobile hamburger menu toggle
+            var menuToggle = document.getElementById('mobile-menu-toggle');
+            if (menuToggle) {
+                menuToggle.addEventListener('click', function() {
+                    var panel = document.getElementById('secondary-controls');
+                    if (panel) {
+                        panel.classList.toggle('hidden');
+                        var expanded = !panel.classList.contains('hidden');
+                        menuToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                    }
+                });
             }
 
             // Theme switching functionality
