@@ -507,4 +507,3 @@ window.addEventListener("popstate", e => {
 });
 
 export default searchManager;
-export { escapeHtml };
