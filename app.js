@@ -1825,11 +1825,11 @@ function renderHomepage(data) {
         <div class="accent-panel p-6 mb-8">
             <div class="flex flex-col md:flex-row items-center">
                 <div class="md:w-1/3 mb-4 md:mb-0 md:pr-6">
-                    <h2 class="text-2xl font-bold text-white mb-3">Today's Special Pick</h2>
-                    <p class="text-white text-opacity-90">A new hand-selected coloring page every day. Download, print, and color!</p>
-                    
+                    <h2 class="text-2xl font-bold text-white mb-3">${window.t("homepage.daily_pick_title") || "Today's Special Pick"}</h2>
+                    <p class="text-white text-opacity-90">${window.t("homepage.daily_pick_desc") || "A new hand-selected coloring page every day. Download, print, and color!"}</p>
+
                     <a href="#daily-pick" class="mt-4 inline-flex items-center bg-white text-primary-600 px-4 py-2 rounded-lg font-medium">
-                        Get Today's Page <i class="fas fa-download ml-2"></i>
+                        ${window.t("homepage.get_today_page") || "Get Today's Page"} <i class="fas fa-download ml-2"></i>
                     </a>
                 </div>
                 <div class="md:w-2/3 bg-white p-3 rounded-lg shadow-lg">
@@ -1842,25 +1842,25 @@ function renderHomepage(data) {
     
     <!-- Recent Additions -->
     <section class="mb-12">
-        <h2 class="text-2xl font-bold mb-4">New Additions</h2>
+        <h2 class="text-2xl font-bold mb-4">${window.t("homepage.new_additions") || "New Additions"}</h2>
         <div class="relative">
             <div class="carousel flex space-x-4 overflow-x-auto pb-4">
                 ${renderRecentAdditions(data)}
             </div>
             <button class="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full shadow-lg p-2 hover:bg-gray-100 transition" id="carousel-prev">
                 <i class="fas fa-chevron-left"></i>
-                <span class="sr-only">Previous</span>
+                <span class="sr-only">${window.t("pagination.sr_previous") || "Previous"}</span>
             </button>
             <button class="absolute right-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full shadow-lg p-2 hover:bg-gray-100 transition" id="carousel-next">
                 <i class="fas fa-chevron-right"></i>
-                <span class="sr-only">Next</span>
+                <span class="sr-only">${window.t("pagination.sr_next") || "Next"}</span>
             </button>
         </div>
     </section>
     
     <!-- All Categories -->
     <section id="all-categories">
-        <h2 class="text-2xl font-bold mb-6">All Coloring Categories</h2>
+        <h2 class="text-2xl font-bold mb-6">${window.t("all_categories.title") || "All Coloring Categories"}</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
     `;
 
@@ -1978,7 +1978,10 @@ function wireNewsletterForm() {
     const email = input ? input.value.trim() : "";
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      showToast("Please enter a valid email address.", "error");
+      showToast(
+        window.t ? window.t("newsletter.email_error") : "Please enter a valid email address.",
+        "error"
+      );
       return;
     }
 
@@ -1988,15 +1991,25 @@ function wireNewsletterForm() {
     if (window.analytics && typeof window.analytics.track === "function") {
       window.analytics.track("newsletter_subscribe");
     }
-    showToast("Thanks! You're subscribed.", "success");
-    form.outerHTML = '<p class="font-semibold">Thanks! You\'re subscribed.</p>';
+    showToast(
+      window.t ? window.t("newsletter.subscribe_success") : "Thanks! You're subscribed.",
+      "success"
+    );
+    form.outerHTML =
+      '<p class="font-semibold">' +
+      (window.t ? window.t("newsletter.subscribe_success") : "Thanks! You're subscribed.") +
+      "</p>";
   });
 }
 
 // Render all categories page
 function renderAllCategoriesPage(data) {
   if (!data || !data.categories) {
-    return '<p class="text-center">Categories are still loading...</p>';
+    return (
+      '<p class="text-center">' +
+      (window.t ? window.t("category.loading_all") : "Categories are still loading...") +
+      "</p>"
+    );
   }
 
   let html = `
@@ -2064,7 +2077,7 @@ function renderAllCategoriesPage(data) {
                             ${itemCount} ${window.t(`category.items_count_${itemCount === 1 ? "one" : "other"}`, { count: itemCount })}
                         </span>
                         <span class="text-primary-600 group-hover:underline">
-                            Explore →
+                            ${window.t("category.explore") || "Explore \u2192"}
                         </span>
                     </div>
                 </a>
@@ -2079,7 +2092,7 @@ function renderAllCategoriesPage(data) {
         <div class="text-center mt-12">
             <a href="#" class="inline-flex items-center px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
                 <i class="fas fa-home mr-2"></i>
-                Back to Home
+                ${window.t("category.back_to_home") || "Back to Home"}
             </a>
         </div>
     `;
@@ -2132,7 +2145,7 @@ function renderDailyPick(data) {
                     <p class="text-sm text-gray-600 mt-2">${escPickDesc}</p>
                 </div>
                 <a href="#category/${categoryKey}" class="mt-4 bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded-lg font-medium text-center">
-                    View & Download
+                    ${window.t("category.view_download") || "View & Download"}
                 </a>
             </div>
         </div>
@@ -2162,23 +2175,23 @@ function renderDailyPickPage(dailyPickData) {
   return `
         <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 py-2">
             <a href="#" class="hover:text-primary-600 transition-colors flex items-center">
-                <i class="fas fa-home mr-1"></i> Home
+                <i class="fas fa-home mr-1"></i> ${window.t("breadcrumb_home") || "Home"}
             </a>
             <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
-            <span class="font-medium text-gray-800">Today's Special Pick</span>
+            <span class="font-medium text-gray-800">${window.t("daily_pick.breadcrumb_title") || "Today's Special Pick"}</span>
         </nav>
-        
+
         <div class="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-8 text-white mb-8">
             <div class="flex items-center mb-4">
                 <div class="bg-white bg-opacity-20 rounded-full p-3 mr-4">
                     <i class="fas fa-star text-2xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-3xl font-bold">Today's Special Pick</h1>
+                    <h1 class="text-3xl font-bold">${window.t("daily_pick.h1") || "Today's Special Pick"}</h1>
                     <p class="text-white text-opacity-90">${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
                 </div>
             </div>
-            <p class="text-lg text-white text-opacity-90">A hand-selected coloring page designed to inspire creativity and relaxation.</p>
+            <p class="text-lg text-white text-opacity-90">${window.t("daily_pick.desc") || "A hand-selected coloring page designed to inspire creativity and relaxation."}</p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -2220,34 +2233,34 @@ function renderDailyPickPage(dailyPickData) {
                 
                 <div class="mt-6 space-y-3">
                     <button onclick="window.print()" class="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center">
-                        <i class="fas fa-print mr-2"></i> Print This Page
+                        <i class="fas fa-print mr-2"></i> ${window.t("daily_pick.print") || "Print This Page"}
                     </button>
-                    
+
                     <a href="#category/${categoryKey}" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 px-6 rounded-lg font-medium flex items-center justify-center">
-                        <i class="fas fa-th-large mr-2"></i> Browse ${categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1)} Category
+                        <i class="fas fa-th-large mr-2"></i> ${window.t("daily_pick.browse_category").replace("{{category}}", categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1))}
                     </a>
                 </div>
             </div>
         </div>
         
         <div class="bg-gradient-to-r from-green-500 to-teal-600 rounded-xl p-6 text-white">
-            <h3 class="text-xl font-bold mb-2">Coloring Tips for Today's Pick</h3>
+            <h3 class="text-xl font-bold mb-2">${window.t("daily_pick.tips_header") || "Coloring Tips for Today's Pick"}</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div class="flex items-start">
                     <i class="fas fa-lightbulb mr-2 mt-1"></i>
-                    <span>Start with lighter colors and gradually build up intensity for depth.</span>
+                    <span>${window.t("coloring_tips.tip_1") || "Start with lighter colors and gradually build up intensity for depth."}</span>
                 </div>
                 <div class="flex items-start">
                     <i class="fas fa-palette mr-2 mt-1"></i>
-                    <span>Use complementary colors to make certain elements pop from the background.</span>
+                    <span>${window.t("coloring_tips.tip_2") || "Use complementary colors to make certain elements pop from the background."}</span>
                 </div>
                 <div class="flex items-start">
                     <i class="fas fa-pencil-alt mr-2 mt-1"></i>
-                    <span>Consider using different textures and patterns within each section.</span>
+                    <span>${window.t("coloring_tips.tip_3") || "Consider using different textures and patterns within each section."}</span>
                 </div>
                 <div class="flex items-start">
                     <i class="fas fa-heart mr-2 mt-1"></i>
-                    <span>Remember, there's no right or wrong way - let your creativity flow!</span>
+                    <span>${window.t("coloring_tips.tip_4") || "Remember, there's no right or wrong way - let your creativity flow!"}</span>
                 </div>
             </div>
         </div>
@@ -2393,7 +2406,11 @@ function renderRecentAdditions(data) {
 
 function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "popular") {
   if (!categoryData) {
-    return '<p class="text-center text-red-500">Category not found.</p>';
+    return (
+      '<p class="text-center text-red-500">' +
+      (window.t ? window.t("category.not_found_title") : "Category not found.") +
+      "</p>"
+    );
   }
 
   const categoryIcon = getCategoryIcon(categoryKey);
@@ -2494,8 +2511,8 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
             <nav class="flex items-center space-x-2" aria-label="Pagination">
                 ${
                   currentPage > 1
-                    ? `<button onclick="goToPage('${categoryKey}', ${currentPage - 1}, '${sortBy}')" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">Previous</button>`
-                    : `<span class="px-3 py-1 rounded-md bg-gray-200 text-gray-500 cursor-not-allowed">Previous</span>`
+                    ? `<button onclick="goToPage('${categoryKey}', ${currentPage - 1}, '${sortBy}')" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">${window.t("pagination.previous") || "Previous"}</button>`
+                    : `<span class="px-3 py-1 rounded-md bg-gray-200 text-gray-500 cursor-not-allowed">${window.t("pagination.previous") || "Previous"}</span>`
                 }
     `;
 
@@ -2517,8 +2534,8 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
   html += `
                 ${
                   currentPage < totalPages
-                    ? `<button onclick="goToPage('${categoryKey}', ${currentPage + 1}, '${sortBy}')" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">Next</button>`
-                    : `<span class="px-3 py-1 rounded-md bg-gray-200 text-gray-500 cursor-not-allowed">Next</span>`
+                    ? `<button onclick="goToPage('${categoryKey}', ${currentPage + 1}, '${sortBy}')" class="px-3 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">${window.t("pagination.next") || "Next"}</button>`
+                    : `<span class="px-3 py-1 rounded-md bg-gray-200 text-gray-500 cursor-not-allowed">${window.t("pagination.next") || "Next"}</span>`
                 }
             </nav>
         </div>
@@ -2656,7 +2673,11 @@ function getCurrentSortFromHash() {
 
 function renderItem(itemData, categoryKey, itemKey) {
   if (!itemData) {
-    return '<p class="text-center text-red-500">Item not found.</p>';
+    return (
+      '<p class="text-center text-red-500">' +
+      (window.t("item.not_found") || "Item not found.") +
+      "</p>"
+    );
   }
 
   const category = siteData.categories[categoryKey] ||
@@ -2764,26 +2785,26 @@ function renderItem(itemData, categoryKey, itemKey) {
 
             <!-- Controls & Info Area -->
             <div class="lg:w-1/4 flex flex-col gap-4 actions-panel">
-                <h2 class="text-xl font-semibold pb-2 border-b" style="color: var(--text-color); border-color: var(--border-color);" id="item-actions-heading">Actions</h2>
+                <h2 class="text-xl font-semibold pb-2 border-b" style="color: var(--text-color); border-color: var(--border-color);" id="item-actions-heading">${window.t("item.actions") || "Actions"}</h2>
                 <a href="${imageUrl}" download="${categoryKey}-${itemKey}-${downloadSlug}.jpg"
                    aria-label="Download image of ${escTitle}"
                    onclick="if (window.analytics &amp;&amp; window.analytics.track) { window.analytics.track('download'); }"
                    class="block w-full text-center bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition duration-300">
-                   Download Image
+                   ${window.t("item.download") || "Download Image"}
                 </a>
                 <button onclick="printColoringPage('${jsTitle}')"
                         aria-label="Print ${escTitle} coloring page"
                         class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition duration-300">
-                   Print Coloring Page
+                   ${window.t("item.print") || "Print Coloring Page"}
                 </button>
                 <button onclick="sharePage('${jsTitle}', window.location.href)"
                         aria-label="Share ${escTitle} page"
                         class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition duration-300">
-                   Share
+                   ${window.t("item.share") || "Share"}
                 </button>
                  <a href="#donate"
                         class="w-full text-center bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded transition duration-300">
-                    Support Us (Donate)
+                    ${window.t("footer.donate") || "Support Us (Donate)"}
                  </a>
                 <!-- Favorite toggle. Reads initial state at render time;
                      the click handler updates localStorage, classes, and the
@@ -2798,17 +2819,17 @@ function renderItem(itemData, categoryKey, itemKey) {
 
                 <h2 class="text-xl font-semibold pb-2 mt-4 border-b" style="color: var(--text-color); border-color: var(--border-color);" id="item-navigation-heading">Navigation</h2>
                  <div class="flex justify-between gap-2">
-                    ${prevItemKey ? `<a href="#item/${categoryKey}/${prevItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">&laquo; Previous</a>` : '<div class="flex-1"></div>'}
-                    ${nextItemKey ? `<a href="#item/${categoryKey}/${nextItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">Next &raquo;</a>` : '<div class="flex-1"></div>'}
+                    ${prevItemKey ? `<a href="#item/${categoryKey}/${prevItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">&laquo; ${window.t("item.nav_previous") || "Previous"}</a>` : '<div class="flex-1"></div>'}
+                    ${nextItemKey ? `<a href="#item/${categoryKey}/${nextItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">${window.t("item.nav_next") || "Next"} &raquo;</a>` : '<div class="flex-1"></div>'}
                  </div>
                  <a href="#category/${categoryKey}" class="block text-center mt-2 hover:underline" style="color: var(--accent-color);">Back to ${escCatTitle}</a>
 
                  <!-- Placeholder for Affiliate Links -->
                  <div class="mt-6 pt-4 border-t" style="border-color: var(--border-color);">
-                     <h3 class="text-md font-semibold mb-2" style="color: var(--text-color);">Get Coloring Supplies!</h3>
+                     <h3 class="text-md font-semibold mb-2" style="color: var(--text-color);">${window.t("item.get_supplies") || "Get Coloring Supplies!"}</h3>
                      <a href="#" target="_blank" rel="noopener noreferrer sponsored" class="text-sm hover:underline block" style="color: var(--accent-color);">Shop Pencils on Amazon (Affiliate)</a>
                      <a href="#" target="_blank" rel="noopener noreferrer sponsored" class="text-sm hover:underline block" style="color: var(--accent-color);">Shop Markers on Amazon (Affiliate)</a>
-                     <p class="text-xs mt-1" style="color: var(--text-color); opacity: 0.7;">(As an Amazon Associate we earn from qualifying purchases)</p>
+                     <p class="text-xs mt-1" style="color: var(--text-color); opacity: 0.7;">${window.t("item.amazon_affiliate") || "(As an Amazon Associate we earn from qualifying purchases)"}</p>
                  </div>
             </div>
         </div>
@@ -2819,7 +2840,7 @@ function renderItem(itemData, categoryKey, itemKey) {
         <!-- Placeholder for Ads -->
         <div class="mt-8 p-4 rounded-lg text-center border"
             style="background-color: var(--bg-color); color: var(--text-color); border-color: var(--border-color); opacity: 0.8;">
-            Advertisement Placeholder
+            ${window.t("item.advertisement_placeholder") || "Advertisement Placeholder"}
         </div>
     `;
   return html;
@@ -3041,9 +3062,9 @@ async function loadImageWithRetry(imageElement, src, maxRetries = 3, abortContro
           errorIndicator.innerHTML = `
             <div class="text-center p-4">
               <i class="fas fa-exclamation-triangle text-red-400 text-3xl mb-2"></i>
-              <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">Image unavailable</p>
+              <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">${window.t("item.image_unavailable") || "Image unavailable"}</p>
               <button class="retry-image-btn px-3 py-1 bg-primary-500 text-white text-xs rounded-full hover:bg-primary-600 transition">
-                <i class="fas fa-redo mr-1"></i> Retry
+                <i class="fas fa-redo mr-1"></i> ${window.t("item.retry") || "Retry"}
               </button>
             </div>`;
           // Add retry click handler
@@ -3077,7 +3098,10 @@ function toggleFavoriteFromItem(categoryKey, itemKey, btnEl) {
   const mgr = window.FavoritesManager;
   if (!mgr || typeof mgr.isFavorite !== "function") {
     if (typeof showToast === "function") {
-      showToast("Favorites unavailable right now.", "error");
+      showToast(
+        window.t ? window.t("favorite.unavailable") : "Favorites unavailable right now.",
+        "error"
+      );
     }
     return;
   }
@@ -3091,7 +3115,10 @@ function toggleFavoriteFromItem(categoryKey, itemKey, btnEl) {
   }
   if (!itemData) {
     if (typeof showToast === "function") {
-      showToast("Couldn't find that item to save.", "error");
+      showToast(
+        window.t ? window.t("favorite.not_found") : "Couldn't find that item to save.",
+        "error"
+      );
     }
     return;
   }
@@ -3153,7 +3180,10 @@ function printColoringPage(title) {
     const actualSrc = img.getAttribute("data-src");
     // Show loading toast
     if (typeof showToast === "function") {
-      showToast("Preparing coloring page for printing...", "info");
+      showToast(
+        window.t ? window.t("print.preparing") : "Preparing coloring page for printing...",
+        "info"
+      );
     }
 
     const tempImg = new Image();
@@ -3162,9 +3192,9 @@ function printColoringPage(title) {
     };
     tempImg.onerror = function () {
       if (typeof showToast === "function") {
-        showToast("Error preparing image for print.", "error");
+        showToast(window.t ? window.t("print.error") : "Error preparing image for print.", "error");
       } else {
-        alert("Error preparing image for print.");
+        alert(window.t ? window.t("print.error") : "Error preparing image for print.");
       }
     };
     tempImg.src = actualSrc;
@@ -3286,10 +3316,10 @@ function printColoringPage(title) {
                 <h1>${escPageTitle} - Coloring Page</h1>
                 <img src="${imgSrc}" alt="${escPageTitle}">
                 <div class="footer">
-                    <p>Downloaded from ColorVerse - Free Personalized Coloring Pages</p>
+                    <p>Downloaded from ${window.t("app.title") || "ColorVerse"} - ${window.t("seo.main.description") || "Free Personalized Coloring Pages"}</p>
                     <p class="no-print">
                         <button onclick="window.print();" class="print-button">
-                            Click to Print
+                            ${window.t("homepage.print_page") || "Click to Print"}
                         </button>
                     </p>
                 </div>
@@ -3396,12 +3426,13 @@ function openShareModal(title, url, triggerEl) {
 
   const copyUrl = escapeHtml(url);
   const modalHtml = `
-      <div id="share-modal" role="dialog" aria-modal="true" aria-label="Share this page"
+      <div id="share-modal" role="dialog" aria-modal="true" aria-label="${window.t("sharing.title") || "Share this page"}"
            class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm p-5">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Share this page</h3>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100" id="share-modal-title">${window.t("sharing.title") || "Share this page"}</h3>
           <button type="button" id="share-modal-close" aria-label="Close share options"
-                  class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none px-1">
+                  class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none px-1"
+                  aria-label="${window.t("share.close_label") || "Close share options"}">
             <i class="fas fa-times" aria-hidden="true"></i>
           </button>
         </div>
@@ -3410,7 +3441,7 @@ function openShareModal(title, url, triggerEl) {
           <button type="button" id="share-modal-copy" data-share-copy-url="${copyUrl}"
                   class="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-lg font-bold transition duration-200 bg-blue-500 hover:bg-blue-600 text-white"
                   aria-label="Copy link to clipboard">
-            <i class="fas fa-link text-lg" aria-hidden="true"></i>Copy Link
+            <i class="fas fa-link text-lg" aria-hidden="true"></i>${window.t("sharing.copy_link") || "Copy Link"}
           </button>
         </div>
       </div>
@@ -3498,11 +3529,11 @@ function openShareModal(title, url, triggerEl) {
     if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
       navigator.clipboard.writeText(copyTarget).then(
         () => {
-          showToast("Link copied!", "success");
+          showToast(window.t ? window.t("share.copy_success") : "Link copied!", "success");
           close();
         },
         () => {
-          showToast("Could not copy link", "error");
+          showToast(window.t ? window.t("share.copy_error") : "Could not copy link", "error");
         }
       );
     } else {
@@ -3523,10 +3554,10 @@ function openShareModal(title, url, triggerEl) {
       }
       helper.parentNode.removeChild(helper);
       if (ok) {
-        showToast("Link copied!", "success");
+        showToast(window.t ? window.t("share.copy_success") : "Link copied!", "success");
         close();
       } else {
-        showToast("Could not copy link", "error");
+        showToast(window.t ? window.t("share.copy_error") : "Could not copy link", "error");
       }
     }
   });
@@ -3581,7 +3612,7 @@ function renderDashboardShell(state, detail) {
   // state: "loading" | "error" | "empty" | "disabled" | "data"
   const heading = `
     <div class="mb-6">
-      <h1 class="text-3xl font-bold mb-2">Analytics Dashboard</h1>
+      <h1 class="text-3xl font-bold mb-2">${window.t("static.analytics.title") || "Analytics Dashboard"}</h1>
       <p class="text-gray-600 dark:text-gray-400">
         Aggregate event counts served by the content-api worker.
       </p>
@@ -3638,7 +3669,7 @@ function renderDashboardEventsTable(events) {
     .join("");
   return `
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
-      <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Events by type</h2>
+      <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">${window.t("dashboard.events_by_type") || "Events by type"}</h2>
       <table class="w-full text-left">
         <thead>
           <tr class="text-sm uppercase text-gray-500 dark:text-gray-400">
@@ -3732,9 +3763,9 @@ function renderDashboard() {
         mainContent.innerHTML =
           renderDashboardShell("data") +
           `<div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-8 text-center">
-            <p class="text-gray-700 dark:text-gray-300">No analytics data yet.</p>
+            <p class="text-gray-700 dark:text-gray-300">${window.t("dashboard.no_data_yet") || "No analytics data yet."}</p>
             <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Events will appear here once the site starts sending them to the worker.
+              ${window.t("dashboard.events_waiting") || "Events will appear here once the site starts sending them to the worker."}
             </p>
           </div>`;
         return;
@@ -3853,7 +3884,7 @@ function renderSearchPage(query) {
                 <input type="search" id="search-page-input" name="q" value="${escapeHtml(query || "")}"
                     placeholder="${window.t("search.form_placeholder")}"
                     class="flex-1 rounded-lg px-4 py-2 text-gray-800 bg-white border-none focus:outline-none focus:ring-2 focus:ring-white"
-                    aria-label="Search coloring pages">
+                    aria-label="${window.t("search.placeholder") || "Search coloring pages"}">
                 <button type="submit" class="bg-primary-700 hover:bg-primary-800 text-white font-medium px-5 py-2 rounded-lg transition-colors">
                     <i class="fas fa-search mr-2"></i>${window.t("search.form_button")}
                 </button>
@@ -4124,7 +4155,10 @@ function handleRouteChange() {
           mainContent.classList.remove("hidden");
           updateSEO({ type: "item", categoryKey, item: itemData, itemKey });
         } else {
-          mainContent.innerHTML = '<p class="text-center text-red-500">Invalid item URL.</p>';
+          mainContent.innerHTML =
+            '<p class="text-center text-red-500">' +
+            (window.t("item.invalid_url") || "Invalid item URL.") +
+            "</p>";
           mainContent.classList.remove("hidden");
           updateSEO({ type: "home" });
         }
@@ -4134,8 +4168,9 @@ function handleRouteChange() {
         mainContent.classList.add("hidden");
         updateSEO({
           type: "static",
-          title: "About ColorVerse",
-          description: "About the ColorVerse project and team.",
+          title: window.t("static.about.title") || "About ColorVerse",
+          description:
+            window.t("static.about.description") || "About the ColorVerse project and team.",
         });
       } else if (hash === "#privacy") {
         // Show static privacy policy content
@@ -4143,8 +4178,10 @@ function handleRouteChange() {
         mainContent.classList.add("hidden");
         updateSEO({
           type: "static",
-          title: "Privacy Policy",
-          description: "How ColorVerse handles your data and privacy.",
+          title: window.t("static.privacy.title") || "Privacy Policy",
+          description:
+            window.t("static.privacy.description") ||
+            "How ColorVerse handles your data and privacy.",
         });
       } else if (hash === "#terms") {
         // Show static terms of service content
@@ -4152,8 +4189,9 @@ function handleRouteChange() {
         mainContent.classList.add("hidden");
         updateSEO({
           type: "static",
-          title: "Terms of Service",
-          description: "Terms of service for using ColorVerse.",
+          title: window.t("static.terms.title") || "Terms of Service",
+          description:
+            window.t("static.terms.description") || "Terms of service for using ColorVerse.",
         });
       } else if (hash === "#contact") {
         // Show static contact page content
@@ -4161,8 +4199,9 @@ function handleRouteChange() {
         mainContent.classList.add("hidden");
         updateSEO({
           type: "static",
-          title: "Contact Us",
-          description: "Get in touch with the ColorVerse team.",
+          title: window.t("static.contact.title") || "Contact Us",
+          description:
+            window.t("static.contact.description") || "Get in touch with the ColorVerse team.",
         });
       } else if (hash === "#daily-pick") {
         // Handle Today's Special Pick page
@@ -4179,27 +4218,27 @@ function handleRouteChange() {
         mainContent.innerHTML = `
                     <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm py-2">
                         <a href="#" class="hover:text-primary-600 transition-colors flex items-center opacity-70">
-                            <i class="fas fa-home mr-1"></i> Home
+                            <i class="fas fa-home mr-1"></i> ${window.t("breadcrumb_home") || "Home"}
                         </a>
                         <i class="fas fa-chevron-right mx-2 opacity-50"></i>
-                        <span class="font-medium">Support ColorVerse</span>
+                        <span class="font-medium">${window.t("footer.donate") || "Support ColorVerse"}</span>
                     </nav>
-                    
-                    <h1 class="text-3xl font-bold mb-6">Support ColorVerse</h1>
+
+                    <h1 class="text-3xl font-bold mb-6">${window.t("footer.donate") || "Support ColorVerse"}</h1>
                     
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-8">
-                        <h2 class="text-2xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Why Support Us?</h2>
-                        <p class="mb-4 text-gray-700 dark:text-gray-300">ColorVerse is dedicated to making high-quality coloring pages accessible to everyone. We provide all our content for free, but maintaining and improving our platform requires resources. Your support helps us:</p>
-                        
+                        <h2 class="text-2xl font-semibold mb-4 text-gray-900 dark:text-gray-100">${window.t("donate.why_title") || "Why Support Us?"}</h2>
+                        <p class="mb-4 text-gray-700 dark:text-gray-300">${window.t("donate.body") || "ColorVerse is dedicated to making high-quality coloring pages accessible to everyone. We provide all our content for free, but maintaining and improving our platform requires resources. Your support helps us:"}</p>
+
                         <ul class="list-disc ml-6 mb-6 space-y-2 text-gray-700 dark:text-gray-300">
-                            <li>Keep our coloring pages completely free for everyone</li>
-                            <li>Develop new features and improve our personalization technology</li>
-                            <li>Add more diverse categories and designs</li>
-                            <li>Cover our server and development costs</li>
-                            <li>Keep ads minimal and non-intrusive</li>
+                            <li>${window.t("donate.benefits.1") || "Keep our coloring pages completely free for everyone"}</li>
+                            <li>${window.t("donate.benefits.2") || "Develop new features and improve our personalization technology"}</li>
+                            <li>${window.t("donate.benefits.3") || "Add more diverse categories and designs"}</li>
+                            <li>${window.t("donate.benefits.4") || "Cover our server and development costs"}</li>
+                            <li>${window.t("donate.benefits.5") || "Keep ads minimal and non-intrusive"}</li>
                         </ul>
-                        
-                        <p class="text-gray-700 dark:text-gray-300">Every contribution, no matter the size, makes a difference in our ability to continue providing this creative resource.</p>
+
+                        <p class="text-gray-700 dark:text-gray-300">${window.t("donate.footnote") || "Every contribution, no matter the size, makes a difference in our ability to continue providing this creative resource."}</p>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
@@ -4222,7 +4261,7 @@ function handleRouteChange() {
                                     <i class="fab fa-paypal mr-2"></i> PayPal
                                 </button>
                                 <button class="flex-1 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors flex items-center justify-center">
-                                    <i class="fas fa-credit-card mr-2"></i> Card
+                                    <i class="fas fa-credit-card mr-2"></i> ${window.t("donate.card") || "Card"}
                                 </button>
                             </div>
                         </div>
@@ -4230,9 +4269,9 @@ function handleRouteChange() {
                         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
                             <h2 class="text-2xl font-semibold mb-4 flex items-center text-gray-900 dark:text-gray-100">
                                 <i class="fas fa-star text-yellow-500 mr-3"></i>
-                                Become a Patron
+                                ${window.t("donate.become_patron") || "Become a Patron"}
                             </h2>
-                            <p class="mb-6 text-gray-700 dark:text-gray-300">Support us monthly and receive special perks as a thank you for your ongoing support!</p>
+                            <p class="mb-6 text-gray-700 dark:text-gray-300">${window.t("donate.monthly_message") || "Support us monthly and receive special perks as a thank you for your ongoing support!"}</p>
                             
                             <div class="space-y-6">
                                 <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -4244,7 +4283,7 @@ function handleRouteChange() {
                                 </div>
                                 
                                 <div class="p-4 border-2 border-primary-500 rounded-lg relative">
-                                    <span class="absolute top-0 right-0 transform translate-x-1/3 -translate-y-1/2 bg-primary-500 text-white px-3 py-1 rounded-full text-sm font-medium">Popular</span>
+                                    <span class="absolute top-0 right-0 transform translate-x-1/3 -translate-y-1/2 bg-primary-500 text-white px-3 py-1 rounded-full text-sm font-medium">${window.t("donate.popular_badge") || "Popular"}</span>
                                     <h3 class="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Creative Supporter - $10/month</h3>
                                     <ul class="text-sm space-y-1 mb-3 text-gray-600 dark:text-gray-400">
                                         <li>• All Art Enthusiast benefits</li>
@@ -4255,51 +4294,53 @@ function handleRouteChange() {
                             </div>
                             
                             <a href="https://patreon.com/" target="_blank" rel="noopener noreferrer" class="mt-6 block w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors text-center">
-                                <i class="fab fa-patreon mr-2"></i> Join on Patreon
+                                <i class="fab fa-patreon mr-2"></i> ${window.t("donate.patreon_cta") || "Join on Patreon"}
                             </a>
                         </div>
                     </div>
                     
                     <div class="accent-panel p-6 text-white mb-8">
-                        <h2 class="text-2xl font-semibold mb-4">Other Ways to Support</h2>
+                        <h2 class="text-2xl font-semibold mb-4">${window.t("support.other_ways") || "Other Ways to Support"}</h2>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
                                 <div class="rounded-full bg-white bg-opacity-20 w-16 h-16 flex items-center justify-center text-3xl mb-4">
                                     <i class="fas fa-share-alt"></i>
                                 </div>
-                                <h3 class="text-xl font-medium mb-2">Share ColorVerse</h3>
-                                <p class="text-white text-opacity-90">Help us grow by sharing ColorVerse with friends, family, and on social media.</p>
+                                <h3 class="text-xl font-medium mb-2">${window.t("share_modal.title") || "Share ColorVerse"}</h3>
+                                <p class="text-white text-opacity-90">${window.t("support.share_desc") || "Help us grow by sharing ColorVerse with friends, family, and on social media."}</p>
                             </div>
                             
                             <div>
                                 <div class="rounded-full bg-white bg-opacity-20 w-16 h-16 flex items-center justify-center text-3xl mb-4">
                                     <i class="fas fa-comment"></i>
                                 </div>
-                                <h3 class="text-xl font-medium mb-2">Provide Feedback</h3>
-                                <p class="text-white text-opacity-90">Your input helps us improve! Let us know what you like and how we can make ColorVerse even better.</p>
+                                <h3 class="text-xl font-medium mb-2">${window.t("support.feedback_title") || "Provide Feedback"}</h3>
+                                <p class="text-white text-opacity-90">${window.t("support.feedback_desc") || "Your input helps us improve! Let us know what you like and how we can make ColorVerse even better."}</p>
                             </div>
                             
                             <div>
                                 <div class="rounded-full bg-white bg-opacity-20 w-16 h-16 flex items-center justify-center text-3xl mb-4">
                                     <i class="fas fa-envelope"></i>
                                 </div>
-                                <h3 class="text-xl font-medium mb-2">Subscribe</h3>
-                                <p class="text-white text-opacity-90">Join our newsletter to stay updated and engaged with our growing community.</p>
+                                <h3 class="text-xl font-medium mb-2">${window.t("newsletter.section_title") || "Subscribe"}</h3>
+                                <p class="text-white text-opacity-90">${window.t("support.newsletter_desc") || "Join our newsletter to stay updated and engaged with our growing community."}</p>
                             </div>
                         </div>
                     </div>
                     
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 text-center">
-                        <h2 class="text-2xl font-semibold mb-3 text-gray-900 dark:text-gray-100">Thank You!</h2>
-                        <p class="mb-4 text-gray-700 dark:text-gray-300">We're grateful for every form of support. Your contributions help us continue to provide free, high-quality coloring pages to our community.</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">ColorVerse is not a registered non-profit organization. Donations are not tax-deductible.</p>
+                        <h2 class="text-2xl font-semibold mb-3 text-gray-900 dark:text-gray-100">${window.t("support.thank_you") || "Thank You!"}</h2>
+                        <p class="mb-4 text-gray-700 dark:text-gray-300">${window.t("support.thank_you_desc") || "We're grateful for every form of support. Your contributions help us continue to provide free, high-quality coloring pages to our community."}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">${window.t("support.not_for_profit") || "ColorVerse is not a registered non-profit organization. Donations are not tax-deductible."}</p>
                     </div>
                 `;
         mainContent.classList.remove("hidden");
         updateSEO({
           type: "static",
-          title: "Support ColorVerse",
-          description: "Support ColorVerse and keep our coloring pages free for everyone.",
+          title: window.t("footer.donate") || "Support ColorVerse",
+          description:
+            window.t("footer.donate_desc") ||
+            "Support ColorVerse and keep our coloring pages free for everyone.",
         });
       } else if (hash === "#all-categories") {
         // Show all categories page
@@ -4316,13 +4357,20 @@ function handleRouteChange() {
           mainContent.classList.remove("hidden");
         } else {
           mainContent.innerHTML =
-            '<div class="text-center py-8 text-red-500"><h2>Favorites unavailable</h2><p>The favorites service could not be loaded.</p></div>';
+            '<div class="text-center py-8 text-red-500"><h2>' +
+            (window.t ? window.t("static.favorites.heading") : "My Favorites") +
+            "</h2><p>" +
+            (window.t
+              ? window.t("static.favorites.description")
+              : "Your saved coloring pages on ColorVerse.") +
+            "</p></div>";
           mainContent.classList.remove("hidden");
         }
         updateSEO({
           type: "static",
-          title: "My Favorites",
-          description: "Your saved coloring pages on ColorVerse.",
+          title: window.t("nav.favorites") || "My Favorites",
+          description:
+            window.t("static.favorites.description") || "Your saved coloring pages on ColorVerse.",
         });
       } else if (hash === "#dashboard") {
         // Admin-only analytics dashboard. Deliberately absent from the main
@@ -4330,8 +4378,10 @@ function handleRouteChange() {
         renderDashboard();
         updateSEO({
           type: "static",
-          title: "Analytics Dashboard",
-          description: "Internal analytics dashboard for ColorVerse.",
+          title: window.t("static.analytics.title") || "Analytics Dashboard",
+          description:
+            window.t("static.analytics.description") ||
+            "Internal analytics dashboard for ColorVerse.",
         });
       } else if (hash.startsWith("#search")) {
         // Search: #search or #search?q=term
@@ -4376,8 +4426,10 @@ function handleRouteChange() {
         updateSEO({
           type: "static",
           title: trimmedQuery
-            ? `Search Results for ${trimmedQuery} — ColorVerse`
-            : "Search Coloring Pages — ColorVerse",
+            ? `${trimmedQuery} ${window.t ? window.t("seo.search.title") : "Search Coloring Pages — ColorVerse"}`
+            : window.t
+              ? window.t("seo.search.title")
+              : "Search Coloring Pages — ColorVerse",
           description: trimmedQuery
             ? `Free printable coloring pages matching "${trimmedQuery}". Download and print high-quality coloring sheets for kids.`
             : "Search hundreds of free printable coloring pages by name, category, or theme.",
@@ -4385,15 +4437,17 @@ function handleRouteChange() {
       } else {
         // Handle any other routes
         mainContent.innerHTML = `<div class="text-center py-8">
-                    <h1 class="text-2xl font-semibold mb-4">Page Not Found</h1>
-                    <p class="mb-4">Sorry, the page you're looking for doesn't exist or is still under construction.</p>
-                    <a href="#" class="inline-block bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">Return Home</a>
+                    <h1 class="text-2xl font-semibold mb-4">${window.t ? window.t("common.page_not_found") : "Page Not Found"}</h1>
+                    <p class="mb-4">${window.t ? window.t("common.page_not_found_desc") : "Sorry, the page you're looking for doesn't exist or is still under construction."}</p>
+                    <a href="#" class="inline-block bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">${window.t ? window.t("search.return_home") : "Return Home"}</a>
                 </div>`;
         mainContent.classList.remove("hidden");
         updateSEO({
           type: "static",
-          title: "Page Not Found",
-          description: "The page you're looking for doesn't exist.",
+          title: window.t ? window.t("common.page_not_found") : "Page Not Found",
+          description: window.t
+            ? window.t("seo.search.description")
+            : "Search hundreds of free printable coloring pages by name, category, or theme.",
         });
       }
     } catch (error) {
@@ -5152,7 +5206,7 @@ async function renderCategoryWithProgressiveLoading(
     mainContent.innerHTML = `
             <div class="text-center py-8">
                 <div class="spinner inline-block mr-2"></div>
-                <span>Loading category...</span>
+                <span>${window.t("category.loading") || "Loading category..."}</span>
             </div>
         `;
 
@@ -5160,8 +5214,8 @@ async function renderCategoryWithProgressiveLoading(
     const categoryData = await ensureCategoryLoaded(categoryKey);
 
     if (!categoryData) {
-      mainContent.innerHTML =
-        '<div class="text-center py-8 text-red-500"><h1>Category not found</h1><p>The requested category could not be loaded.</p><button onclick="window.location.hash = \'#\'" class="mt-4 px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">Return Home</button></div>';
+      const t = window.t ? window.t.bind(window) : k => k;
+      mainContent.innerHTML = `<div class="text-center py-8 text-red-500"><h1>${t("category.not_found_title")}</h1><p>${t("category.not_found_desc")}</p><button onclick="window.location.hash = '#'" class="mt-4 px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">${t("search.return_home")}</button></div>`;
       mainContent.classList.remove("hidden");
       showLoading(false);
       return;
@@ -5184,10 +5238,10 @@ async function renderCategoryWithProgressiveLoading(
     const escErrorMsg = escapeHtml(error.message);
     mainContent.innerHTML = `
             <div class="text-center py-8 text-red-500">
-                <h1>Error Loading Category</h1>
+                <h1>${window.t("common.error_loading_category") || "Error Loading Category"}</h1>
                 <p>${escErrorMsg}</p>
                 <button onclick="window.location.hash = '#'" class="mt-4 px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">
-                    Return Home
+                    ${window.t("search.return_home") || "Return Home"}
                 </button>
             </div>
         `;
