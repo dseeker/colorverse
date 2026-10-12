@@ -600,6 +600,11 @@
     <script type="module" src="src/services/imageLoader.js?v=2"></script>
     <!-- Optimized Cache Manager -->
     <script type="module" src="src/services/cacheManager.js?v=2"></script>
+    <!-- i18next CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/i18next@23.11.5/dist/umd/i18next.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/i18next-http-backend@1.5.15/dist/umd/i18nextHttpBackend.min.js"></script>
+    <!-- i18n Manager -->
+    <script type="module" src="src/services/i18nManager.js"></script>
     <!-- Structured Data -->
     <script type="application/ld+json">
     {
@@ -736,6 +741,13 @@
                                 <span class="sr-only">Colorful Mode</span>
                             </button>
                         </div>
+                        <!-- Language Selector -->
+                        <select id="language-selector" class="bg-white bg-opacity-20 text-white rounded-lg p-2 pr-8 border-none appearance-none focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all cursor-pointer ml-2" title="Language" aria-label="Language">
+                            <option value="en">English</option>
+                            <option value="pt">Português</option>
+                        </select>
+                        <i class="fas fa-chevron-down absolute right-2 top-1/2 transform -translate-y-1/2 text-white pointer-events-none"></i>
+
                         <a href="#donate"
                             class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center ml-4">
                             <i class="fas fa-heart mr-2" aria-hidden="true"></i> Donate
@@ -1414,11 +1426,38 @@
     <script type="module" src="src/services/searchManager.js"></script>
     <script src="app.js"></script>
 
-    <!-- Theme Switcher and Refresh Script -->
+    <!-- Theme Switcher, Language Switcher and Refresh Script -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // Initialize i18n if available
+            if (typeof window.cvI18n !== 'undefined') {
+                window.cvI18n.initI18n().then(function(locale) {
+                    console.log('i18n initialized with locale:', locale);
+                    updateLanguageSelector(locale);
+                }).catch(function(err) {
+                    console.warn('i18n initialization failed:', err);
+                });
+            }
+
+            // Language selector handler
+            var langSelector = document.getElementById('language-selector');
+            if (langSelector) {
+                langSelector.addEventListener('change', function(e) {
+                    var newLocale = e.target.value;
+                    if (typeof window.cvI18n !== 'undefined') {
+                        window.cvI18n.switchLocale(newLocale).then(function(success) {
+                            if (success) {
+                                console.log('Language changed to:', newLocale);
+                            } else {
+                                console.warn('Failed to switch language to:', newLocale);
+                            }
+                        });
+                    }
+                });
+            }
+
             // Theme switching functionality
-            const themeLight = document.getElementById('theme-light');
+            var themeLight = document.getElementById('theme-light');
             const themeDark = document.getElementById('theme-dark');
             const themeColorful = document.getElementById('theme-colorful');
             const refreshButton = document.getElementById('refresh-content');
