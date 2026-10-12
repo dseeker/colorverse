@@ -6,6 +6,22 @@
 const PLACEHOLDER_IMAGE =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
+/**
+ * Escape HTML special characters to prevent XSS when interpolating
+ * user/AI-generated content into HTML template strings.
+ */
+function escapeHtml(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 class SearchManager {
   constructor() {
     this.searchIndex = [];
@@ -200,36 +216,42 @@ class SearchManager {
     }
 
     const resultsHtml = results
-      .map(
-        result => `
+      .map(result => {
+        // Escape AI-generated content before any HTML interpolation.
+        const safeTitle = escapeHtml(result.item.title || result.item.name || "");
+        const safeDesc = escapeHtml(
+          result.item.description || "Click to view and print this free coloring page!"
+        );
+        return `
             <div class="relative group" data-item-full='${JSON.stringify(result.item).replace(/'/g, "&#39;")}'>
                 ${window.FavoritesManager ? window.FavoritesManager.createFavoriteButton(result.category, result.item) : ""}
                 <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer category-card"
-                     onclick="window.showItemDetail('${result.category}', '${result.item.key}')">
+                     onclick="window.showItemDetail('${escapeHtml(result.category)}', '${escapeHtml(result.item.key || "")}')">
                     <div class="aspect-square overflow-hidden bg-gray-100 relative">
                         <img src="${PLACEHOLDER_IMAGE}"
                              data-src="${window.getImageUrl ? window.getImageUrl(result.item.description, { width: 400, height: 400, seed: window.getDeterministicSeed ? window.getDeterministicSeed(result.category, result.item.key) : result.item.key ? window.stringToHash(result.item.key) : Math.floor(Math.random() * 100000) }) : ""}"
-                             alt="${result.item.title || result.item.name} coloring page - Free printable ${result.category} coloring sheet for kids"
+                             alt="${safeTitle} coloring page - Free printable ${escapeHtml(result.category)} coloring sheet for kids"
                              class="w-full h-full object-cover lazy-load"
                              loading="lazy"
-                             data-prompt="${result.item.description}"
+                             data-prompt="${safeDesc}"
                              data-width="400"
                              data-height="400"
                              data-seed="${result.item.key ? window.stringToHash(result.item.key) : Math.floor(Math.random() * 100000)}">
                         <div class="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded capitalize">
-                            ${result.categoryName}
+                            ${escapeHtml(result.categoryName)}
                         </div>
                     </div>
                     <div class="p-4">
-                        <h3 class="font-semibold text-gray-800">${this.highlightMatch(result.item.title || result.item.name, query)}</h3>
-                        <p class="text-sm text-gray-500 mt-1">${result.item.description || "Click to view and print this free coloring page!"}</p>
+                        <h3 class="font-semibold text-gray-800">${this.highlightMatch(safeTitle, query)}</h3>
+                        <p class="text-sm text-gray-500 mt-1">${safeDesc}</p>
                     </div>
                 </div>
             </div>
-        `
-      )
+        `;
+      })
       .join("");
 
+    const safeQuery = escapeHtml(query);
     mainContent.innerHTML = `
             <nav aria-label="breadcrumb" class="flex items-center mb-6 text-sm text-gray-600">
                 <a href="#" class="hover:text-primary-600 transition-colors flex items-center" onclick="window.showHomepage(); return false;">
@@ -238,10 +260,10 @@ class SearchManager {
                 <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
                 <span class="font-medium text-gray-800">Search Results</span>
             </nav>
-            
+
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-3xl font-bold">
-                    Search Results for "${query}"
+                    Search Results for "${safeQuery}"
                 </h1>
                 <span class="text-gray-600">${results.length} coloring pages found</span>
             </div>
@@ -353,6 +375,7 @@ class SearchManager {
       return;
     }
 
+    const safeQuery = escapeHtml(query);
     mainContent.innerHTML = `
             <nav aria-label="breadcrumb" class="flex items-center mb-6 text-sm text-gray-600">
                 <a href="#" class="hover:text-primary-600 transition-colors flex items-center" onclick="window.showHomepage(); return false;">
@@ -361,11 +384,11 @@ class SearchManager {
                 <i class="fas fa-chevron-right mx-2 text-gray-400"></i>
                 <span class="font-medium text-gray-800">Search Results</span>
             </nav>
-            
+
             <div class="text-center py-16">
                 <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
                 <h2 class="text-2xl font-semibold text-gray-600 mb-2">No results found</h2>
-                <p class="text-gray-500 mb-6">We couldn't find any coloring pages matching "${query}"</p>
+                <p class="text-gray-500 mb-6">We couldn't find any coloring pages matching "${safeQuery}"</p>
                 
                 <div class="max-w-2xl mx-auto mb-8">
                     <h3 class="font-semibold mb-3">Try searching for:</h3>
