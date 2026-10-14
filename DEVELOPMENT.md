@@ -6,9 +6,9 @@ ColorVerse is a client-side web application that renders AI-generated coloring p
 
 - `index.html` — core page markup, theme switcher, and `window._env` configuration.
 - `app.js` — application logic: routing, rendering, fetching AI images/text, caching, themes.
-- `src/services/` — standalone managers (SEO, search, favorites, cache, tips, image loading, performance, AI provider config).
+- `src/services/` — standalone managers (SEO, search, favorites, cache, tips, image loading, performance, AI provider config, palettes overlay modal).
 - `src/modules/aiProviders.js` — AI provider helpers loaded before `app.js`.
-- `service-worker.js` + `service-worker-register.js` — PWA offline support and caching.
+- `service-worker.js` + `service-worker-register.js` — PWA offline support, caching, and auto-update. SW v4 uses `cacheFirst` for versioned CDN assets, `staleWhileRevalidate` for local code (so users get fresh code within 2 reloads of a deploy), and `networkFirst` for API. The register script reloads on `controllerchange` only when the user is on the homepage — on item/category routes it skips the reload so users mid-coloring don't lose their place.
 - `workers/image-proxy/` and `workers/content-api/` — Cloudflare Workers that proxy Pollinations and keep `sk_*` keys server-side.
 - `build.js` — optional static build that pre-generates text + images into `dist/`.
 - `src/tests/` — Vitest unit and integration tests (Playwright E2E tests live here too, but run separately).

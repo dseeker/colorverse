@@ -4,8 +4,8 @@
  * Version: 1.0.0
  */
 
-const CACHE_NAME = "colorverse-v3";
-const STATIC_CACHE = "colorverse-static-v3";
+const CACHE_NAME = "colorverse-v4";
+const STATIC_CACHE = "colorverse-static-v4";
 const IMAGE_CACHE = "colorverse-images-v1";
 const API_CACHE = "colorverse-api-v1";
 
@@ -97,9 +97,20 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  // Strategy 1: Cache First for static assets
-  if (isStaticAsset(request)) {
+  // Strategy 1a: Cache First for versioned CDN assets (fonts, Tailwind, etc.)
+  // These are URL-versioned by the CDN and never change, so cacheFirst is safe.
+  if (isVersionedAsset(request)) {
     event.respondWith(cacheFirst(request, STATIC_CACHE));
+    return;
+  }
+
+  // Strategy 1b: Stale While Revalidate for local code (app.js, src/**/*.js,
+  // *.css, *.html). This serves the cached version instantly, fetches the
+  // fresh version in the background, and caches it for the NEXT reload.
+  // Within 2 reloads of a deploy, users get the new code — no manual version
+  // bumps needed.
+  if (isLocalCodeAsset(request)) {
+    event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
     return;
   }
 
@@ -120,9 +131,28 @@ self.addEventListener("fetch", event => {
 });
 
 // Helper functions
-function isStaticAsset(request) {
+
+// Versioned CDN assets (Tailwind, Font Awesome, Google Fonts) — URL-stable,
+// never change, so cacheFirst is safe and fastest.
+const VERSIONED_CDN_HOSTS = [
+  "cdn.tailwindcss.com",
+  "cdnjs.cloudflare.com",
+  "fonts.googleapis.com",
+  "fonts.gstatic.com",
+];
+function isVersionedAsset(request) {
   const url = new URL(request.url);
-  // Path relative to the SW scope (e.g. /colorverse/ → "")
+  return (
+    VERSIONED_CDN_HOSTS.some(h => url.hostname === h || url.hostname.endsWith("." + h)) ||
+    // Favicon, robots, manifest — local binaries that don't change between deploys
+    /\.(ico|png|webp|svg|txt|webmanifest)$/.test(url.pathname)
+  );
+}
+
+// Local code assets (app.js, src/**/*.js, *.css, *.html) — these change on
+// every deploy, so we use staleWhileRevalidate to auto-update within 2 reloads.
+function isLocalCodeAsset(request) {
+  const url = new URL(request.url);
   const relPath = url.pathname.startsWith(BASE) ? url.pathname.slice(BASE.length) : url.pathname;
   return (
     STATIC_ASSETS.includes(relPath) ||

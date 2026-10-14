@@ -701,13 +701,14 @@
                             <span class="sr-only">My Favorites</span>
                         </button>
 
-                        <!-- Palettes Button -->
-                        <a href="#palettes"
+                        <!-- Palettes Button (opens overlay, no page navigation) -->
+                        <button type="button"
+                            onclick="window.PalettesManager && window.PalettesManager.openPalettesOverlay()"
                             class="mr-2 sm:mr-3 p-2 rounded-lg text-white bg-purple-500 hover:bg-purple-600 transition-colors"
                             title="Color Palettes" aria-label="Color Palettes">
                             <i class="fas fa-swatchbook" aria-hidden="true"></i>
                             <span class="sr-only">Color Palettes</span>
-                        </a>
+                        </button>
 
                         <!-- Donate Button -->
                         <a href="#donate"

@@ -150,11 +150,208 @@ class PalettesManager {
           </div>
           <p class="text-sm text-gray-500 dark:text-gray-400 mb-3 line-clamp-2">${escDesc}</p>
           <div class="flex gap-2">
-            <button onclick="window.PalettesManager.showPaletteDetail('${escapeHtml(palette.id)}')"
+            <button onclick="window.PalettesManager.openPaletteDetail('${escapeHtml(palette.id)}')"
                     class="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2 px-3 rounded-lg font-medium text-sm transition-colors">
               <i class="fas fa-eye mr-1"></i> View Details
             </button>
           </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // --- Overlay modal system (replaces full-page routes) ---
+  // Keeps the user on their current page; palettes open as a modal on top.
+
+  /**
+   * Open the palettes overlay. If paletteId is provided, open directly to
+   * that palette's detail view; otherwise show the browse grid.
+   */
+  openPalettesOverlay(paletteId) {
+    this.closePalettesOverlay();
+
+    const overlay = document.createElement("div");
+    overlay.id = "palettes-overlay";
+    overlay.className =
+      "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50";
+
+    const content = paletteId
+      ? this.renderPaletteDetailHtml(paletteId)
+      : this.renderPalettesGridHtml();
+
+    overlay.innerHTML = `
+      <div id="palettes-modal" role="dialog" aria-modal="true" aria-label="Color Palettes"
+           class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-6 relative">
+        <div class="flex items-center justify-between mb-4 sticky top-0 bg-white dark:bg-gray-800 pb-3 border-b border-gray-200 dark:border-gray-700 z-10 -mt-6 -mx-6 px-6 pt-6">
+          <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+            <i class="fas fa-swatchbook mr-2 text-purple-500"></i>Color Palettes
+          </h2>
+          <button type="button" id="palettes-close" aria-label="Close palettes"
+                  class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div id="palettes-content">${content}</div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+    document.body.style.overflow = "hidden"; // Prevent background scroll
+
+    // Wire up close interactions
+    overlay.addEventListener("click", e => {
+      if (e.target === overlay || e.target.closest("#palettes-close")) {
+        this.closePalettesOverlay();
+      }
+    });
+
+    this._overlayEscapeHandler = e => {
+      if (e.key === "Escape") {
+        this.closePalettesOverlay();
+      }
+    };
+    document.addEventListener("keydown", this._overlayEscapeHandler);
+
+    // Setup favorite listeners inside the overlay
+    this.setupFavoriteListeners();
+  }
+
+  /**
+   * Close the palettes overlay and clean up listeners.
+   */
+  closePalettesOverlay() {
+    const overlay = document.getElementById("palettes-overlay");
+    if (overlay) {
+      overlay.remove();
+    }
+    document.body.style.overflow = "";
+    if (this._overlayEscapeHandler) {
+      document.removeEventListener("keydown", this._overlayEscapeHandler);
+      this._overlayEscapeHandler = null;
+    }
+  }
+
+  /**
+   * Swap overlay content to a specific palette's detail view.
+   */
+  openPaletteDetail(paletteId) {
+    const content = document.getElementById("palettes-content");
+    if (content) {
+      content.innerHTML = this.renderPaletteDetailHtml(paletteId);
+      content.scrollTop = 0;
+      this.setupFavoriteListeners();
+    }
+  }
+
+  /**
+   * Swap overlay content back to the browse grid.
+   */
+  openPalettesBrowse() {
+    const content = document.getElementById("palettes-content");
+    if (content) {
+      content.innerHTML = this.renderPalettesGridHtml();
+      content.scrollTop = 0;
+      this.setupFavoriteListeners();
+    }
+  }
+
+  /**
+   * Render the palettes browse grid as an HTML string (for the overlay).
+   */
+  renderPalettesGridHtml(palettesData) {
+    if (!palettesData) {
+      palettesData = palettes;
+    }
+
+    if (palettesData.length === 0) {
+      return `
+        <div class="text-center py-16">
+          <i class="fas fa-palette text-6xl text-gray-300 mb-4"></i>
+          <h2 class="text-2xl font-semibold text-gray-600 mb-2">No palettes available</h2>
+          <p class="text-gray-500">Palettes will be available soon.</p>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        ${palettesData.map(palette => this.createPaletteCard(palette, palettesData)).join("")}
+      </div>
+    `;
+  }
+
+  /**
+   * Render a single palette detail view as an HTML string (for the overlay).
+   * Shows hex codes prominently since this is a reference library.
+   */
+  renderPaletteDetailHtml(paletteId, palettesData) {
+    if (!palettesData) {
+      palettesData = palettes;
+    }
+
+    const palette = palettesData.find(p => p.id === paletteId);
+    if (!palette) {
+      return `
+        <div class="text-center py-16">
+          <i class="fas fa-exclamation-triangle text-6xl text-gray-300 mb-4"></i>
+          <h2 class="text-2xl font-semibold text-gray-600 mb-2">Palette not found</h2>
+          <button onclick="window.PalettesManager.openPalettesBrowse()" class="mt-4 bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium inline-flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i> Back to Palettes
+          </button>
+        </div>
+      `;
+    }
+
+    const isFav = this.isFavorite(palette.id);
+    const escName = escapeHtml(palette.name);
+    const escDesc = escapeHtml(palette.description);
+    const escCategory = escapeHtml(palette.category);
+
+    const largeSwatches = palette.colors
+      .map(
+        color => `
+        <div class="flex flex-col items-center">
+          <div
+            class="w-16 h-16 rounded-full border-4 border-gray-200 dark:border-gray-600 shadow-md mb-2"
+            style="background-color: ${color}"
+            title="${color}"
+            aria-label="Color ${color}"
+          ></div>
+          <span class="text-xs font-mono text-gray-500 dark:text-gray-400">${color}</span>
+        </div>
+      `
+      )
+      .join("");
+
+    return `
+      <div class="max-w-xl mx-auto">
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">${escName}</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 capitalize">Category: ${escCategory}</p>
+          </div>
+          <button
+            class="favorite-btn palette-fav-btn p-2 rounded-full transition-all transform hover:scale-110 ${isFav ? "text-pink-500" : "text-gray-400 hover:text-pink-500"}"
+            data-palette-id="${escapeHtml(palette.id)}"
+            aria-label="${isFav ? `Remove ${escName} from favorites` : `Add ${escName} to favorites`}"
+            aria-pressed="${isFav}">
+            <i class="fas fa-heart text-xl"></i>
+          </button>
+        </div>
+
+        <p class="text-gray-600 dark:text-gray-300 mb-6">${escDesc}</p>
+
+        <div class="mb-6">
+          <h4 class="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">Color Swatches</h4>
+          <div class="flex justify-center items-center gap-4 flex-wrap">
+            ${largeSwatches}
+          </div>
+        </div>
+
+        <div class="text-center mt-6">
+          <button onclick="window.PalettesManager.openPalettesBrowse()" class="text-gray-600 dark:text-gray-400 hover:text-primary-600 inline-flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i> Back to all palettes
+          </button>
         </div>
       </div>
     `;
@@ -410,35 +607,12 @@ class PalettesManager {
 
   /**
    * Setup listener for the "Use this palette" button
+   * NOTE: "Apply Palette" was removed — it saved to localStorage but nothing
+   * read it. Palettes are now a reference-only overlay. This stub is kept
+   * in case any external code calls it.
    */
   setupUsePaletteListener(paletteId) {
-    const useBtn = document.getElementById("use-palette-btn");
-    if (!useBtn) {
-      return;
-    }
-
-    useBtn.addEventListener("click", () => {
-      const palette = palettes?.find(p => p.id === paletteId);
-      if (!palette) {
-        if (window.showToast) {
-          window.showToast("Palette not found", "error");
-        }
-        return;
-      }
-
-      // Store the selected palette in localStorage for the coloring session
-      try {
-        localStorage.setItem("colorverse_active_palette", JSON.stringify(palette));
-        if (window.showToast) {
-          window.showToast(`Applied "${palette.name}" palette`, "success", 2000);
-        }
-      } catch (error) {
-        console.error("[PalettesManager] Error saving active palette:", error);
-        if (window.showToast) {
-          window.showToast("Failed to save palette", "error");
-        }
-      }
-    });
+    // No-op: Apply Palette button removed.
   }
 }
 

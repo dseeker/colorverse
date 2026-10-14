@@ -98,6 +98,29 @@
 - Generation lock TTL reduced to 30s (matches CF `waitUntil` limit). Lock check is resilient to KV errors (proceeds without lock instead of 502).
 - Commits: 6d4df9a, 5a681a3, 3fc1000, 0336d97, 47df707, a9688e2.
 
+#### SW Auto-Update + Style-in-Path Routing + Palettes Overlay (2026-10-14)
+
+- **SW caching rewrite** (`service-worker.js` v4): split fetch handler into `cacheFirst`
+  for versioned CDN assets (Tailwind, Font Awesome, Google Fonts) + local binaries
+  (favicon, manifest), `staleWhileRevalidate` for local code (`app.js`, `src/**/*.js`,
+  `*.css`, `*.html`), network-first for API, stale-while-revalidate for images. Users get
+  fresh code within 2 reloads of a deploy — no manual `CACHE_NAME` bumps needed.
+- **SW update UX** (`service-worker-register.js`): on `controllerchange`, reloads only
+  if the user is on the homepage (`#` or `#/`). On item/category routes it skips the reload
+  so users mid-coloring don't lose their place; they pick up the new code on their next
+  homepage visit. `hasReloaded` guard prevents double-fire.
+- **Style-in-path routing**: item URLs are now 3-segment
+  `#item/<style>/<category>/<item>?t=<base64>&d=<base64>&cat=<base64>` — style is always
+  in the path (e.g. `classic`, `futuristic`, `painted`). Legacy 2-segment URLs
+  (`#item/<category>/<item>?style=<style>`) are detected by `parseItemHash()` and
+  normalized via `history.replaceState`. `buildItemHash()` uses `styleKey || "classic"` so
+  the default style (empty-string key `""`) renders as `classic` in the URL.
+- **Palettes overlay modal** (`src/services/palettesManager.js`): nav "Color Palettes"
+  button now opens an overlay modal on top of the current page instead of navigating to a
+  full-page route. Grid view → detail view (large swatches + hex codes), closes via
+  backdrop/×/Escape. Legacy `#palettes` and `#palette/<id>` routes still work (call the
+  overlay methods and clear the hash) so old shared links don't break.
+
 ### File Structure
 
 ```
@@ -105,8 +128,8 @@ colorverse/
 ├── index.html                      # Main HTML (Tailwind + inline env config)
 ├── app.js                          # Main app (~5k lines)
 ├── offline.html                    # SW offline fallback
-├── service-worker.js               # PWA service worker (v2)
-├── service-worker-register.js      # SW registration
+├── service-worker.js               # PWA service worker (v4)
+├── service-worker-register.js      # SW registration + controllerchange reload
 ├── robots.txt                      # SEO robots + sitemap reference
 ├── favicon.svg
 ├── build.js                        # Static build (text + images + sitemap.xml)
@@ -122,6 +145,7 @@ colorverse/
 │       ├── favoritesManager.js      # localStorage favorites
 │       ├── imageLoader.js           # Lazy loading
 │       ├── MultiProviderAIManager.js
+│       ├── palettesManager.js       # Palette browsing overlay modal
 │       ├── performanceMonitor.js    # Web Vitals
 │       ├── searchManager.js
 │       └── seoManager.js            # JSON-LD + meta + sitemap generator

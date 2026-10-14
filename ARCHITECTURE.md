@@ -52,6 +52,7 @@ live in the workers' wrangler secrets. The browser only ever talks to the worker
 | `performanceMonitor.js`     | `window.PerformanceMonitor`     | Core Web Vitals collection                                                                              |
 | `imageLoader.js`            | `window.OptimizedImageLoader`   | IntersectionObserver lazy loading                                                                       |
 | `cacheManager.js`           | `window.CacheManager`           | LRU cache + IndexedDB fallback                                                                          |
+| `palettesManager.js`        | `window.PalettesManager`        | Palette browsing overlay modal + localStorage favorites                                                 |
 | `MultiProviderAIManager.js` | `window.MultiProviderAIManager` | Provider/model fallback + backoff                                                                       |
 
 Two subtleties:
@@ -75,7 +76,14 @@ at `app.js:5603`):
 
 - `#` / `#/` — homepage
 - `#category/<key>?page=N&sort=...` — category listing (progressive loading)
-- `#item/<category>/<item>` — item detail
+- `#item/<style>/<category>/<item>?t=<base64>&d=<base64>&cat=<base64>` — item detail
+  - 3-segment path: style is always included (e.g. `classic`, `futuristic`, `painted`).
+  - Query params `t` (title), `d` (description), `cat` (category label) are base64-encoded
+    snapshots so the item view can render without a round-trip to site data.
+  - Legacy 2-segment URLs (`#item/<category>/<item>?style=<style>`) are detected by
+    `parseItemHash()` and normalized via `history.replaceState` to the 3-segment format.
+- `#palettes` / `#palette/<id>` — open the palettes overlay modal (backward-compat;
+  the hash is cleared after opening, user stays on their current page)
 - `#about`, `#privacy`, `#terms`, `#contact` — static pages
 - `#daily-pick`, `#all-categories`, `#favorites`, `#donate` — feature pages
 - `#search` / `#search?q=term` — search results
@@ -92,6 +100,21 @@ Flow per navigation (all inside one `try/catch/finally`):
    `renderSearchPage:3474`).
 3. `updateSEO({...})` (`app.js:3396`) updates meta tags + JSON-LD via `window.SEOManager`.
 4. `finally`: hide loading, scroll to top, `setupLazyLoading()` for images.
+
+## Palettes overlay modal
+
+Palettes are shown as an overlay modal (`#palettes-overlay`) rather than a full-page
+route, so users stay on whatever page they're on when they open it. The nav button
+calls `window.PalettesManager.openPalettesOverlay()` directly — no hash change, no
+navigation. The overlay supports:
+
+- Browse grid: all palette cards with color swatches.
+- Detail view: large swatches + hex codes, swapped in-place via `openPaletteDetail()`.
+- Close: backdrop click, × button, or Escape key — all call `closePalettesOverlay()`.
+- Body scroll is locked while open and restored on close.
+
+The legacy `#palettes` and `#palette/<id>` routes still work (they call the overlay
+methods and clear the hash) so old shared links don't break.
 
 ## Data flow
 
@@ -214,6 +237,13 @@ event) is in [ANALYTICS.md](./ANALYTICS.md).
   `POLLINATIONS_API_KEY` in `.env`.
 - The deployed site (GitHub Pages) runs in static mode, fetching `site-data.json` from
   the worker's `/data` route and generating images on demand through the image-proxy.
-- `service-worker.js` (cache `colorverse-v2`) provides offline support: cache-first for
-  static assets, stale-while-revalidate for images, network-first for API responses, and
-  `offline.html` as the fallback page.
+- `service-worker.js` (cache `colorverse-v4`) provides offline support with three
+  caching strategies: **cache-first** for versioned CDN assets (Tailwind, Font Awesome,
+  Google Fonts) and local binaries (favicon, manifest, icons); **stale-while-revalidate**
+  for local code assets (`app.js`, `src/**/*.js`, `*.css`, `*.html`) so users get fresh code
+  within 2 reloads of a deploy — no manual version bumps needed; and **network-first**
+  for API responses. `offline.html` is the fallback page.
+- `service-worker-register.js` listens for `controllerchange` (fired when a new SW
+  activates via `skipWaiting()`) and reloads **only if the user is on the homepage**
+  (`#` or `#/`). On item/category routes it skips the reload so users mid-coloring don't
+  lose their place; they pick up the new code on their next homepage visit.

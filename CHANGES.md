@@ -1,5 +1,12 @@
 # ColorVerse - Changelog
 
+## 2026-10-14
+
+- **SW caching rewrite**: Split the service worker (v4) fetch handler into three strategies: `cacheFirst` for versioned CDN assets (Tailwind, Font Awesome, Google Fonts) and local binaries (favicon, manifest, icons), `staleWhileRevalidate` for local code (`app.js`, `src/**/*.js`, `*.css`, `*.html`) so users get fresh code within 2 reloads of a deploy, and `networkFirst` for API responses. Replaces the old single-strategy `cacheFirst` that served stale `app.js` indefinitely.
+- **SW update UX**: `service-worker-register.js` now listens for `controllerchange` (fired when a new SW activates via `skipWaiting()`) and reloads only if the user is on the homepage (`#` or `#/`). On item/category routes it skips the reload so users mid-coloring don't lose their place. `hasReloaded` guard prevents double-fire.
+- **Routing**: Item URLs are now 3-segment `#item/<style>/<category>/<item>?t=<base64>&d=<base64>&cat=<base64>` — style is always in the path (e.g. `classic`, `futuristic`, `painted`). Legacy 2-segment URLs (`#item/<category>/<item>?style=<style>`) are detected by `parseItemHash()` and normalized via `history.replaceState`. `buildItemHash()` uses `styleKey || "classic"` so the default style (empty-string key) renders as `classic` in the URL.
+- **Palettes overlay**: The nav "Color Palettes" button now opens an overlay modal (`src/services/palettesManager.js`) on top of the current page instead of navigating to a full-page route. Grid view → detail view (large swatches + hex codes), closes via backdrop/×/Escape. Legacy `#palettes` and `#palette/<id>` routes still work (call the overlay methods and clear the hash) so old shared links don't break.
+
 ## 2026-10-10
 
 - **Worker**: Hybrid catalog generation in `workers/content-api` `/catalog` route — three-strategy approach replacing the sequential 26-call loop that exceeded CF's ~30s `waitUntil` limit. (1) Parallel: 26 LLM calls concurrent via `Promise.race` against a 25s deadline with partial-result collection; (2) Chain: incremental 5-category batches across poll cycles with `catalog:partial:{key}` KV state; (3) Legacy fallback: serves stale `site-data.json` when failcount >= 3 (1h auto-recovery). Commits 6d4df9a, a9688e2.

@@ -547,29 +547,73 @@ function changeColoringStyle(newStyle) {
   reloadAllImages();
 }
 
-// Update the URL hash on #item/<cat>/<item> routes to carry ?style=<key>,
-// so copy-pasting the URL reproduces the same image. No-op on other routes.
+// --- Item URL format: #item/<styleKey>/<categoryKey>/<itemKey>?<params> ---
+// The style is a path segment (always present, even "classic") so share
+// links reproduce the exact image. Snapshot params (t/d/cat) carry the
+// title + description so links survive catalog regenerations.
+
+// Parse the style/category/item from the current hash.
+// Returns { styleKey, categoryKey, itemKey } or null.
+// Handles both new (3-segment) and legacy (2-segment + ?style=) formats.
+function parseItemHash(hash) {
+  if (!hash || !hash.startsWith("#item/")) {
+    return null;
+  }
+  const path = hash.substring("#item/".length);
+  const [pathPart, queryString] = path.split("?");
+  const segments = pathPart.split("/");
+  let styleKey, categoryKey, itemKey;
+
+  if (segments.length === 3) {
+    // New format: #item/<style>/<cat>/<item>
+    [styleKey, categoryKey, itemKey] = segments;
+  } else if (segments.length === 2) {
+    // Legacy format: #item/<cat>/<item>?style=<style>
+    categoryKey = segments[0];
+    itemKey = segments[1];
+    const params = new URLSearchParams(queryString || "");
+    styleKey = params.get("style") || "classic";
+  } else {
+    return null;
+  }
+
+  if (!categoryKey || !itemKey) {
+    return null;
+  }
+  return { styleKey: styleKey || "classic", categoryKey, itemKey };
+}
+
+// Build a canonical #item/ URL in the new 3-segment format.
+// Preserves existing snapshot params (t/d/cat) if params not provided.
+function buildItemHash(styleKey, categoryKey, itemKey, params) {
+  const safeStyle = styleKey || "classic";
+  let qs = "";
+  if (params instanceof URLSearchParams) {
+    qs = params.toString();
+  } else if (typeof params === "string") {
+    qs = params;
+  }
+  return `#item/${safeStyle}/${categoryKey}/${itemKey}${qs ? "?" + qs : ""}`;
+}
+
+// Update the URL hash on #item/ routes to carry the style as a path segment.
+// No-op on other routes.
 function syncStyleToHash(styleKey) {
   const hash = window.location.hash || "";
   if (!hash.startsWith("#item/")) {
     return;
   }
-  const path = hash.substring("#item/".length);
-  const [catAndItem, queryString] = path.split("?");
-  const [categoryKey, itemKeyRaw] = catAndItem.split("/");
-  if (!categoryKey || !itemKeyRaw) {
+  const parsed = parseItemHash(hash);
+  if (!parsed) {
     return;
   }
+  // Preserve snapshot params but drop legacy ?style= (now in path)
+  const path = hash.substring("#item/".length);
+  const [, queryString] = path.split("?");
   const params = new URLSearchParams(queryString || "");
-  if (styleKey && styleKey !== "classic") {
-    params.set("style", styleKey);
-  } else {
-    params.delete("style"); // classic = default, keep the URL clean
-  }
-  const qs = params.toString();
-  const newHash = `#item/${categoryKey}/${itemKeyRaw}${qs ? "?" + qs : ""}`;
+  params.delete("style"); // style is now a path segment
+  const newHash = buildItemHash(styleKey, parsed.categoryKey, parsed.itemKey, params);
   if (newHash !== hash) {
-    // replaceState avoids a second hashchange event / re-render
     history.replaceState(null, "", newHash);
   }
 }
@@ -608,13 +652,15 @@ function syncItemSnapshotToHash(itemData, category) {
   if (!hash.startsWith("#item/")) {
     return;
   }
-  const path = hash.substring("#item/".length);
-  const [catAndItem, queryString] = path.split("?");
-  const [categoryKey, itemKeyRaw] = catAndItem.split("/");
-  if (!categoryKey || !itemKeyRaw) {
+  const parsed = parseItemHash(hash);
+  if (!parsed) {
     return;
   }
+  // Preserve existing params (minus legacy ?style= which is now in path)
+  const path = hash.substring("#item/".length);
+  const [, queryString] = path.split("?");
   const params = new URLSearchParams(queryString || "");
+  params.delete("style");
   if (itemData?.title) {
     params.set("t", encodeItemSnapshot(itemData.title));
   }
@@ -624,8 +670,7 @@ function syncItemSnapshotToHash(itemData, category) {
   if (category?.title) {
     params.set("cat", encodeItemSnapshot(category.title));
   }
-  const qs = params.toString();
-  const newHash = `#item/${categoryKey}/${itemKeyRaw}${qs ? "?" + qs : ""}`;
+  const newHash = buildItemHash(parsed.styleKey, parsed.categoryKey, parsed.itemKey, params);
   if (newHash !== hash) {
     history.replaceState(null, "", newHash);
   }
@@ -2323,7 +2368,7 @@ function renderSeasonalGallery(data) {
     const escItemDesc = escapeHtml(item.description);
 
     html += `
-            <a href="#item/seasonal/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group">
+            <a href="#item/${currentColoringStyle || "classic"}/seasonal/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group">
                 <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
@@ -2384,7 +2429,7 @@ function renderRecentAdditions(data) {
     const escCatTitle = escapeHtml(categoryTitle);
 
     html += `
-            <a href="#item/${categoryKey}/${itemKey}" class="flex-shrink-0 w-36 sm:w-48 md:w-64 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition duration-300">
+            <a href="#item/${currentColoringStyle || "classic"}/${categoryKey}/${itemKey}" class="flex-shrink-0 w-36 sm:w-48 md:w-64 bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition duration-300">
                 <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
@@ -2487,7 +2532,7 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
     const escItemTitle = escapeHtml(item.title || "Untitled");
     const escItemDesc = escapeHtml(item.description);
     html += `
-            <a href="#item/${categoryKey}/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group">
+            <a href="#item/${currentColoringStyle || "classic"}/${categoryKey}/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group">
                 <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
@@ -2828,8 +2873,8 @@ function renderItem(itemData, categoryKey, itemKey) {
 
                 <h2 class="text-xl font-semibold pb-2 mt-4 border-b" style="color: var(--text-color); border-color: var(--border-color);" id="item-navigation-heading">Navigation</h2>
                  <div class="flex justify-between gap-2">
-                    ${prevItemKey ? `<a href="#item/${categoryKey}/${prevItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">&laquo; ${window.t("item.nav_previous") || "Previous"}</a>` : '<div class="flex-1"></div>'}
-                    ${nextItemKey ? `<a href="#item/${categoryKey}/${nextItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">${window.t("item.nav_next") || "Next"} &raquo;</a>` : '<div class="flex-1"></div>'}
+                    ${prevItemKey ? `<a href="#item/${currentColoringStyle || "classic"}/${categoryKey}/${prevItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">&laquo; ${window.t("item.nav_previous") || "Previous"}</a>` : '<div class="flex-1"></div>'}
+                    ${nextItemKey ? `<a href="#item/${currentColoringStyle || "classic"}/${categoryKey}/${nextItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">${window.t("item.nav_next") || "Next"} &raquo;</a>` : '<div class="flex-1"></div>'}
                  </div>
                  <a href="#category/${categoryKey}" class="block text-center mt-2 hover:underline" style="color: var(--accent-color);">Back to ${escCatTitle}</a>
 
@@ -2863,7 +2908,7 @@ function renderItem(itemData, categoryKey, itemKey) {
                     const colorSwatches = palette.colors
                       .map(c => `<div class="w-full h-8 rounded" style="background:${c}"></div>`)
                       .join("");
-                    paletteHtml += `<a href="#palette/${palette.id}" class="palette-card block p-3 bg-white rounded-lg shadow hover:shadow-md transition-shadow"><div class="grid grid-cols-5 gap-1 mb-2">${colorSwatches}</div><div class="text-sm font-medium text-gray-800">${escapeHtml(palette.name)}</div></a>`;
+                    paletteHtml += `<button onclick="window.PalettesManager.openPalettesOverlay('${palette.id}')" class="palette-card block w-full text-left p-3 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"><div class="grid grid-cols-5 gap-1 mb-2">${colorSwatches}</div><div class="text-sm font-medium text-gray-800">${escapeHtml(palette.name)}</div></button>`;
                   });
                   paletteHtml += `</div></div>`;
                   return paletteHtml;
@@ -2896,7 +2941,7 @@ function renderRelatedItems(category, categoryKey, currentItemKey) {
     });
 
     html += `
-            <a href="#item/${categoryKey}/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300">
+            <a href="#item/${currentColoringStyle || "classic"}/${categoryKey}/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300">
                 <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
@@ -4005,7 +4050,7 @@ function renderSearchPage(query) {
     const escCatTitle = escapeHtml(categoryTitle);
 
     html += `
-            <a href="#item/${categoryKey}/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group">
+            <a href="#item/${currentColoringStyle || "classic"}/${categoryKey}/${itemKey}" class="category-card block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 group">
                 <div class="relative aspect-square bg-gray-100 dark:bg-gray-700 overflow-hidden">
                     <div class="image-loading-indicator absolute inset-0 flex items-center justify-center z-0">
                         <div class="spinner"></div>
@@ -4115,26 +4160,39 @@ function handleRouteChange() {
         }
         mainContent.classList.remove("hidden");
       } else if (hash.startsWith("#item/")) {
-        const parts = hash.substring("#item/".length).split("/");
-        if (parts.length === 2) {
-          // The itemKey may carry a query string for shareable state:
-          //   #item/<categoryKey>/<itemKey>?style=<styleKey>
-          // The style applies before rendering so a pasted link reproduces
-          // the exact same image the sender was looking at.
-          const [itemKeyRaw, queryString] = parts[1].split("?");
-          const itemKey = itemKeyRaw;
-          const categoryKey = parts[0];
-          const itemParams = new URLSearchParams(queryString || "");
-          const styleParam = itemParams.get("style");
-          if (styleParam && COLORING_STYLES[styleParam] && styleParam !== currentColoringStyle) {
-            currentColoringStyle = styleParam;
+        // URL format: #item/<styleKey>/<categoryKey>/<itemKey>?t=<b64>&d=<b64>&cat=<b64>
+        // Legacy format: #item/<categoryKey>/<itemKey>?style=<styleKey>&...
+        // Legacy URLs are normalized to the new 3-segment format below.
+        const parsed = parseItemHash(hash);
+        if (parsed) {
+          const { styleKey, categoryKey, itemKey } = parsed;
+
+          // Normalize legacy 2-segment URLs to the new 3-segment format
+          const canonicalHash = buildItemHash(
+            styleKey,
+            categoryKey,
+            itemKey,
+            (() => {
+              const path = hash.substring("#item/".length);
+              const [, qs] = path.split("?");
+              const p = new URLSearchParams(qs || "");
+              p.delete("style"); // style is now a path segment
+              return p;
+            })()
+          );
+          if (canonicalHash !== hash) {
+            history.replaceState(null, "", canonicalHash);
+          }
+
+          // Apply the style from the URL before rendering
+          if (styleKey && COLORING_STYLES[styleKey] && styleKey !== currentColoringStyle) {
+            currentColoringStyle = styleKey;
             imageUrlCache.clear();
-            const styleName = COLORING_STYLES[styleParam].name || styleParam;
+            const styleName = COLORING_STYLES[styleKey].name || styleKey;
             showToast(`Applied shared style: ${styleName}`, "info", 2000);
-            // Reflect the style in the dropdown if it's on the page
             const styleSelector = document.getElementById("style-selector");
             if (styleSelector) {
-              styleSelector.value = styleParam;
+              styleSelector.value = styleKey;
             }
           }
 
@@ -4420,16 +4478,19 @@ function handleRouteChange() {
             "Internal analytics dashboard for ColorVerse.",
         });
       } else if (hash === "#palettes") {
-        // Palette library overview
+        // Palette library — open as overlay (reference only, no page nav)
         if (window.PalettesManager) {
-          window.PalettesManager.showPalettesView();
+          window.PalettesManager.openPalettesOverlay();
         }
+        // Clear the hash so it doesn't re-trigger on reload
+        history.replaceState(null, "", window.location.pathname + window.location.search);
       } else if (hash.startsWith("#palette/")) {
-        // Single palette detail view
+        // Single palette detail — open overlay to that palette
         const paletteId = hash.substring("#palette/".length);
         if (window.PalettesManager) {
-          window.PalettesManager.showPaletteDetail(paletteId);
+          window.PalettesManager.openPalettesOverlay(paletteId);
         }
+        history.replaceState(null, "", window.location.pathname + window.location.search);
       } else if (hash.startsWith("#search")) {
         // Search: #search or #search?q=term
         const searchQuery = new URLSearchParams(
