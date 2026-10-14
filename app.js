@@ -2981,8 +2981,8 @@ function setupGlobalImageErrorHandling() {
         console.error(`Failed to load image: ${target.src}`);
         target.classList.add("error");
 
-        // Create error indicator if not inside lazy loading system
-        if (!target.hasAttribute("data-src")) {
+        // Create error indicator if not inside lazy loading system or hover preview overlay
+        if (!target.hasAttribute("data-src") && !target.closest("#image-preview-overlay")) {
           const wrapper = target.parentNode;
           if (wrapper) {
             wrapper.classList.add("relative");
