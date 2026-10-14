@@ -1447,12 +1447,14 @@ function getImageUrl(prompt, params = {}) {
         });
         const imageUrl = `${imageProxyUrl}/image?${imageQuery.toString()}`;
         imageUrlCache.set(cacheKey, imageUrl);
+        persistImageCache();
         return imageUrl;
       }
       const proxyParams = new URLSearchParams(query);
       proxyParams.set("prompt", coloringPrompt);
       const imageUrl = `${imageProxyUrl}?${proxyParams.toString()}`;
       imageUrlCache.set(cacheKey, imageUrl);
+      persistImageCache();
       return imageUrl;
     }
 
@@ -1460,23 +1462,30 @@ function getImageUrl(prompt, params = {}) {
 
     // Cache the URL
     imageUrlCache.set(cacheKey, imageUrl);
-
-    // Persist cached URLs to localStorage occasionally (not on every call to avoid performance issues)
-    if (Math.random() < 0.1) {
-      // 10% chance to persist cache
-      try {
-        const cachedUrls = Object.fromEntries(imageUrlCache.entries());
-        localStorage.setItem(CACHE_KEY_IMAGE_URLS, JSON.stringify(cachedUrls));
-      } catch (e) {
-        console.warn("Failed to persist image URL cache:", e);
-      }
-    }
+    persistImageCache();
 
     return imageUrl;
   } catch (error) {
     console.error("Error generating image URL:", error, "for prompt:", prompt);
     // Return a placeholder or default image URL if there's an error
     return "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iIzk5OTk5OSI+SW1hZ2UgRXJyb3I8L3RleHQ+PC9zdmc+";
+  }
+}
+
+/** Persist the in-memory image URL cache to localStorage (throttled). */
+let _lastImageCacheSave = 0;
+function persistImageCache() {
+  const now = Date.now();
+  // Throttle to at most once per 2 seconds to avoid excessive localStorage writes
+  if (now - _lastImageCacheSave < 2000) {
+    return;
+  }
+  _lastImageCacheSave = now;
+  try {
+    const cachedUrls = Object.fromEntries(imageUrlCache.entries());
+    localStorage.setItem(CACHE_KEY_IMAGE_URLS, JSON.stringify(cachedUrls));
+  } catch (e) {
+    console.warn("Failed to persist image URL cache:", e);
   }
 }
 
@@ -4528,12 +4537,13 @@ function shouldRefreshCache() {
     const parsedData = JSON.parse(cachedData);
     const categoryCount = Object.keys(parsedData.categories || {}).length;
 
-    // If we don't have all 25 categories, force refresh
+    // If we don't have all 25 categories, force refresh — but only if the
+    // cache is also expired (handled below). A partial cache is better than
+    // no cache, so we keep it as a fallback even with fewer categories.
     if (categoryCount < 25) {
-      console.log(
-        `Cached data has only ${categoryCount} categories, forcing refresh to get all 25`
+      debug.log(
+        `Cached data has only ${categoryCount} categories (expected 25) — will refresh in background`
       );
-      return true;
     }
 
     // Check if categories have proper item structure with title/description
@@ -4590,8 +4600,35 @@ async function generateSiteData() {
   debug.log("Initializing site data...");
   showLoading(true); // Ensure loading is shown during generation
 
+  // --- Cache-first: serve from localStorage if valid (not expired) ---
+  // This prevents content from changing on every reload when the cache is still fresh.
+  const validCachedData = loadFromCache();
+  const needsRefresh = shouldRefreshCache();
+
+  if (validCachedData && !needsRefresh) {
+    debug.log("Loading site data from cache...");
+    siteData = validCachedData;
+
+    // Load cached image URLs if available
+    try {
+      const cachedImageUrls = localStorage.getItem(CACHE_KEY_IMAGE_URLS);
+      if (cachedImageUrls) {
+        const urlMap = JSON.parse(cachedImageUrls);
+        for (const [key, value] of Object.entries(urlMap)) {
+          imageUrlCache.set(key, value);
+        }
+        debug.log(`Loaded ${imageUrlCache.size} cached image URLs`);
+      }
+    } catch (e) {
+      console.warn("Failed to load cached image URLs:", e);
+    }
+
+    showLoading(false);
+    return validCachedData;
+  }
+
   // --- Worker-centric mode: fetch catalog from the content-api /catalog route ---
-  // Feature-flagged (window._env.WORKER_IMAGE_MODE). The response body is the
+  // Only reached when cache is missing or expired. The response body is the
   // same site-data.json shape, so downstream code is unchanged. Falls back to
   // the legacy DATA_URL route on 503 / network error / empty CONTENT_API_URL.
   if (WORKER_IMAGE_MODE) {
@@ -4632,40 +4669,11 @@ async function generateSiteData() {
     }
   }
 
-  // FORCE CACHE CLEAR: Remove this after one successful load with 25 categories
-  const cachedData = loadFromCache();
-  if (cachedData) {
-    const categoryCount = Object.keys(cachedData.categories || {}).length;
-    if (categoryCount < 25) {
-      debug.log(`Clearing old cache with only ${categoryCount} categories`);
-      localStorage.removeItem(CACHE_KEY_SITE_DATA);
-      localStorage.removeItem(CACHE_KEY_TIMESTAMP);
-      localStorage.removeItem(CACHE_KEY_IMAGE_URLS);
-    }
-  }
-
-  // First try to load from cache
-  const validCachedData = loadFromCache();
-  const needsRefresh = shouldRefreshCache();
-
-  if (validCachedData && !needsRefresh) {
-    debug.log("Loading site data from cache...");
+  // If we have cached data (even if stale/expired), use it as a last-resort fallback
+  // before attempting fresh generation. This keeps content stable between reloads.
+  if (validCachedData) {
+    debug.log("Serving stale cache while refresh is needed...");
     siteData = validCachedData;
-
-    // Load cached image URLs if available
-    try {
-      const cachedImageUrls = localStorage.getItem(CACHE_KEY_IMAGE_URLS);
-      if (cachedImageUrls) {
-        const urlMap = JSON.parse(cachedImageUrls);
-        for (const [key, value] of Object.entries(urlMap)) {
-          imageUrlCache.set(key, value);
-        }
-        debug.log(`Loaded ${imageUrlCache.size} cached image URLs`);
-      }
-    } catch (e) {
-      console.warn("Failed to load cached image URLs:", e);
-    }
-
     showLoading(false);
     return validCachedData;
   }
