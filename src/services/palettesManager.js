@@ -4,6 +4,8 @@
  */
 
 import { palettes, getById, getByCategory, getCategories, getRandom } from "../data/palettes.js";
+import { formatPencilLabel } from "./pencilColorMatcher.js";
+import { pencilSets } from "../data/pencilSets.js";
 
 const PLACEHOLDER_IMAGE =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
@@ -126,10 +128,10 @@ class PalettesManager {
     const escName = escapeHtml(palette.name);
     const escDesc = escapeHtml(palette.description);
     const swatches = palette.colors
-      .map(
-        color =>
-          `<span class="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-600 inline-block mr-1" style="background-color: ${color}" title="${color}" aria-label="Color ${color}"></span>`
-      )
+      .map(color => {
+        const label = formatPencilLabel(color);
+        return `<span class="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-600 inline-block mr-1" style="background-color: ${color}" title="${escapeHtml(label)}" aria-label="Color ${escapeHtml(label)}"></span>`;
+      })
       .join("");
 
     return `
@@ -314,14 +316,16 @@ class PalettesManager {
           <div
             class="w-16 h-16 rounded-full border-4 border-gray-200 dark:border-gray-600 shadow-md mb-2"
             style="background-color: ${color}"
-            title="${color}"
-            aria-label="Color ${color}"
+            title="${escapeHtml(formatPencilLabel(color))}"
+            aria-label="Color ${escapeHtml(formatPencilLabel(color))}"
           ></div>
-          <span class="text-xs font-mono text-gray-500 dark:text-gray-400">${color}</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400 text-center max-w-[80px]">${escapeHtml(formatPencilLabel(color))}</span>
         </div>
       `
       )
       .join("");
+
+    const defaultBrand = pencilSets[0] ? pencilSets[0].brand : "";
 
     return `
       <div class="max-w-xl mx-auto">
@@ -346,6 +350,12 @@ class PalettesManager {
           <div class="flex justify-center items-center gap-4 flex-wrap">
             ${largeSwatches}
           </div>
+          <p class="text-xs text-gray-400 dark:text-gray-500 text-center mt-4">${
+            typeof window !== "undefined" && window.t
+              ? window.t("palettes.pencil_match_legend", { brand: defaultBrand }) ||
+                `Matched to ${defaultBrand} pencils`
+              : `Matched to ${defaultBrand} pencils`
+          }</p>
         </div>
 
         <div class="text-center mt-6">
@@ -466,10 +476,10 @@ class PalettesManager {
           <div
             class="w-20 h-20 rounded-full border-4 border-gray-200 dark:border-gray-600 shadow-md mb-2"
             style="background-color: ${color}"
-            title="${color}"
-            aria-label="Color ${color}"
+            title="${escapeHtml(formatPencilLabel(color))}"
+            aria-label="Color ${escapeHtml(formatPencilLabel(color))}"
           ></div>
-          <span class="text-xs font-mono text-gray-500 dark:text-gray-400">${color}</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400 text-center max-w-[90px]">${escapeHtml(formatPencilLabel(color))}</span>
         </div>
       `
       )
@@ -479,9 +489,11 @@ class PalettesManager {
     const smallSwatches = palette.colors
       .map(
         color =>
-          `<span class="w-6 h-6 rounded-full border border-gray-300 inline-block mr-1" style="background-color: ${color}" title="${color}"></span>`
+          `<span class="w-6 h-6 rounded-full border border-gray-300 inline-block mr-1" style="background-color: ${color}" title="${escapeHtml(formatPencilLabel(color))}"></span>`
       )
       .join("");
+
+    const defaultBrand = pencilSets[0] ? pencilSets[0].brand : "";
 
     const html = `
       <nav aria-label="breadcrumb" class="flex items-center mb-6 text-sm text-gray-600 dark:text-gray-400">
@@ -518,6 +530,12 @@ class PalettesManager {
             <div class="flex justify-center items-center gap-6">
               ${largeSwatches}
             </div>
+            <p class="text-xs text-gray-400 dark:text-gray-500 text-center mt-4">${
+              typeof window !== "undefined" && window.t
+                ? window.t("palettes.pencil_match_legend", { brand: defaultBrand }) ||
+                  `Matched to ${defaultBrand} pencils`
+                : `Matched to ${defaultBrand} pencils`
+            }</p>
           </div>
 
           <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
