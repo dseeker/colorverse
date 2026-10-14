@@ -2918,9 +2918,10 @@ function setupGlobalImageErrorHandling() {
 
       // Only handle image errors
       if (target.tagName === "IMG") {
-        // Skip false positives where src is empty or resolves to the page URL
+        // Skip false positives where src is empty, missing, or resolves to the page URL
         const pageUrl = window.location.href.split("#")[0];
-        if (!target.src || target.src === pageUrl) {
+        const src = target.getAttribute("src");
+        if (!src || !target.src || target.src === pageUrl || target.src === pageUrl + "/") {
           return;
         }
         console.error(`Failed to load image: ${target.src}`);
