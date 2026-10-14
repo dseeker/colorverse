@@ -4565,7 +4565,9 @@ function shouldRefreshCache() {
     }
 
     if (!hasProperStructure) {
-      return true;
+      debug.log("Cached data has structural issues — will try worker, fall back to cache");
+      // Don't force refresh — let the timestamp check decide. A partial
+      // cache with some broken categories is still usable as a fallback.
     }
   } catch (e) {
     debug.log("Error parsing cached data, forcing refresh");
