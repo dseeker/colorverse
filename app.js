@@ -2868,7 +2868,7 @@ function renderItem(itemData, categoryKey, itemKey) {
                         aria-pressed="${window.FavoritesManager && window.FavoritesManager.isFavorite(categoryKey, itemKey) ? "true" : "false"}"
                         aria-label="${window.FavoritesManager && window.FavoritesManager.isFavorite(categoryKey, itemKey) ? "Remove ${escTitle} from favorites" : "Add ${escTitle} to favorites"}"
                         class="favorite-toggle-btn w-full font-bold py-2 px-4 rounded transition duration-300 ${window.FavoritesManager && window.FavoritesManager.isFavorite(categoryKey, itemKey) ? "bg-pink-500 hover:bg-pink-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"}">
-                    <i class="fas fa-heart mr-2" aria-hidden="true"></i><span class="fav-label">${window.FavoritesManager && window.FavoritesManager.isFavorite(categoryKey, itemKey) ? "Remove from Favorites" : "Add to Favorites"}</span>
+                    <i class="fas fa-heart mr-2" aria-hidden="true"></i><span class="fav-label">${window.FavoritesManager && window.FavoritesManager.isFavorite(categoryKey, itemKey) ? window.t("item.remove_from_favorites") || "Remove from Favorites" : window.t("item.add_to_favorites") || "Add to Favorites"}</span>
                 </button>
 
                 <h2 class="text-xl font-semibold pb-2 mt-4 border-b" style="color: var(--text-color); border-color: var(--border-color);" id="item-navigation-heading">Navigation</h2>
@@ -2876,13 +2876,13 @@ function renderItem(itemData, categoryKey, itemKey) {
                     ${prevItemKey ? `<a href="#item/${currentColoringStyle || "classic"}/${categoryKey}/${prevItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">&laquo; ${window.t("item.nav_previous") || "Previous"}</a>` : '<div class="flex-1"></div>'}
                     ${nextItemKey ? `<a href="#item/${currentColoringStyle || "classic"}/${categoryKey}/${nextItemKey}" class="flex-1 text-center font-bold py-2 px-4 rounded transition duration-300" style="background-color: #e5e7eb; color: var(--text-color); hover: opacity-90;">${window.t("item.nav_next") || "Next"} &raquo;</a>` : '<div class="flex-1"></div>'}
                  </div>
-                 <a href="#category/${categoryKey}" class="block text-center mt-2 hover:underline" style="color: var(--accent-color);">Back to ${escCatTitle}</a>
+                 <a href="#category/${categoryKey}" class="block text-center mt-2 hover:underline" style="color: var(--accent-color);">${window.t("category.back_to_home") || "Back to"} ${escCatTitle}</a>
 
                  <!-- Placeholder for Affiliate Links -->
                  <div class="mt-6 pt-4 border-t" style="border-color: var(--border-color);">
                      <h3 class="text-md font-semibold mb-2" style="color: var(--text-color);">${window.t("item.get_supplies") || "Get Coloring Supplies!"}</h3>
-                     <a href="#" target="_blank" rel="noopener noreferrer sponsored" class="text-sm hover:underline block" style="color: var(--accent-color);">Shop Pencils on Amazon (Affiliate)</a>
-                     <a href="#" target="_blank" rel="noopener noreferrer sponsored" class="text-sm hover:underline block" style="color: var(--accent-color);">Shop Markers on Amazon (Affiliate)</a>
+                     <a href="#" target="_blank" rel="noopener noreferrer sponsored" class="text-sm hover:underline block" style="color: var(--accent-color);">${window.t("item.shop_pencils") || "Shop Pencils on Amazon (Affiliate)"}</a>
+                     <a href="#" target="_blank" rel="noopener noreferrer sponsored" class="text-sm hover:underline block" style="color: var(--accent-color);">${window.t("item.shop_markers") || "Shop Markers on Amazon (Affiliate)"}</a>
                      <p class="text-xs mt-1" style="color: var(--text-color); opacity: 0.7;">${window.t("item.amazon_affiliate") || "(As an Amazon Associate we earn from qualifying purchases)"}</p>
                  </div>
             </div>
@@ -3229,13 +3229,13 @@ function toggleFavoriteFromItem(categoryKey, itemKey, btnEl) {
       btnEl.classList.remove("bg-gray-200", "hover:bg-gray-300", "text-gray-800");
       btnEl.classList.add("bg-pink-500", "hover:bg-pink-600", "text-white");
       if (label) {
-        label.textContent = "Remove from Favorites";
+        label.textContent = window.t("item.remove_from_favorites") || "Remove from Favorites";
       }
     } else {
       btnEl.classList.remove("bg-pink-500", "hover:bg-pink-600", "text-white");
       btnEl.classList.add("bg-gray-200", "hover:bg-gray-300", "text-gray-800");
       if (label) {
-        label.textContent = "Add to Favorites";
+        label.textContent = window.t("item.add_to_favorites") || "Add to Favorites";
       }
     }
     btnEl.setAttribute("aria-pressed", nowFav ? "true" : "false");
