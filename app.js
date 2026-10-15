@@ -875,7 +875,7 @@ class ImageLoadQueue {
   }
 
   add(imageElement, src) {
-    this.queue.push({ imageElement, src });
+    this.queue.push({ imageElement, src, retryCount: 0 });
     if (!this.isProcessing) {
       this.processQueue();
     }
@@ -919,7 +919,7 @@ class ImageLoadQueue {
     }
 
     this.isProcessing = true;
-    const { imageElement, src } = this.queue.shift();
+    const { imageElement, src, retryCount } = this.queue.shift();
 
     // Check if we should cancel before processing
     if (this.shouldCancel) {
@@ -940,14 +940,40 @@ class ImageLoadQueue {
       // Create abort controller for this request
       this.currentAbortController = new AbortController();
 
-      // Use the enhanced loading function with retry mechanism and abort controller
-      const success = await loadImageWithRetry(imageElement, src, 3, this.currentAbortController);
+      // Single-attempt load - re-enqueue on timeout instead of retrying immediately
+      const success = await loadImageWithRetry(imageElement, src, this.currentAbortController);
 
       // Clear abort controller after successful completion
       this.currentAbortController = null;
 
       if (!success && !this.shouldCancel) {
-        console.error(`Failed to load image after retries: ${src}`);
+        console.error(`Failed to load image: ${src}`);
+
+        // Show error state for permanent failure
+        if (imageElement) {
+          imageElement.classList.remove("loading");
+          imageElement.classList.add("error");
+
+          // Hide loading indicator
+          const loadingIndicator = imageElement.parentNode?.querySelector(
+            ".image-loading-indicator"
+          );
+          if (loadingIndicator) {
+            loadingIndicator.style.display = "none";
+          }
+
+          // Add error indication if not already present
+          const wrapper = imageElement.parentNode;
+          if (wrapper && !wrapper.querySelector(".image-error-indicator")) {
+            wrapper.classList.add("relative");
+            const errorIndicator = document.createElement("div");
+            errorIndicator.className =
+              "image-error-indicator absolute inset-0 flex items-center justify-center bg-red-100 bg-opacity-50";
+            errorIndicator.innerHTML =
+              '<i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>';
+            wrapper.appendChild(errorIndicator);
+          }
+        }
       }
     } catch (error) {
       this.currentAbortController = null;
@@ -959,30 +985,61 @@ class ImageLoadQueue {
         return;
       }
 
-      console.error(`Unexpected error loading image: ${src}`, error);
+      // Check for timeout: re-enqueue at end instead of burning backoff delays
+      if (error.message === "Image load timeout after 8 seconds") {
+        debug.log(`Timeout on image ${src}, attempt ${retryCount + 1}/5 - re-enqueuing`);
+        if (retryCount + 1 < 5) {
+          this.queue.push({ imageElement, src, retryCount: retryCount + 1 });
+          // Continue with next item immediately (no delay for timeout re-enqueue)
+          this.processQueue();
+          return;
+        } else {
+          console.error(`Image permanently failed after 5 attempts: ${src}`);
+          if (imageElement) {
+            imageElement.classList.remove("loading");
+            imageElement.classList.add("error");
 
-      // Ensure error state is properly set
-      if (imageElement) {
+            const loadingIndicator = imageElement.parentNode?.querySelector(
+              ".image-loading-indicator"
+            );
+            if (loadingIndicator) {
+              loadingIndicator.style.display = "none";
+            }
+
+            const wrapper = imageElement.parentNode;
+            if (wrapper && !wrapper.querySelector(".image-error-indicator")) {
+              wrapper.classList.add("relative");
+              const errorIndicator = document.createElement("div");
+              errorIndicator.className =
+                "image-error-indicator absolute inset-0 flex items-center justify-center bg-red-100 bg-opacity-50";
+              errorIndicator.innerHTML =
+                '<i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>';
+              wrapper.appendChild(errorIndicator);
+            }
+          }
+        }
+      } else {
+        // Non-timeout error: immediate retry with backoff
+        console.warn(
+          `Non-timeout error on image ${src} (attempt ${retryCount + 1}/5):`,
+          error.message
+        );
+        if (retryCount + 1 < 5) {
+          const delay = Math.min(2000 * Math.pow(1.5, retryCount), 8000);
+          debug.log(`Waiting ${delay}ms before retrying image load for ${src}`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          this.queue.push({ imageElement, src, retryCount: retryCount + 1 });
+          this.processQueue();
+          return;
+        } else {
+          console.error(`Image permanently failed after 5 attempts: ${src}`);
+        }
+      }
+
+      // Ensure error state is properly set for other failures
+      if (imageElement && !this.shouldCancel) {
         imageElement.classList.remove("loading");
         imageElement.classList.add("error");
-
-        // Hide loading indicator
-        const loadingIndicator = imageElement.parentNode?.querySelector(".image-loading-indicator");
-        if (loadingIndicator) {
-          loadingIndicator.style.display = "none";
-        }
-
-        // Add error indication if not already present
-        const wrapper = imageElement.parentNode;
-        if (wrapper && !wrapper.querySelector(".image-error-indicator")) {
-          wrapper.classList.add("relative");
-          const errorIndicator = document.createElement("div");
-          errorIndicator.className =
-            "image-error-indicator absolute inset-0 flex items-center justify-center bg-red-100 bg-opacity-50";
-          errorIndicator.innerHTML =
-            '<i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>';
-          wrapper.appendChild(errorIndicator);
-        }
       }
     } finally {
       // Delay before next image regardless of success or failure
@@ -3004,8 +3061,10 @@ function setupGlobalImageErrorHandling() {
   ); // Use capture phase to catch all image errors
 }
 
-// Enhanced image loading with retry mechanism and cancellation support
-async function loadImageWithRetry(imageElement, src, maxRetries = 3, abortController = null) {
+// Enhanced image loading with timeout and cancellation support.
+// Retries are handled by the caller (processQueue in ImageLoadQueue)
+// so timeouts can be re-enqueued instead of burning backoff delays.
+async function loadImageWithRetry(imageElement, src, abortController = null) {
   // Validate input
   if (!imageElement || !src) {
     console.error("Invalid parameters for loadImageWithRetry");
@@ -3022,151 +3081,85 @@ async function loadImageWithRetry(imageElement, src, maxRetries = 3, abortContro
   imageElement.classList.add("loading");
   imageElement.classList.remove("error");
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      // Check if request was aborted before each attempt
-      if (abortController?.signal?.aborted) {
-        debug.log(`Request aborted during attempt ${attempt}:`, src);
-        throw new Error("AbortError");
+  try {
+    await new Promise((resolve, reject) => {
+      const img = new Image();
+
+      // Set up abort handler
+      const abortHandler = () => {
+        debug.log(`Image load aborted:`, src);
+        reject(new Error("AbortError"));
+      };
+
+      if (abortController?.signal) {
+        abortController.signal.addEventListener("abort", abortHandler);
       }
 
-      debug.log(`Image load attempt ${attempt} for ${src}`);
-
-      await new Promise((resolve, reject) => {
-        const img = new Image();
-
-        // Set up abort handler
-        const abortHandler = () => {
-          debug.log(`Image load aborted on attempt ${attempt}:`, src);
-          reject(new Error("AbortError"));
-        };
-
+      img.onload = () => {
         if (abortController?.signal) {
-          abortController.signal.addEventListener("abort", abortHandler);
+          abortController.signal.removeEventListener("abort", abortHandler);
         }
+        debug.log(`Image loaded successfully: ${src}`);
+        resolve();
+      };
 
-        img.onload = () => {
-          if (abortController?.signal) {
-            abortController.signal.removeEventListener("abort", abortHandler);
-          }
-          debug.log(`Image loaded successfully on attempt ${attempt}: ${src}`);
-          resolve();
-        };
-
-        img.onerror = error => {
-          if (abortController?.signal) {
-            abortController.signal.removeEventListener("abort", abortHandler);
-          }
-          console.warn(`Image load error on attempt ${attempt} for ${src}:`, error);
-          reject(new Error(`Image load failed: ${error?.message || "Unknown error"}`));
-        };
-
-        img.src = src;
-
-        // Add timeout
-        const timeoutId = setTimeout(() => {
-          if (abortController?.signal) {
-            abortController.signal.removeEventListener("abort", abortHandler);
-          }
-          console.warn(`Image load timeout on attempt ${attempt} for ${src}`);
-          reject(new Error("Image load timeout after 10 seconds"));
-        }, 10000);
-
-        // Clear timeout on abort
+      img.onerror = error => {
         if (abortController?.signal) {
-          abortController.signal.addEventListener("abort", () => {
-            clearTimeout(timeoutId);
-          });
+          abortController.signal.removeEventListener("abort", abortHandler);
         }
-      });
+        console.warn(`Image load error for ${src}:`, error);
+        reject(new Error(`Image load failed: ${error?.message || "Unknown error"}`));
+      };
 
-      // Check one more time before applying the image
-      if (abortController?.signal?.aborted) {
-        debug.log(`Request aborted before applying image:`, src);
-        throw new Error("AbortError");
-      }
+      img.src = src;
 
-      // If we get here, the image loaded successfully
-      imageElement.src = src;
-      imageElement.classList.remove("loading", "error");
-
-      // Hide loading indicator if it exists
-      const loadingIndicator = imageElement.parentNode?.querySelector(".image-loading-indicator");
-      if (loadingIndicator) {
-        loadingIndicator.style.display = "none";
-      }
-
-      // Setup hover preview for successfully loaded images
-      setupImageHoverPreview(imageElement);
-
-      return true;
-    } catch (error) {
-      // Handle abort errors specifically
-      if (error.message === "AbortError" || error.name === "AbortError") {
-        debug.log(`Image load aborted for ${src}`);
-        throw error; // Re-throw abort errors
-      }
-
-      console.warn(`Image load attempt ${attempt} failed for ${src}:`, error.message || error);
-
-      if (attempt === maxRetries) {
-        // Last attempt failed, show error
-        imageElement.classList.remove("loading");
-        imageElement.classList.add("error");
-
-        // Hide loading indicator
-        const loadingIndicator = imageElement.parentNode?.querySelector(".image-loading-indicator");
-        if (loadingIndicator) {
-          loadingIndicator.style.display = "none";
+      // 8s timeout — gives CF AI ~2-5s response + buffer, fails fast if queued server-side
+      const timeoutId = setTimeout(() => {
+        if (abortController?.signal) {
+          abortController.signal.removeEventListener("abort", abortHandler);
         }
+        console.warn(`Image load timeout for ${src}`);
+        reject(new Error("Image load timeout after 8 seconds"));
+      }, 8000);
 
-        // Show a more descriptive error message
-        const errorImageUrl =
-          "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iIzk5OTk5OSI+SW1hZ2UgRXJyb3I8L3RleHQ+PC9zdmc+";
-        imageElement.src = errorImageUrl;
-
-        // Show toast notification about the failed image load
-        if (typeof showToast === "function") {
-          showToast(
-            `Failed to load image after ${maxRetries} attempts. Please try again later.`,
-            "error"
-          );
-        }
-
-        // Add error indication with retry button
-        const wrapper = imageElement.parentNode;
-        if (wrapper && !wrapper.querySelector(".image-error-indicator")) {
-          wrapper.classList.add("relative");
-          const errorIndicator = document.createElement("div");
-          errorIndicator.className =
-            "image-error-indicator absolute inset-0 flex items-center justify-center bg-red-100 bg-opacity-50";
-          errorIndicator.innerHTML = `
-            <div class="text-center p-4">
-              <i class="fas fa-exclamation-triangle text-red-400 text-3xl mb-2"></i>
-              <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">${window.t("item.image_unavailable") || "Image unavailable"}</p>
-              <button class="retry-image-btn px-3 py-1 bg-primary-500 text-white text-xs rounded-full hover:bg-primary-600 transition">
-                <i class="fas fa-redo mr-1"></i> ${window.t("item.retry") || "Retry"}
-              </button>
-            </div>`;
-          // Add retry click handler
-          errorIndicator.querySelector(".retry-image-btn").addEventListener("click", e => {
-            e.preventDefault();
-            e.stopPropagation();
-            errorIndicator.remove();
-            imageElement.classList.remove("error");
-            loadImageWithRetry(imageElement, src, maxRetries);
-          });
-          wrapper.appendChild(errorIndicator);
-        }
-
-        return false;
+      // Clear timeout on abort
+      if (abortController?.signal) {
+        abortController.signal.addEventListener("abort", () => {
+          clearTimeout(timeoutId);
+        });
       }
+    });
 
-      // Wait before retrying with exponential backoff
-      const delay = Math.min(2000 * Math.pow(1.5, attempt - 1), 8000); // Increased delays: 2s, 3s, 4.5s, max 8s
-      debug.log(`Waiting ${delay}ms before retrying image load for ${src}`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+    // Check one more time before applying the image
+    if (abortController?.signal?.aborted) {
+      debug.log(`Request aborted before applying image:`, src);
+      throw new Error("AbortError");
     }
+
+    // If we get here, the image loaded successfully
+    imageElement.src = src;
+    imageElement.classList.remove("loading", "error");
+
+    // Hide loading indicator if it exists
+    const loadingIndicator = imageElement.parentNode?.querySelector(".image-loading-indicator");
+    if (loadingIndicator) {
+      loadingIndicator.style.display = "none";
+    }
+
+    // Setup hover preview for successfully loaded images
+    setupImageHoverPreview(imageElement);
+
+    return true;
+  } catch (error) {
+    // Handle abort errors specifically
+    if (error.message === "AbortError" || error.name === "AbortError") {
+      debug.log(`Image load aborted for ${src}`);
+      throw error; // Re-throw abort errors
+    }
+    // All other errors (timeout, network, 404) propagate to processQueue
+    // which decides: timeout → re-enqueue, other → immediate backoff retry
+    console.warn(`Image load failed for ${src}:`, error.message || error);
+    throw error;
   }
 }
 

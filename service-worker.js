@@ -4,8 +4,8 @@
  * Version: 1.0.0
  */
 
-const CACHE_NAME = "colorverse-v4";
-const STATIC_CACHE = "colorverse-static-v4";
+const CACHE_NAME = "colorverse-v5";
+const STATIC_CACHE = "colorverse-static-v5";
 const IMAGE_CACHE = "colorverse-images-v1";
 const API_CACHE = "colorverse-api-v1";
 
@@ -104,13 +104,11 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  // Strategy 1b: Stale While Revalidate for local code (app.js, src/**/*.js,
-  // *.css, *.html). This serves the cached version instantly, fetches the
-  // fresh version in the background, and caches it for the NEXT reload.
-  // Within 2 reloads of a deploy, users get the new code — no manual version
-  // bumps needed.
+  // Strategy 1b: Network First for local code (app.js, src/**/*.js,
+  // *.css, *.html). This fetches the fresh version first, serving from cache
+  // only as a fallback. Users get the latest code on every reload after a deploy.
   if (isLocalCodeAsset(request)) {
-    event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
+    event.respondWith(networkFirst(request, STATIC_CACHE));
     return;
   }
 
