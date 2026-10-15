@@ -667,7 +667,7 @@
                                 <span class="ml-1 text-xs bg-yellow-400 text-black px-1.5 py-0.5 rounded-full hidden sm:inline-block">Beta</span>
                             </a>
                         </div>
-                        <p class="text-xs sm:text-sm mt-1 opacity-90 hidden sm:block">Personalized Coloring Pages Made Just for You</p>
+                        <p class="text-xs sm:text-sm mt-1 opacity-90 hidden sm:block" data-i18n="app.tagline">Personalized Coloring Pages Made Just for You</p>
                     </div>
                 </div>
                 <nav aria-label="Main" class="flex flex-wrap items-center justify-end">
@@ -675,8 +675,10 @@
                     <div class="relative mr-4 hidden md:block order-1">
                         <input type="text" id="search-input"
                             placeholder="Search coloring pages..."
+                            data-i18n-placeholder="nav.search_placeholder"
                             class="bg-white bg-opacity-20 text-white placeholder-gray-200 rounded-lg px-4 py-2 pr-10 border-none focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all w-64"
-                            aria-label="Search coloring pages">
+                            aria-label="Search coloring pages"
+                            data-i18n-aria="nav.search_title">
                         <button id="search-btn" aria-label="Search coloring pages" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-200">
                             <i class="fas fa-search" aria-hidden="true"></i>
                         </button>
@@ -687,18 +689,20 @@
                         <!-- Search Button -->
                         <a href="#search"
                             class="mr-2 sm:mr-3 p-2 rounded-lg text-white bg-indigo-500 hover:bg-indigo-600 transition-colors"
-                            title="Search Coloring Pages">
+                            title="Search Coloring Pages"
+                            data-i18n="nav.search_title">
                             <i class="fas fa-search" aria-hidden="true"></i>
-                            <span class="sr-only">Search Coloring Pages</span>
+                            <span class="sr-only" data-i18n="nav.search_title">Search Coloring Pages</span>
                         </a>
 
                         <!-- Favorites Button -->
                         <button id="favorites-toggle"
                             class="mr-2 sm:mr-3 p-2 rounded-lg text-white bg-pink-500 hover:bg-pink-600 transition-colors relative"
-                            title="My Favorites" aria-label="My Favorites">
+                            title="My Favorites" aria-label="My Favorites"
+                            data-i18n="nav.favorites_title">
                             <i class="fas fa-heart" aria-hidden="true"></i>
                             <span id="favorites-count" class="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
-                            <span class="sr-only">My Favorites</span>
+                            <span class="sr-only" data-i18n="nav.favorites_title">My Favorites</span>
                         </button>
 
                         <!-- Palettes Button (opens overlay, no page navigation) -->
@@ -713,9 +717,10 @@
                         <!-- Donate Button -->
                         <a href="#donate"
                             class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-3 sm:px-4 rounded-lg transition duration-300 flex items-center"
-                            title="Donate" aria-label="Donate">
+                            title="Donate" aria-label="Donate"
+                            data-i18n="nav.donate">
                             <i class="fas fa-heart" aria-hidden="true"></i>
-                            <span class="ml-1 hidden sm:inline">Donate</span>
+                            <span class="ml-1 hidden sm:inline" data-i18n="nav.donate">Donate</span>
                         </a>
 
                         <!-- Hamburger Toggle (mobile only) -->
@@ -738,9 +743,10 @@
 
                         <button id="refresh-content"
                             class="mr-0 md:mr-3 p-2 rounded-lg text-white bg-yellow-500 hover:bg-yellow-600 transition-colors"
-                            title="Refresh Content" aria-label="Refresh Content">
+                            title="Refresh Content" aria-label="Refresh Content"
+                            data-i18n="nav.refresh_title">
                             <i class="fas fa-dice" aria-hidden="true"></i>
-                            <span class="sr-only">Refresh Content</span>
+                            <span class="sr-only" data-i18n="nav.refresh_title">Refresh Content</span>
                         </button>
                         <div class="relative mr-0 md:mr-3">
                             <select id="style-selector"
@@ -772,7 +778,8 @@
                             </button>
                         </div>
                         <!-- Language Selector -->
-                        <select id="language-selector" class="bg-white bg-opacity-20 text-white rounded-md px-2 py-1 text-xs font-bold border-none appearance-none focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all cursor-pointer ml-1 w-12 text-center" title="Language" aria-label="Language">
+                        <select id="language-selector" class="bg-white bg-opacity-20 text-white rounded-md px-2 py-1 text-xs font-bold border-none appearance-none focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all cursor-pointer ml-1 w-12 text-center" title="Language" aria-label="Language"
+                            data-i18n-aria="nav.lang_selector">
                             <option value="en">EN</option>
                             <option value="de">DE</option>
                             <option value="pt">PT</option>
@@ -1266,22 +1273,22 @@
         <div class="bg-gradient-to-r from-purple-600 via-pink-600 to-red-500 rounded-2xl p-8 text-white shadow-2xl">
             <div class="flex flex-col md:flex-row items-center justify-between gap-6">
                 <div class="flex-1">
-                    <h2 class="text-2xl md:text-3xl font-bold mb-3">
+                    <h2 class="text-2xl md:text-3xl font-bold mb-3" data-i18n="affiliate.heading">
                         <i class="fas fa-book-open mr-3"></i>Love Our Free Pages?
                     </h2>
-                    <p class="text-lg text-purple-100 mb-4">
-                        Get hundreds of premium coloring pages in beautiful printed books! Perfect for road trips, 
+                    <p class="text-lg text-purple-100 mb-4" data-i18n="affiliate.description">
+                        Get hundreds of premium coloring pages in beautiful printed books! Perfect for road trips,
                         restaurants, or when you need screen-free activities for the kids.
                     </p>
                     <div class="flex flex-wrap gap-3 text-sm">
                         <span class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
-                            <i class="fas fa-check mr-1"></i> Hours of fun
+                            <i class="fas fa-check mr-1"></i> <span data-i18n="affiliate.bullet_1">Hours of fun</span>
                         </span>
                         <span class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
-                            <i class="fas fa-check mr-1"></i> No screens needed
+                            <i class="fas fa-check mr-1"></i> <span data-i18n="affiliate.bullet_2">No screens needed</span>
                         </span>
                         <span class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
-                            <i class="fas fa-check mr-1"></i> Perfect for travel
+                            <i class="fas fa-check mr-1"></i> <span data-i18n="affiliate.bullet_3">Perfect for travel</span>
                         </span>
                     </div>
                 </div>
@@ -1290,18 +1297,18 @@
                        target="_blank" 
                        rel="noopener noreferrer sponsored"
                        class="bg-white text-purple-600 hover:bg-gray-100 px-8 py-4 rounded-xl font-bold text-lg transition-all hover:shadow-lg flex items-center justify-center">
-                        <i class="fas fa-shopping-cart mr-2"></i> Shop Kids' Books
+                        <i class="fas fa-shopping-cart mr-2"></i> <span data-i18n="affiliate.shop_kids">Shop Kids' Books</span>
                     </a>
                     <a href="https://www.amazon.com/s?k=adult+coloring+books&tag=colorverse-20&ref=nb_sb_noss" 
                        target="_blank" 
                        rel="noopener noreferrer sponsored"
                        class="bg-transparent border-2 border-white text-white hover:bg-white hover:text-purple-600 px-8 py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center">
-                        <i class="fas fa-wine-glass mr-2"></i> Adult Books
+                        <i class="fas fa-wine-glass mr-2"></i> <span data-i18n="affiliate.shop_adults">Adult Books</span>
                     </a>
                 </div>
             </div>
-            <p class="text-xs text-purple-200 mt-4 text-center">
-                <i class="fas fa-info-circle mr-1"></i> As an Amazon Associate, we earn from qualifying purchases. 
+            <p class="text-xs text-purple-200 mt-4 text-center" data-i18n="affiliate.disclosure">
+                <i class="fas fa-info-circle mr-1"></i> As an Amazon Associate, we earn from qualifying purchases.
                 This helps us keep ColorVerse free for everyone!
             </p>
         </div>
@@ -1310,8 +1317,8 @@
     <!-- Ad Container (Responsive) -->
     <div class="container mx-auto px-4 py-4">
         <div class="ad-container">
-            <div class="ad-label">Advertisement</div>
-            <p class="text-gray-500 text-sm">Support ColorVerse by viewing our sponsors</p>
+            <div class="ad-label" data-i18n="ad.label">Advertisement</div>
+            <p class="text-gray-500 text-sm" data-i18n="ad.description">Support ColorVerse by viewing our sponsors</p>
             <!-- Google AdSense or other ad code would go here -->
             <div class="mt-4 p-8 bg-gray-200 rounded text-gray-400">
                 [Ad Space - 728x90 or Responsive]
@@ -1328,7 +1335,7 @@
                         coloring pages made for everyone.</p>
                 </div>
                 <div>
-                    <h3 class="text-lg font-bold mb-3">Quick Links</h3>
+                    <h3 class="text-lg font-bold mb-3" data-i18n="footer.quick_links">Quick Links</h3>
                     <ul class="text-sm space-y-2">
                         <li><a href="#" class="hover:text-primary-300 transition-colors">Home</a></li>
                         <li><a href="#about" class="hover:text-primary-300 transition-colors">About</a></li>
@@ -1336,7 +1343,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h3 class="text-lg font-bold mb-3">Categories</h3>
+                    <h3 class="text-lg font-bold mb-3" data-i18n="footer.categories">Categories</h3>
                     <ul class="text-sm space-y-2">
                         <li><a href="#category/animals" class="hover:text-primary-300 transition-colors">Animals</a>
                         </li>
@@ -1347,7 +1354,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h3 class="text-lg font-bold mb-3">Connect</h3>
+                    <h3 class="text-lg font-bold mb-3" data-i18n="footer.social">Connect</h3>
                     <div class="flex space-x-3 text-xl">
                         <a href="#" aria-label="Twitter" class="hover:text-primary-300 transition-colors"><i
                                 class="fab fa-twitter"></i></a>
@@ -1358,11 +1365,12 @@
                         <a href="#" aria-label="Facebook" class="hover:text-primary-300 transition-colors"><i
                                 class="fab fa-facebook"></i></a>
                     </div>
-                    <p class="text-sm mt-4">Subscribe for updates:</p>
+                    <p class="text-sm mt-4" data-i18n="footer.subscribe_label">Subscribe for updates:</p>
                     <div class="flex mt-2">
                         <input type="email" placeholder="Your email"
-                            class="px-3 py-1 text-sm text-black rounded-l-lg w-full" aria-label="Email for newsletter">
-                        <button class="bg-primary-500 hover:bg-primary-600 px-3 py-1 rounded-r-lg transition-colors" aria-label="Subscribe to newsletter">
+                            data-i18n-placeholder="footer.email_placeholder"
+                            class="px-3 py-1 text-sm text-black rounded-l-lg w-full" data-i18n-aria="footer.subscribe_email" aria-label="Email for newsletter">
+                        <button class="bg-primary-500 hover:bg-primary-600 px-3 py-1 rounded-r-lg transition-colors" data-i18n-aria="footer.subscribe_btn" aria-label="Subscribe to newsletter">
                             <i class="fas fa-paper-plane" aria-hidden="true"></i>
                         </button>
                     </div>
@@ -1453,12 +1461,46 @@
 
     <!-- Theme Switcher, Language Switcher and Refresh Script -->
     <script>
+        // Translate static DOM elements based on data-i18n attributes
+        function translateStaticDom() {
+            if (typeof window.t !== 'function') {
+                console.warn('window.t function not available, skipping static translation');
+                return;
+            }
+
+            // Translate text content
+            document.querySelectorAll('[data-i18n]').forEach(function(el) {
+                var key = el.dataset.i18n;
+                var originalText = el.textContent;
+                var translated = window.t(key) || originalText;
+                el.textContent = translated;
+            });
+
+            // Translate placeholders
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+                var key = el.dataset.i18nPlaceholder;
+                var originalPlaceholder = el.placeholder;
+                var translated = window.t(key) || originalPlaceholder;
+                el.placeholder = translated;
+            });
+
+            // Translate aria-labels
+            document.querySelectorAll('[data-i18n-aria]').forEach(function(el) {
+                var key = el.dataset.i18nAria;
+                var originalAria = el.getAttribute('aria-label');
+                var translated = window.t(key) || originalAria;
+                el.setAttribute('aria-label', translated);
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             // Initialize i18n if available
             if (typeof window.cvI18n !== 'undefined') {
                 window.cvI18n.initI18n().then(function(locale) {
                     console.log('i18n initialized with locale:', locale);
                     updateLanguageSelector(locale);
+                    // Translate static DOM elements after i18n is initialized
+                    translateStaticDom();
                 }).catch(function(err) {
                     console.warn('i18n initialization failed:', err);
                 });

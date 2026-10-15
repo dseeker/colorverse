@@ -19,7 +19,7 @@ async function loadLocales() {
   const resources = {};
   for (const code of SUPPORTED_LOCALES) {
     try {
-      const res = await fetch(`./locales/${code}/translation.json`);
+      const res = await fetch(`./locales/${code}/translation.json`, { cache: "no-store" });
       if (!res.ok) {
         continue;
       }

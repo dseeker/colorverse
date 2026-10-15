@@ -4,8 +4,8 @@
  * Version: 1.0.0
  */
 
-const CACHE_NAME = "colorverse-v5";
-const STATIC_CACHE = "colorverse-static-v5";
+const CACHE_NAME = "colorverse-v6";
+const STATIC_CACHE = "colorverse-static-v6";
 const IMAGE_CACHE = "colorverse-images-v1";
 const API_CACHE = "colorverse-api-v1";
 
@@ -158,6 +158,7 @@ function isLocalCodeAsset(request) {
     relPath.endsWith(".js") ||
     relPath.endsWith(".css") ||
     relPath.endsWith(".html") ||
+    relPath.endsWith(".json") ||
     relPath === "" ||
     relPath === "/"
   );
