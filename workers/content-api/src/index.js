@@ -450,6 +450,16 @@ function buildCategoryPrompt(categoryKey, categoryInfo, itemCount, seed) {
     ? `- Seed: this catalog variant is for seed "${seed}" — make the generated items distinctive variations tuned to this seed (different subjects, compositions, and details than the default catalog).`
     : "";
 
+  // Concrete subject suggestions force the LLM to draw from varied motifs
+  // instead of converging on the same generic ones across items.
+  const subjects = Array.isArray(categoryInfo.subjects) ? categoryInfo.subjects : [];
+  const subjectsNote = subjects.length
+    ? `- Use these subject ideas as INSPIRATION (vary composition, angle, and details; do not repeat the same subject): ${subjects
+        .slice(0, itemCount)
+        .map(s => `"${s}"`)
+        .join(", ")}. You may adapt them but each item must have a distinct subject/composition.`
+    : "";
+
   return `Generate coloring page data for the "${categoryKey}" category.
 Output a JSON object with this structure:
 {
@@ -467,6 +477,8 @@ REQUIREMENTS:
 - Each title MUST be unique, creative, and evocative (NOT generic like "Sample" or "Item")
 - Descriptions must be detailed enough for generating black and white coloring pages
 - Include variety: some simple for beginners, some complex for advanced colorists
+- Vary the composition, angle, and subject between items — avoid repeating the same motif
+${subjectsNote}
 ${seedNote}
 Output ONLY the JSON object.`;
 }
