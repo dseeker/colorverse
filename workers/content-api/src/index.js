@@ -234,7 +234,7 @@ async function callGemini(model, body, apiKey) {
 // /catalog serves the full site-data.json catalog (~20 items x 25 categories +
 // a 12-item seasonal gallery) without a cron job or a build step:
 //
-//   1. KV hit + fresh (< CATALOG_TTL_MS old)  -> 200, max-age=86400
+//   1. KV hit + fresh (< CATALOG_TTL_MS old)  -> 200, max-age=604800
 //   2. KV hit + stale                          -> 200 (stale body) and a
 //      background regeneration via ctx.waitUntil (stale-while-revalidate)
 //   3. KV miss                                 -> generation flow:
@@ -246,7 +246,7 @@ async function callGemini(model, body, apiKey) {
 // never affects the cache key, so all users share the same cached catalog.
 
 const CATALOG_DEFAULT_KEY = "catalog:default";
-const CATALOG_TTL_MS = 24 * 60 * 60 * 1000;
+const CATALOG_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // Lock TTL — Cloudflare KV requires expirationTtl >= 60. We want this close
 // to the CF waitUntil wall-clock limit (~30s) so a killed job doesn't block
 // retries for long, but KV enforces a 60s minimum.
@@ -1053,7 +1053,7 @@ async function handleCatalog(request, env, ctx) {
       const legacy = await env.SITE_DATA.get("site-data.json");
       if (legacy) {
         return createJSONResponse(JSON.parse(legacy), 200, {
-          "Cache-Control": "public, max-age=86400",
+          "Cache-Control": "public, max-age=604800",
           ...corsMethods(request, env),
         });
       }
@@ -1085,7 +1085,7 @@ async function handleCatalog(request, env, ctx) {
 
     if (parsed && isFresh) {
       return createJSONResponse(parsed, 200, {
-        "Cache-Control": "public, max-age=86400",
+        "Cache-Control": "public, max-age=604800",
         ...corsMethods(request, env),
       });
     }
@@ -1103,7 +1103,7 @@ async function handleCatalog(request, env, ctx) {
       );
     }
     return createJSONResponse(body, 200, {
-      "Cache-Control": "public, max-age=60",
+      "Cache-Control": "public, max-age=3600",
       ...corsMethods(request, env),
     });
   }
@@ -1122,7 +1122,7 @@ async function handleCatalog(request, env, ctx) {
       const legacy = await env.SITE_DATA.get("site-data.json");
       if (legacy) {
         return createJSONResponse(JSON.parse(legacy), 200, {
-          "Cache-Control": "public, max-age=86400",
+          "Cache-Control": "public, max-age=604800",
           ...corsMethods(request, env),
         });
       }

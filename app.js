@@ -1336,7 +1336,7 @@ const CACHE_KEY_TIMESTAMP = "colorverse-cache-timestamp";
 // the flag flips — the /image route URL shape has no model/key params.
 const CACHE_KEY_IMAGE_URLS = "colorverse-image-urls-v2";
 const CACHE_DURATION = {
-  HOURS: 6, // Cache expires after 6 hours in production
+  HOURS: 168, // Cache expires after 7 days in production
   DEV_MINUTES: 10, // Cache expires after 10 minutes in dev mode
 };
 

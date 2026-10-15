@@ -4,8 +4,8 @@
  * Version: 1.0.0
  */
 
-const CACHE_NAME = "colorverse-v6";
-const STATIC_CACHE = "colorverse-static-v6";
+const CACHE_NAME = "colorverse-v7";
+const STATIC_CACHE = "colorverse-static-v7";
 const IMAGE_CACHE = "colorverse-images-v1";
 const API_CACHE = "colorverse-api-v1";
 
