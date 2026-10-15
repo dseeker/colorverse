@@ -2579,7 +2579,7 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
                          data-seed="${getDeterministicSeed(categoryKey, itemKey)}"
                          alt="${escItemTitle}"
                          class="w-full aspect-square object-contain group-hover:opacity-80 transition-opacity relative z-10">
-                    <div class="absolute inset-0 bg-primary-600 bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center z-20">
+                    <div class="absolute inset-0 bg-primary-600 bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center z-20 pointer-events-none">
                         <div class="bg-white p-2 rounded-full opacity-0 group-hover:opacity-100 transform scale-50 group-hover:scale-100 transition-all duration-300">
                             <i class="fas fa-eye text-primary-600"></i>
                         </div>
@@ -4047,6 +4047,38 @@ function renderSearchPage(query) {
 
 // --- Routing and Initialization ---
 
+/**
+ * Render a skeleton placeholder grid matching the destination route's grid
+ * classes. Keeps layout height stable between route changes so the page
+ * doesn't collapse/flicker while the real content computes. Replaced by the
+ * real render inside handleRouteChange's setTimeout.
+ */
+function renderSkeletonGrid(hash) {
+  let gridClass = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4";
+  let count = 10;
+  if (hash === "#" || hash === "#/") {
+    gridClass = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6";
+    count = 8;
+  } else if (hash.startsWith("#search")) {
+    gridClass = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6";
+    count = 8;
+  } else if (hash.startsWith("#item/")) {
+    // Item detail is a single column, not a grid — keep main visible height via a single placeholder
+    return `<div class="max-w-4xl mx-auto px-4 py-8 animate-pulse">
+      <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-4"></div>
+      <div class="aspect-square bg-gray-200 dark:bg-gray-700 rounded-lg mb-6"></div>
+      <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+      <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+    </div>`;
+  }
+  const cards = Array.from(
+    { length: count },
+    () =>
+      `<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden animate-pulse"><div class="aspect-square bg-gray-200 dark:bg-gray-700"></div><div class="p-3 space-y-2"><div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div></div></div>`
+  ).join("");
+  return `<div class="${gridClass} px-4 py-6">${cards}</div>`;
+}
+
 function handleRouteChange() {
   showLoading(true);
   const hash = window.location.hash || "#";
@@ -4062,7 +4094,8 @@ function handleRouteChange() {
     }
   }
 
-  mainContent.innerHTML = ""; // Clear previous content
+  mainContent.innerHTML = renderSkeletonGrid(hash); // Stable placeholder, replaced by real render
+  mainContent.classList.remove("hidden");
 
   // Disconnect any existing IntersectionObserver to prevent memory leaks
   if (window.imageObserver) {
@@ -6267,6 +6300,18 @@ function loadCachedImageUrls() {
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     debug.log("Initializing ColorVerse app...");
+
+    // Initialize i18n BEFORE any rendering so window.t() resolves keys
+    // instead of returning the raw key string. Without this, renderHomepage
+    // runs before i18next initializes and emits literal "homepage.featured"
+    // etc. as visible text.
+    if (typeof window !== "undefined" && window.cvI18n && window.cvI18n.initI18n) {
+      try {
+        await window.cvI18n.initI18n();
+      } catch (e) {
+        console.warn("i18n init failed, falling back to keys:", e);
+      }
+    }
 
     // Pre-load cached image URLs to speed up initial render
     loadCachedImageUrls();
