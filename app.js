@@ -6,8 +6,8 @@
 // --- Constants & Configuration ---
 const API_BASE_URL = "https://gen.pollinations.ai/image/";
 const DEFAULT_IMAGE_PARAMS = {
-  width: 1024,
-  height: 1024,
+  width: 768,
+  height: 768,
   seed: () => Math.floor(Math.random() * 100000), // Random seed per image
   nologo: true,
   // Removed model parameter to let API choose default
@@ -709,8 +709,6 @@ function reloadAllImages() {
     if (prompt) {
       // Generate new URL with current style
       const newDataSrc = getImageUrl(prompt, {
-        width: img.dataset.width || 400,
-        height: img.dataset.height || 400,
         seed: img.dataset.seed,
       });
 
@@ -763,8 +761,6 @@ function reloadAllImages() {
         }
         // Generate new URL with current style
         const newSrc = getImageUrl(prompt, {
-          width: img.dataset.width || 400,
-          height: img.dataset.height || 400,
           seed: img.dataset.seed,
         });
 
@@ -1892,8 +1888,6 @@ function renderHomepage(data) {
     }
 
     const thumbnailUrl = getImageUrl(itemDescription, {
-      width: 400,
-      height: 400,
       itemKey: key,
       seed: getDeterministicSeedFromItemKey(key), // ✅ Deterministic seed for consistency
     });
@@ -1909,8 +1903,6 @@ function renderHomepage(data) {
                     </div>
                     <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}"
                          data-prompt="${escItemDesc}"
-                         data-width="400"
-                         data-height="400"
                          alt="${escCatTitle}"
                          class="w-full aspect-square object-contain group-hover:opacity-90 transition-opacity relative z-10">
                     <div class="absolute top-3 right-3 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md z-20">
@@ -1982,8 +1974,6 @@ function renderHomepage(data) {
     const firstItem = category.items[firstItemKey];
     const thumbnailUrl = firstItem
       ? getImageUrl(firstItem.description, {
-          width: 400,
-          height: 400,
           itemKey: key,
           seed: getDeterministicSeedFromItemKey(key), // ✅ Deterministic
         })
@@ -2228,7 +2218,7 @@ function renderDailyPick(data) {
   // Generate image with a consistent seed
   const today = new Date();
   const seed = +`${today.getFullYear()}${today.getMonth()}${today.getDate()}`;
-  const imageUrl = getImageUrl(pickItem.description, { seed: seed, width: 600, height: 600 });
+  const imageUrl = getImageUrl(pickItem.description, { seed: seed });
 
   const escPickTitle = escapeHtml(pickItem.title);
   const escPickDesc = escapeHtml(pickItem.description);
@@ -2279,7 +2269,7 @@ function renderDailyPickPage(dailyPickData) {
   };
 
   const categoryKey = dailyPick.category || "fantasy";
-  const imageUrl = getImageUrl(pickItem.description, { width: 800, height: 800, seed });
+  const imageUrl = getImageUrl(pickItem.description, { seed });
   const escPickTitle = escapeHtml(pickItem.title);
   const escPickDesc = escapeHtml(pickItem.description);
 
@@ -2416,8 +2406,6 @@ function renderSeasonalGallery(data) {
 
   items.forEach(([itemKey, item]) => {
     const thumbnailUrl = getImageUrl(item.description, {
-      width: 300,
-      height: 300,
       itemKey: itemKey,
       seed: getDeterministicSeed("seasonal", itemKey), // match detail view's seed
     });
@@ -2432,8 +2420,6 @@ function renderSeasonalGallery(data) {
                     </div>
                     <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}"
                          data-prompt="${escItemDesc}"
-                         data-width="300"
-                         data-height="300"
                          data-seed="${getDeterministicSeedFromItemKey(itemKey)}"
                          alt="${escItemTitle}"
                          class="w-full aspect-square object-contain group-hover:opacity-80 transition-opacity relative z-10">
@@ -2476,8 +2462,6 @@ function renderRecentAdditions(data) {
 
   allItems.forEach(({ categoryKey, itemKey, item, categoryTitle }) => {
     const thumbnailUrl = getImageUrl(item.description, {
-      width: 300,
-      height: 300,
       itemKey: itemKey,
       seed: getDeterministicSeed(categoryKey, itemKey), // ✅ Consistent
     });
@@ -2493,8 +2477,6 @@ function renderRecentAdditions(data) {
                     </div>
                     <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}"
                          data-prompt="${escItemDesc}"
-                         data-width="300"
-                         data-height="300"
                          alt="${escItemTitle}"
                          class="w-full aspect-square object-contain relative z-10">
                 </div>
@@ -2581,8 +2563,6 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
 
   itemsForPage.forEach(({ itemKey, item }) => {
     const thumbnailUrl = getImageUrl(item.description, {
-      width: 400,
-      height: 400,
       itemKey: itemKey,
       seed: getDeterministicSeed(categoryKey, itemKey), // ✅ Deterministic across pagination
     });
@@ -2596,8 +2576,6 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
                     </div>
                     <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}"
                          data-prompt="${escItemDesc}"
-                         data-width="400"
-                         data-height="400"
                          data-seed="${getDeterministicSeed(categoryKey, itemKey)}"
                          alt="${escItemTitle}"
                          class="w-full aspect-square object-contain group-hover:opacity-80 transition-opacity relative z-10">
@@ -2830,8 +2808,6 @@ function renderItem(itemData, categoryKey, itemKey) {
     generationParams = {
       itemKey: itemKey,
       seed: seed,
-      width: 1024,
-      height: 1024,
     };
     imageUrl = getImageUrl(itemData.description, generationParams);
 
@@ -2991,8 +2967,6 @@ function renderRelatedItems(category, categoryKey, currentItemKey) {
 
   allItems.forEach(([itemKey, item]) => {
     const thumbnailUrl = getImageUrl(item.description, {
-      width: 300,
-      height: 300,
       itemKey: itemKey,
       seed: getDeterministicSeed(categoryKey, itemKey), // ✅ Consistent
     });
@@ -3005,8 +2979,6 @@ function renderRelatedItems(category, categoryKey, currentItemKey) {
                     </div>
                     <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}"
                          data-prompt="${escapeHtml(item.description)}"
-                         data-width="300"
-                         data-height="300"
                          alt="${escapeHtml(item.title)}"
                          class="w-full aspect-square object-contain relative z-10">
                 </div>
@@ -4033,8 +4005,6 @@ function renderSearchPage(query) {
     const itemDescription = item.description || "";
     const categoryTitle = result.categoryName || categoryKey;
     const thumbnailUrl = getImageUrl(itemDescription || itemTitle, {
-      width: 400,
-      height: 400,
       itemKey: itemKey,
       seed: getDeterministicSeed(categoryKey, itemKey), // ✅ Deterministic
     });
@@ -4050,8 +4020,6 @@ function renderSearchPage(query) {
                     </div>
                     <img src="${PLACEHOLDER_IMAGE}" data-src="${thumbnailUrl}"
                          data-prompt="${escItemDesc}"
-                         data-width="400"
-                         data-height="400"
                          data-seed="${getDeterministicSeed(categoryKey, itemKey)}"
                          alt="${escItemTitle} coloring page - free printable ${escCatTitle} coloring sheet for kids"
                          class="w-full aspect-square object-contain group-hover:opacity-80 transition-opacity relative z-10">

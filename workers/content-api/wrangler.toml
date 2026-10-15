@@ -3,7 +3,7 @@ main = "src/index.js"
 compatibility_date = "2024-01-01"
 
 [vars]
-ALLOWED_ORIGINS = "https://dseeker.github.io"
+ALLOWED_ORIGINS = "https://dseeker.github.io,http://localhost:4173,http://127.0.0.1:4173"
 
 # API keys are set as secrets via:
 #   npx wrangler secret put POLLINATIONS_API_KEY

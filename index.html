@@ -690,7 +690,7 @@
                         <a href="#search"
                             class="mr-2 sm:mr-3 p-2 rounded-lg text-white bg-indigo-500 hover:bg-indigo-600 transition-colors"
                             title="Search Coloring Pages"
-                            data-i18n="nav.search_title">
+                            data-i18n-title="nav.search_title">
                             <i class="fas fa-search" aria-hidden="true"></i>
                             <span class="sr-only" data-i18n="nav.search_title">Search Coloring Pages</span>
                         </a>
@@ -699,7 +699,7 @@
                         <button id="favorites-toggle"
                             class="mr-2 sm:mr-3 p-2 rounded-lg text-white bg-pink-500 hover:bg-pink-600 transition-colors relative"
                             title="My Favorites" aria-label="My Favorites"
-                            data-i18n="nav.favorites_title">
+                            data-i18n-aria="nav.favorites_title">
                             <i class="fas fa-heart" aria-hidden="true"></i>
                             <span id="favorites-count" class="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
                             <span class="sr-only" data-i18n="nav.favorites_title">My Favorites</span>
@@ -718,7 +718,7 @@
                         <a href="#donate"
                             class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-3 sm:px-4 rounded-lg transition duration-300 flex items-center"
                             title="Donate" aria-label="Donate"
-                            data-i18n="nav.donate">
+                            data-i18n-aria="nav.donate">
                             <i class="fas fa-heart" aria-hidden="true"></i>
                             <span class="ml-1 hidden sm:inline" data-i18n="nav.donate">Donate</span>
                         </a>
@@ -744,7 +744,7 @@
                         <button id="refresh-content"
                             class="mr-0 md:mr-3 p-2 rounded-lg text-white bg-yellow-500 hover:bg-yellow-600 transition-colors"
                             title="Refresh Content" aria-label="Refresh Content"
-                            data-i18n="nav.refresh_title">
+                            data-i18n-aria="nav.refresh_title">
                             <i class="fas fa-dice" aria-hidden="true"></i>
                             <span class="sr-only" data-i18n="nav.refresh_title">Refresh Content</span>
                         </button>
@@ -1273,12 +1273,12 @@
         <div class="bg-gradient-to-r from-purple-600 via-pink-600 to-red-500 rounded-2xl p-8 text-white shadow-2xl">
             <div class="flex flex-col md:flex-row items-center justify-between gap-6">
                 <div class="flex-1">
-                    <h2 class="text-2xl md:text-3xl font-bold mb-3" data-i18n="affiliate.heading">
-                        <i class="fas fa-book-open mr-3"></i>Love Our Free Pages?
+                    <h2 class="text-2xl md:text-3xl font-bold mb-3">
+                        <i class="fas fa-book-open mr-3"></i><span data-i18n="affiliate.heading">Love Our Free Pages?</span>
                     </h2>
-                    <p class="text-lg text-purple-100 mb-4" data-i18n="affiliate.description">
-                        Get hundreds of premium coloring pages in beautiful printed books! Perfect for road trips,
-                        restaurants, or when you need screen-free activities for the kids.
+                    <p class="text-lg text-purple-100 mb-4">
+                        <span data-i18n="affiliate.description">Get hundreds of premium coloring pages in beautiful printed books! Perfect for road trips,
+                        restaurants, or when you need screen-free activities for the kids.</span>
                     </p>
                     <div class="flex flex-wrap gap-3 text-sm">
                         <span class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
@@ -1307,9 +1307,9 @@
                     </a>
                 </div>
             </div>
-            <p class="text-xs text-purple-200 mt-4 text-center" data-i18n="affiliate.disclosure">
-                <i class="fas fa-info-circle mr-1"></i> As an Amazon Associate, we earn from qualifying purchases.
-                This helps us keep ColorVerse free for everyone!
+            <p class="text-xs text-purple-200 mt-4 text-center">
+                <i class="fas fa-info-circle mr-1"></i><span data-i18n="affiliate.disclosure"> As an Amazon Associate, we earn from qualifying purchases.
+                This helps us keep ColorVerse free for everyone!</span>
             </p>
         </div>
     </section>
@@ -1490,6 +1490,14 @@
                 var originalAria = el.getAttribute('aria-label');
                 var translated = window.t(key) || originalAria;
                 el.setAttribute('aria-label', translated);
+            });
+
+            // Translate title attributes
+            document.querySelectorAll('[data-i18n-title]').forEach(function(el) {
+                var key = el.dataset.i18nTitle;
+                var originalTitle = el.getAttribute('title');
+                var translated = window.t(key) || originalTitle;
+                el.setAttribute('title', translated);
             });
         }
 
