@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { writeFileSync } from "fs";
+import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 
 // Get API key from environment
@@ -437,6 +437,7 @@ describe("JSON Structure Generator E2E Test", () => {
 
     // Save to file
     const outputDir = join(process.cwd(), "output");
+    mkdirSync(outputDir, { recursive: true });
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const filename = `json-structure-${currentSeason}-${timestamp}.json`;
     const filepath = join(outputDir, filename);
@@ -525,6 +526,7 @@ describe("JSON Structure Generator E2E Test", () => {
 
       // Save comparison
       const outputDir = join(process.cwd(), "output");
+      mkdirSync(outputDir, { recursive: true });
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const filename = `model-comparison-${timestamp}.json`;
       const filepath = join(outputDir, filename);

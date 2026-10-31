@@ -35,6 +35,16 @@ static server on port 4000, while `playwright.live.config.ts` targets deployed
 services without starting a local server. Remote checks are opt-in, not part of
 the default test run.
 
+Pollinations integration tests use mocked responses by default, even when a local
+API key is present. To check the real provider explicitly (may incur charges):
+
+```bash
+POLLINATIONS_LIVE_TEST=true npm run test:integration
+```
+
+Live mode requires `POLLINATIONS_API_KEY`. Authenticated API checks require
+successful responses; authentication failures and provider errors fail the tests.
+
 ## Optional static build
 
 `scripts/build.js` generates `dist/` and calls the text and image
