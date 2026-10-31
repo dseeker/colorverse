@@ -10,11 +10,6 @@ coverage/
 output/
 *.min.js
 
-# Package managers
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-
 # Logs
 *.log
 npm-debug.log*
@@ -25,3 +20,11 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 archive/
+test-results/
+playwright-report/
+.playwright-mcp/
+.screenshots/
+.wrangler/
+workers/*/.wrangler/
+.llmhub/
+.agents/

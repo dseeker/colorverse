@@ -1,18 +1,22 @@
 # Debug & Testing Tools
 
-This folder contains testing utilities and debugging tools for ColorVerse development.
+This folder contains legacy testing utilities and debugging tools retained for
+reference. They may contact live APIs and use outdated models or source-layout
+assumptions; they are not part of the default test suite. Current tests live in
+`tests/` and `workers/`. See [Development](../../docs/DEVELOPMENT.md).
 
-## 🔧 Active Testing Tools
+## 🔧 Legacy Testing Tools
 
 ### Model Testing
+
 - **`test-cheap-models.js`** - Tests and compares 10 cheapest AI models by cost/quality ratio
-  - Usage: `node debug/test-cheap-models.js`
+  - Usage: `node archive/debug/test-cheap-models.js`
   - Tests with full ColorVerse prompt
   - Shows quality comparison and sample outputs
   - Used to determine optimal model configuration
 
 - **`test-model-config.js`** - Quick verification test for current model configuration
-  - Usage: `node debug/test-model-config.js`
+  - Usage: `node archive/debug/test-model-config.js`
   - Tests qwen-coder, nova-fast, mistral
   - Validates models work with JSON mode
 
@@ -21,14 +25,16 @@ This folder contains testing utilities and debugging tools for ColorVerse develo
   - Contains pricing, capabilities, and descriptions
 
 ### UI Testing
+
 - **`test-cache-status.html`** - Interactive test for cache status indicator UI
   - Open in browser to test different indicator states
   - Tests: Loading, Cached, Refreshing, Hidden states
   - Validates animations and styling
 
 ### Validation
+
 - **`verify-cache-implementation.sh`** - Verifies cache implementation is correct
-  - Usage: `bash debug/verify-cache-implementation.sh`
+  - Usage: `bash archive/debug/verify-cache-implementation.sh`
   - Checks: 24hr cache, status indicator, model config
   - Quick validation after changes
 
@@ -36,7 +42,10 @@ This folder contains testing utilities and debugging tools for ColorVerse develo
 
 These are older test scripts kept for reference:
 
-- **`test-json-generator.js`** - Original standalone JSON generator test (now in root as reference)
+- **`../test-json-generator.js`** - Original standalone JSON generator test; run
+  `node archive/test-json-generator.js` from the repository root (legacy, live API).
+  For the current mocked integration suite and live opt-in, see
+  [JSON generator testing](../../docs/TESTING-JSON-GENERATOR.md).
 - **`test-10items.js`** - Old test for 10-item structure
 - **`test-api.js`** - Basic API connection test
 - **`test-clean-prompt.js`** - Clean prompt testing
@@ -53,30 +62,31 @@ These are older test scripts kept for reference:
 ## 📊 Usage
 
 ### Test Current Model Configuration
+
 ```bash
-node debug/test-model-config.js
+node archive/debug/test-model-config.js
 ```
 
 ### Compare All Cheap Models
+
 ```bash
-node debug/test-cheap-models.js
+node archive/debug/test-cheap-models.js
 ```
 
 ### Verify Cache Implementation
+
 ```bash
-bash debug/verify-cache-implementation.sh
+bash archive/debug/verify-cache-implementation.sh
 ```
 
 ### Test Cache UI
+
 ```bash
-open debug/test-cache-status.html
+open archive/debug/test-cache-status.html
 ```
 
 ## 🔄 Maintenance
 
-When adding new test files:
-1. Add descriptive name with `test-` prefix
-2. Document in this README
-3. Keep active tools, archive old ones
-4. Update usage examples
-
+Add new automated tests under `tests/` or the relevant worker, not this archive.
+Keep historical tools clearly labeled as legacy and use repository-root paths in
+usage examples.

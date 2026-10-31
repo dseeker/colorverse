@@ -28,9 +28,9 @@ export default [
       "no-debugger": "warn",
     },
   },
-  // Cross-file globals shared between app.js ↔ src/modules/aiProviders.js
+  // Cross-file globals shared between src/app.js ↔ src/modules/aiProviders.js
   {
-    files: ["app.js", "src/modules/aiProviders.js", "src/services/*.js"],
+    files: ["src/app.js", "src/modules/aiProviders.js", "src/services/*.js"],
     languageOptions: {
       globals: {
         debug: "readonly",
@@ -70,7 +70,7 @@ export default [
     },
   },
   {
-    files: ["src/tests/**/*.ts", "**/*.ts"],
+    files: ["tests/**/*.ts", "**/*.ts"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
@@ -103,7 +103,9 @@ export default [
       "eslint.config.js",
       "vitest.config.ts",
       "playwright.config.ts",
-      "openrouter.js",
+      "playwright.live.config.ts",
+      "playwright.dist.config.ts",
+      "playwright.sw.config.ts",
       "archive/**",
       ".llmhub/**",
     ],

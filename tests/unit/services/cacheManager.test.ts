@@ -10,7 +10,7 @@ vi.stubGlobal("window", {
 // We need to create fresh instances to test properly since the module
 // creates a singleton and calls init() on import. We'll import the module
 // and work with it, resetting state between tests.
-import cacheManager from "../../../services/cacheManager.js";
+import cacheManager from "../../../src/services/cacheManager.js";
 
 describe("OptimizedCacheManager", () => {
   beforeEach(() => {

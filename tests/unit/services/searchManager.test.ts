@@ -14,7 +14,7 @@ vi.stubGlobal("window", {
   showToast: vi.fn(),
 });
 
-import searchManager, { escapeHtml } from "../../../services/searchManager.js";
+import searchManager, { escapeHtml } from "../../../src/services/searchManager.js";
 
 const testCategories = {
   animals: {

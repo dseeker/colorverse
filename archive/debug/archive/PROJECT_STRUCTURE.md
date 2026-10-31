@@ -2,44 +2,44 @@
 
 ## 📁 Directory Layout
 
+This archived reference uses the current directory names for navigation. For the
+maintained overview, see [Architecture](../../../docs/ARCHITECTURE.md) and
+[README](../../../README.md). Historical model choices below are not current defaults.
+
 ```
 colorverse/
 ├── 📄 Core Application
 │   ├── index.html              # Main HTML file
-│   ├── app.js                  # Main application logic
-│   ├── generate-image.js       # Image generation utilities
-│   ├── openrouter.js          # OpenRouter API integration
+│   ├── src/app.js              # Main browser application logic
 │   ├── service-worker.js      # Service worker for PWA
 │   └── service-worker-register.js
 │
 ├── 📚 Documentation
 │   ├── README.md              # Project overview (root)
-│   ├── ROADMAP.md            # Feature roadmap (root)
-│   └── docs/                 # Detailed documentation folder
-│       ├── README.md         # Documentation index
-│       ├── PROJECT_STRUCTURE.md  # This file
+│   └── docs/                 # Project documentation
 │       ├── DEVELOPMENT.md    # Development guide
-│       ├── AI-APIDOCS.md     # Current API documentation
-│       ├── POLLINATIONS_INTEGRATION.md  # API integration guide
-│       ├── FINDINGS.md       # Development findings & decisions
-│       ├── CACHE_IMPLEMENTATION_SUMMARY.md  # Cache system docs
-│       ├── MODEL-TESTING-RESULTS.md  # Model comparison results
-│       ├── PROMPT-IMPROVEMENTS.md # Prompt engineering notes
-│       └── CLEANUP_SUMMARY.md # Organization history
+│       ├── ROADMAP.md        # Feature roadmap
+│       ├── ARCHITECTURE.md   # System architecture
+│       └── ...               # API, analytics, testing, and contributor docs
 │
 ├── ⚙️ Configuration
 │   ├── package.json           # Node dependencies
 │   ├── eslint.config.js       # Linting rules
 │   ├── playwright.config.ts   # E2E testing config
+│   ├── playwright.live.config.ts # Opt-in remote E2E config
 │   ├── vitest.config.ts       # Unit testing config
 │   └── robots.txt            # SEO configuration
 │
 ├── 🧪 Testing
-│   ├── test-json-generator.js # Reference JSON generator (standalone)
-│   └── test/                 # Test suites
+│   ├── tests/                # Unit, integration, build and browser suites
+│   └── workers/*/test/       # Worker suites
 │
 ├── 🔧 Debug & Tools
-│   └── debug/                # Testing utilities & archived tests
+│   └── archive/              # Legacy scripts, not active app code
+│       ├── generate-image.js
+│       ├── openrouter.js
+│       ├── test-json-generator.js # Legacy standalone generator
+│       └── debug/            # Historical debug tools
 │       ├── README.md         # Debug tools documentation
 │       ├── test-cheap-models.js      # Model cost/quality comparison
 │       ├── test-model-config.js      # Model configuration validator
@@ -48,10 +48,13 @@ colorverse/
 │       ├── models.json       # Full model list with pricing
 │       └── [archived tests]  # Historical test files
 │
-├── 📦 Source Code (if using modules)
+├── 📦 Source Code & Build Tooling
 │   └── src/
+│       ├── modules/
+│       ├── data/
 │       └── services/
 │           └── aiProviderConfig.js  # AI provider configuration
+│   └── scripts/build.js      # Optional generation or offline packaging
 │
 └── 📊 Build & Output
     ├── coverage/             # Test coverage reports
@@ -63,26 +66,31 @@ colorverse/
 ## 🎯 Key Files
 
 ### Production Files
+
 - **index.html** - Main application entry point
-- **app.js** - Core application logic with caching & routing
+- **src/app.js** - Core application logic with caching & routing
 - **service-worker.js** - PWA support & offline functionality
 
 ### API Integration
+
 - **src/services/aiProviderConfig.js** - AI provider configuration
   - Primary: qwen-coder ($0.22/M)
   - Fallback 1: nova-fast ($0.14/M)
   - Fallback 2: mistral ($0.30/M)
 
 ### Testing
-- **test-json-generator.js** - Standalone reference implementation
-- **debug/** - Development & testing utilities
+
+- **archive/test-json-generator.js** - Legacy live standalone reference
+- **tests/** - Current automated suites
+- **archive/debug/** - Legacy development & testing utilities
 
 ### Documentation
-- **docs/README.md** - Documentation index & guide
+
+- **README.md** - Documentation index & guide (root)
 - **docs/AI-APIDOCS.md** - Current API reference (Pollinations v3)
-- **docs/CACHE_IMPLEMENTATION_SUMMARY.md** - Cache system details
-- **docs/FINDINGS.md** - Development decisions & optimizations
-- **docs/PROJECT_STRUCTURE.md** - This file
+- **archive/debug/archive/CACHE_IMPLEMENTATION_SUMMARY.md** - Historical cache notes
+- **archive/debug/archive/FINDINGS.md** - Historical development decisions
+- **archive/debug/archive/PROJECT_STRUCTURE.md** - This archived reference
 
 ## 🚀 Quick Commands
 
@@ -97,27 +105,26 @@ npm run dev
 npm run lint
 
 # Test model configuration
-node debug/test-model-config.js
+node archive/debug/test-model-config.js
 
 # Compare all models
-node debug/test-cheap-models.js
+node archive/debug/test-cheap-models.js
 
 # Verify cache implementation
-bash debug/verify-cache-implementation.sh
+bash archive/debug/verify-cache-implementation.sh
 ```
 
 ## 📝 File Organization Rules
 
-1. **Core application files** - Root directory
-2. **Documentation** - `.md` files in root
-3. **Testing utilities** - `debug/` folder
-4. **Test suites** - `test/` folder
+1. **Core application files** - `index.html` at root, browser logic in `src/`
+2. **Documentation** - `.md` files in `docs/`, except the root `README.md`
+3. **Legacy testing utilities** - `archive/debug/` folder
+4. **Test suites** - `tests/` and worker test folders
 5. **Build artifacts** - `coverage/`, `output/`, etc.
 
 ## 🔄 Maintenance
 
 - Keep root clean - only essential files
-- Archive old tests in `debug/`
+- Keep old debug tools in `archive/debug/`
 - Update documentation when adding features
 - Use descriptive names with prefixes: `test-`, `debug-`, etc.
-

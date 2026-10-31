@@ -6,15 +6,16 @@ ColorVerse ships with a privacy-first analytics system. It is **off by default**
 
 Only these events are emitted, and only when analytics is enabled:
 
-| Event             | Props         | Source                                   |
-| ----------------- | ------------- | ---------------------------------------- |
-| `page_view`       | `path` (hash) | `handleRouteChange` in `app.js`          |
-| `print`           | none          | `printColoringPage()` in `app.js`        |
-| `download`        | none          | download `<a>` `onclick` in `renderItem` |
-| `favorite_add`    | none          | `FavoritesManager.addFavorite()`         |
-| `favorite_remove` | none          | `FavoritesManager.removeFavorite()`      |
-| `share`           | none          | `sharePage()` in `app.js`                |
-| `search`          | none          | `#search` form submit in `app.js`        |
+| Event                  | Props         | Source                                   |
+| ---------------------- | ------------- | ---------------------------------------- |
+| `page_view`            | `path` (hash) | `handleRouteChange` in `src/app.js`      |
+| `print`                | none          | `printColoringPage()` in `src/app.js`    |
+| `download`             | none          | download `<a>` `onclick` in `renderItem` |
+| `favorite_add`         | none          | `FavoritesManager.addFavorite()`         |
+| `favorite_remove`      | none          | `FavoritesManager.removeFavorite()`      |
+| `share`                | none          | `sharePage()` in `src/app.js`            |
+| `search`               | none          | `#search` form submit in `src/app.js`    |
+| `newsletter_subscribe` | none          | Newsletter form in `src/app.js`          |
 
 The `path` prop is the route hash with query params stripped (`#search?q=foo` becomes `#search`) and truncated to 200 chars. No item identifiers, titles, descriptions, prompts, search contents, or user input are ever sent. `search` is count-only — the query text is never tracked.
 
@@ -45,11 +46,12 @@ window._env = window._env || { // ...existing keys... ENABLE_ANALYTICS: true, AN
 
 ## Where events go
 
-The default `/events` route in `workers/content-api`:
+The `/events` route in `workers/content-api`:
 
 1. Validates the batch (drops unknown events, clamps prop size to 512 bytes, caps batch at 100 events)
-2. If `ANALYTICS_SINK` is set in the worker's env, forwards the sanitized batch to that URL with a 5s timeout
-3. Otherwise logs a single summary line (`[content-api] analytics: N events (sink not configured)`) and returns 204
+2. Updates aggregate counters in `ANALYTICS_KV`, when the namespace is bound
+3. If `ANALYTICS_SINK` is set in the worker's env, forwards the sanitized batch to that URL with a 5s timeout
+4. Otherwise logs a single summary line (`[content-api] analytics: N events (sink not configured)`) and returns 204
 
 ## Dashboard (admin)
 
@@ -62,7 +64,7 @@ Setup: `npx wrangler kv:namespace create ANALYTICS_KV`, paste the id into `worke
 
 So you can run three configurations:
 
-- **Log-only (dev):** leave `ANALYTICS_SINK` unset. Events are accepted and logged in aggregate.
+- **Log-only (dev):** leave `ANALYTICS_SINK` unset. Events are accepted and summarized in logs; aggregate dashboard counters are stored only when `ANALYTICS_KV` is bound.
 - **Forward to a sink (prod):** set `ANALYTICS_SINK` to a Cloudflare Workers Analytics endpoint, PostHog ingest URL, Plausible events endpoint, or any compatible HTTP sink.
 - **Off entirely:** leave `ENABLE_ANALYTICS: false` in `index.html`. No events are sent from the client at all.
 

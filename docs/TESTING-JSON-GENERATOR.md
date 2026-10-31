@@ -2,7 +2,9 @@
 
 ## Overview
 
-The JSON structure generator is the core of ColorVerse - it creates the website content (categories, items, descriptions) by calling AI models. This test suite validates that the AI generates high-fidelity JSON that matches our prompt requirements.
+The JSON structure generator creates website content (categories, items, descriptions).
+The current integration suite uses a mocked Pollinations response by default to
+validate structure without paid API access. Live quality checks are explicitly opt-in.
 
 ## Why Test This?
 
@@ -14,40 +16,37 @@ The JSON structure generator is the core of ColorVerse - it creates the website 
 ## Quick Start
 
 ```bash
-# Set your API key
-export POLLINATIONS_API_KEY=your-key-here
-
-# Run quick test
-npm run test:json-generator
-
-# Or full integration test
+# Mocked integration test: no API key or paid access needed
 npm run test:json-structure
+
+# Optional live integration check (requires a valid key and provider access)
+POLLINATIONS_LIVE_TEST=true npm run test:json-structure
 ```
 
-Results saved to: `output/json-structure-*.json`
+For live checks, set `POLLINATIONS_API_KEY` in the environment first. Generated
+reports are saved under `output/`; mocked reports do not measure model quality.
 
 ## Test Files
 
-### 1. Standalone Script: `test-json-generator.js`
+### 1. Legacy Standalone Script: `archive/test-json-generator.js`
 
-Quick manual testing with real-time console output.
+Archived reference for manual testing with real API calls and console output.
+It is not the default test runner and does not use the integration suite's mocks.
+Legacy model names may no longer be supported by the provider.
 
 ```bash
-npm run test:json-generator [model]
-
-# Examples:
-npm run test:json-generator              # default: gemini-fast
-node test-json-generator.js openai       # test openai
-node test-json-generator.js mistral      # test mistral
+node archive/test-json-generator.js              # legacy default: gemini-fast
+node archive/test-json-generator.js openai       # legacy manual check
+node archive/test-json-generator.js mistral      # legacy manual check
 ```
 
-### 2. Integration Test: `src/tests/integration/json-structure-generator.test.ts`
+### 2. Current Integration Test: `tests/integration/json-structure-generator.test.ts`
 
-Full E2E test with vitest integration.
+Vitest integration test; mocked unless `POLLINATIONS_LIVE_TEST=true`.
 
 ```bash
-npm run test:json-structure              # single model test
-npm run test:integration                  # all integration tests
+npm run test:json-structure               # focused one-shot integration check
+npm run test:integration                  # all integration tests, one-shot
 ```
 
 ## What Gets Tested
@@ -116,7 +115,8 @@ Sample: "Snowflake Ballet Dancer"
 
 Before deploying prompt/model changes:
 
-- [ ] Run `npm run test:json-generator`
+- [ ] Run `npm run test:json-structure` for deterministic structure checks
+- [ ] Opt in to live evaluation with `POLLINATIONS_LIVE_TEST=true` if model quality must be assessed
 - [ ] Verify 0 validation errors
 - [ ] Verify 0 generic titles
 - [ ] Check all 12 titles are unique
@@ -144,15 +144,16 @@ Before deploying prompt/model changes:
 ### Quick quality check:
 
 ```bash
-npm run test:json-generator
+npm run test:json-structure
 ```
 
 ### Compare models:
 
 ```bash
-node test-json-generator.js gemini-fast > /tmp/gemini.log
-node test-json-generator.js openai > /tmp/openai.log
-diff /tmp/gemini.log /tmp/openai.log
+mkdir -p output
+node archive/test-json-generator.js gemini-fast > output/gemini.log
+node archive/test-json-generator.js openai > output/openai.log
+diff output/gemini.log output/openai.log
 ```
 
 ### Check latest output:
@@ -165,7 +166,8 @@ cat output/$(ls -t output/json-structure-*.json | head -1) | jq '.metadata.quali
 
 ```yaml
 - name: Test JSON Structure
-  env:
-    POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
   run: npm run test:json-structure
 ```
+
+CI uses mocks by default. Only a deliberately configured live job should set
+`POLLINATIONS_LIVE_TEST=true` and provide `POLLINATIONS_API_KEY`.

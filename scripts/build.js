@@ -8,24 +8,30 @@
  *   - "build": outputs dist/ with static JSON data + downloaded images
  *
  * Usage:
- *   node build.js                    # Full build (text + images)
- *   node build.js --text-only        # Generate text content only (skip images)
- *   node build.js --images-only      # Download images for existing site-data.json
- *   node build.js --categories 3     # Limit to first N categories (for testing)
- *   node build.js --concurrency 4    # Image download concurrency (default: 3)
+ *   node scripts/build.js                    # Full build (text + images)
+ *   node scripts/build.js --text-only        # Generate text content only (skip images)
+ *   node scripts/build.js --images-only      # Download images for existing site-data.json
+ *   node scripts/build.js --package-only     # Package existing site data without API calls
+ *   node scripts/build.js --package-only --data-file tests/build/fixtures/site-data.json
+ *   node scripts/build.js --categories 3     # Limit to first N categories (for testing)
+ *   node scripts/build.js --concurrency 4    # Image download concurrency (default: 3)
  */
 
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import { stringToHash, getCurrentSeason, sleep, fetchWithTimeout } from "./workers/shared/utils.js";
-import { CATEGORIES, CATEGORY_KEYS, POLLINATIONS_CONFIG } from "./workers/shared/constants.js";
-
-dotenv.config();
+import {
+  stringToHash,
+  getCurrentSeason,
+  sleep,
+  fetchWithTimeout,
+} from "../workers/shared/utils.js";
+import { CATEGORIES, CATEGORY_KEYS, POLLINATIONS_CONFIG } from "../workers/shared/constants.js";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const ROOT_DIR = path.resolve(path.dirname(__filename), "..");
+dotenv.config({ path: path.join(ROOT_DIR, ".env") });
 
 // --- Configuration ---
 // API endpoints + image model chain come from the shared constants
@@ -34,9 +40,9 @@ const CONFIG = {
   apiKey: process.env.POLLINATIONS_API_KEY || "",
   textApiUrl: POLLINATIONS_CONFIG.TEXT_BASE_URL,
   imageApiUrl: POLLINATIONS_CONFIG.IMAGE_BASE_URL,
-  distDir: path.join(__dirname, "dist"),
-  imagesDir: path.join(__dirname, "dist", "images"),
-  dataFile: path.join(__dirname, "dist", "site-data.json"),
+  distDir: path.join(ROOT_DIR, "dist"),
+  imagesDir: path.join(ROOT_DIR, "dist", "images"),
+  dataFile: path.join(ROOT_DIR, "dist", "site-data.json"),
   referrer: "dseeker.github.io",
   imageWidth: 1024,
   imageHeight: 1024,
@@ -49,6 +55,187 @@ const CONFIG = {
   imageModel: POLLINATIONS_CONFIG.DEFAULT_MODEL,
   imageModelFallbacks: POLLINATIONS_CONFIG.IMAGE_MODEL_FALLBACKS,
 };
+
+const REQUIRED_ROOT_ASSETS = [
+  ".nojekyll",
+  "index.html",
+  "service-worker.js",
+  "service-worker-register.js",
+  "robots.txt",
+  "favicon.svg",
+  "offline.html",
+];
+
+const RUNTIME_SOURCE_DIRS = ["modules", "services", "shared", "data"];
+
+function getOption(args, name) {
+  const index = args.indexOf(name);
+  if (index === -1) {
+    return undefined;
+  }
+  const value = args[index + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error(`${name} requires a value`);
+  }
+  return value;
+}
+
+function requirePath(sourcePath, description) {
+  if (!fs.existsSync(sourcePath)) {
+    throw new Error(`Required ${description} is missing: ${sourcePath}`);
+  }
+}
+
+function copyDirectory(sourceDir, destinationDir, description) {
+  requirePath(sourceDir, description);
+  if (!fs.statSync(sourceDir).isDirectory()) {
+    throw new Error(`Required ${description} is not a directory: ${sourceDir}`);
+  }
+  fs.cpSync(sourceDir, destinationDir, { recursive: true });
+}
+
+function copyRuntimeAssets(outputDir, { includeImages = true } = {}) {
+  for (const relativePath of REQUIRED_ROOT_ASSETS) {
+    const sourcePath = path.join(ROOT_DIR, relativePath);
+    requirePath(sourcePath, `runtime asset "${relativePath}"`);
+    fs.copyFileSync(sourcePath, path.join(outputDir, relativePath));
+  }
+
+  const appPath = path.join(ROOT_DIR, "src", "app.js");
+  requirePath(appPath, 'runtime entrypoint "src/app.js"');
+  fs.mkdirSync(path.join(outputDir, "src"), { recursive: true });
+  fs.copyFileSync(appPath, path.join(outputDir, "src", "app.js"));
+  const legacyAppPath = path.join(outputDir, "app.js");
+  if (fs.existsSync(legacyAppPath)) {
+    fs.unlinkSync(legacyAppPath);
+  }
+
+  for (const directory of RUNTIME_SOURCE_DIRS) {
+    copyDirectory(
+      path.join(ROOT_DIR, "src", directory),
+      path.join(outputDir, "src", directory),
+      `runtime source directory "src/${directory}"`
+    );
+  }
+
+  copyDirectory(
+    path.join(ROOT_DIR, "locales"),
+    path.join(outputDir, "locales"),
+    'runtime source directory "locales"'
+  );
+
+  const workersSharedPath = path.join(ROOT_DIR, "workers", "shared");
+  requirePath(workersSharedPath, 'runtime dependency directory "workers/shared"');
+  fs.mkdirSync(path.join(outputDir, "workers"), { recursive: true });
+  copyDirectory(
+    workersSharedPath,
+    path.join(outputDir, "workers", "shared"),
+    'runtime dependency directory "workers/shared"'
+  );
+
+  const imagesSource = path.join(CONFIG.distDir, "images");
+  if (
+    includeImages &&
+    path.resolve(imagesSource) !== path.resolve(outputDir, "images") &&
+    fs.existsSync(imagesSource)
+  ) {
+    copyDirectory(
+      imagesSource,
+      path.join(outputDir, "images"),
+      'generated images directory "dist/images"'
+    );
+  }
+}
+
+function writeSitemap(siteData, outputDir) {
+  const buildDate = new Date(siteData._meta?.buildDate);
+  const today = Number.isNaN(buildDate.getTime())
+    ? new Date().toISOString().split("T")[0]
+    : buildDate.toISOString().split("T")[0];
+  const base = "https://dseeker.github.io/colorverse";
+  const urls = [{ loc: `${base}/`, lastmod: today, changefreq: "daily", priority: "1.0" }];
+  for (const catKey of Object.keys(siteData.categories || {})) {
+    urls.push({
+      loc: `${base}/#category/${catKey}`,
+      lastmod: today,
+      changefreq: "weekly",
+      priority: "0.8",
+    });
+  }
+  for (const [catKey, catData] of Object.entries(siteData.categories || {})) {
+    for (const itemKey of Object.keys(catData.items || {})) {
+      urls.push({
+        loc: `${base}/#item/${catKey}/${itemKey}`,
+        lastmod: today,
+        changefreq: "monthly",
+        priority: "0.6",
+      });
+    }
+  }
+  if (siteData.seasonal_gallery?.items) {
+    for (const itemKey of Object.keys(siteData.seasonal_gallery.items)) {
+      urls.push({
+        loc: `${base}/#item/seasonal/${itemKey}`,
+        lastmod: today,
+        changefreq: "monthly",
+        priority: "0.6",
+      });
+    }
+  }
+  const xml =
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    urls
+      .map(
+        u =>
+          `  <url>\n    <loc>${u.loc}</loc>\n    <lastmod>${u.lastmod}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
+      )
+      .join("\n") +
+    `\n</urlset>\n`;
+  fs.writeFileSync(path.join(outputDir, "sitemap.xml"), xml);
+  console.log(
+    `🗺️  Generated ${path.relative(ROOT_DIR, path.join(outputDir, "sitemap.xml"))} (${urls.length} urls)`
+  );
+}
+
+function injectStaticSettings(outputDir) {
+  const indexPath = path.join(outputDir, "index.html");
+  requirePath(indexPath, 'packaged runtime asset "index.html"');
+  let indexContent = fs.readFileSync(indexPath, "utf-8");
+  const appScript = /(<script\b[^>]*\bsrc=["']src\/app\.js(?:\?[^"']*)?["'][^>]*>)/;
+  if (!appScript.test(indexContent)) {
+    throw new Error('Required app script reference "src/app.js" is missing from index.html');
+  }
+
+  const staticModeScript = `<script>
+window.__COLORVERSE_STATIC__ = true;
+window.__COLORVERSE_DATA_URL__ = './site-data.json';
+window.__COLORVERSE_IMAGES_BASE__ = './images';
+</script>
+`;
+  indexContent = indexContent.replace(appScript, `${staticModeScript}$1`);
+  fs.writeFileSync(indexPath, indexContent);
+}
+
+async function packageExistingData(dataFile, outputDir, { includeImages = true } = {}) {
+  requirePath(dataFile, "site data JSON");
+  let siteData;
+  try {
+    siteData = JSON.parse(fs.readFileSync(dataFile, "utf-8"));
+  } catch (error) {
+    throw new Error(`Unable to read valid site data from ${dataFile}: ${error.message}`);
+  }
+
+  fs.mkdirSync(outputDir, { recursive: true });
+  const packagedDataPath = path.join(outputDir, "site-data.json");
+  if (path.resolve(dataFile) !== path.resolve(packagedDataPath)) {
+    fs.copyFileSync(dataFile, packagedDataPath);
+  }
+  writeSitemap(siteData, outputDir);
+  copyRuntimeAssets(outputDir, { includeImages });
+  injectStaticSettings(outputDir);
+  console.log(`📦 Packaged site data from ${dataFile} into ${outputDir}`);
+}
 
 // --- Helpers ---
 function sanitizeFilename(str) {
@@ -261,8 +448,12 @@ async function downloadImagesParallel(tasks, concurrency, delayMs) {
 // --- Main Build ---
 async function build() {
   const args = process.argv.slice(2);
+  const packageOnly = args.includes("--package-only");
+  const skipImages = args.includes("--skip-images");
   const textOnly = args.includes("--text-only");
   const imagesOnly = args.includes("--images-only");
+  const dataFileOption = getOption(args, "--data-file");
+  const outputDirOption = getOption(args, "--output-dir");
   const catLimit = args.includes("--categories")
     ? parseInt(args[args.indexOf("--categories") + 1])
     : null;
@@ -272,6 +463,18 @@ async function build() {
   const delayMs = args.includes("--delay")
     ? parseInt(args[args.indexOf("--delay") + 1])
     : CONFIG.delayBetweenImages;
+
+  if (packageOnly) {
+    if (textOnly || imagesOnly || args.includes("--categories")) {
+      throw new Error("--package-only cannot be combined with text/image generation options");
+    }
+    const dataFile = dataFileOption ? path.resolve(process.cwd(), dataFileOption) : CONFIG.dataFile;
+    const outputDir = outputDirOption
+      ? path.resolve(process.cwd(), outputDirOption)
+      : CONFIG.distDir;
+    await packageExistingData(dataFile, outputDir, { includeImages: !skipImages });
+    return;
+  }
 
   if (!CONFIG.apiKey) {
     throw new Error(
@@ -382,53 +585,7 @@ async function build() {
   }
 
   // --- Step 1.5: Generate sitemap.xml ---
-  // Mirrors src/services/seoManager.js generateSitemap() so robots.txt's sitemap
-  // reference (https://dseeker.github.io/colorverse/sitemap.xml) actually resolves.
-  {
-    const today = new Date().toISOString().split("T")[0];
-    const base = "https://dseeker.github.io/colorverse";
-    const urls = [{ loc: `${base}/`, lastmod: today, changefreq: "daily", priority: "1.0" }];
-    for (const catKey of Object.keys(siteData.categories || {})) {
-      urls.push({
-        loc: `${base}/#category/${catKey}`,
-        lastmod: today,
-        changefreq: "weekly",
-        priority: "0.8",
-      });
-    }
-    for (const [catKey, catData] of Object.entries(siteData.categories || {})) {
-      for (const itemKey of Object.keys(catData.items || {})) {
-        urls.push({
-          loc: `${base}/#item/${catKey}/${itemKey}`,
-          lastmod: today,
-          changefreq: "monthly",
-          priority: "0.6",
-        });
-      }
-    }
-    if (siteData.seasonal_gallery?.items) {
-      for (const itemKey of Object.keys(siteData.seasonal_gallery.items)) {
-        urls.push({
-          loc: `${base}/#item/seasonal/${itemKey}`,
-          lastmod: today,
-          changefreq: "monthly",
-          priority: "0.6",
-        });
-      }
-    }
-    const xml =
-      `<?xml version="1.0" encoding="UTF-8"?>\n` +
-      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-      urls
-        .map(
-          u =>
-            `  <url>\n    <loc>${u.loc}</loc>\n    <lastmod>${u.lastmod}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
-        )
-        .join("\n") +
-      `\n</urlset>\n`;
-    fs.writeFileSync(path.join(CONFIG.distDir, "sitemap.xml"), xml);
-    console.log(`🗺️  Generated dist/sitemap.xml (${urls.length} urls)`);
-  }
+  writeSitemap(siteData, CONFIG.distDir);
 
   // --- Step 2: Download images ---
   if (!textOnly) {
@@ -498,58 +655,10 @@ async function build() {
     }
   }
 
-  // --- Step 3: Copy static assets ---
+  // --- Step 3: Copy static assets and package runtime modules ---
   console.log("\n📁 Step 3: Copying static assets...");
-
-  const filesToCopy = [
-    "index.html",
-    "app.js",
-    "service-worker.js",
-    "service-worker-register.js",
-    "robots.txt",
-    "favicon.svg",
-    "offline.html",
-  ];
-
-  // Copy src/ folder
-  const srcDirs = ["src/modules", "src/services"];
-  for (const dir of srcDirs) {
-    const srcPath = path.join(__dirname, dir);
-    const destPath = path.join(CONFIG.distDir, dir);
-    fs.mkdirSync(destPath, { recursive: true });
-    if (fs.existsSync(srcPath)) {
-      for (const file of fs.readdirSync(srcPath)) {
-        fs.copyFileSync(path.join(srcPath, file), path.join(destPath, file));
-      }
-    }
-  }
-
-  for (const file of filesToCopy) {
-    const src = path.join(__dirname, file);
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, path.join(CONFIG.distDir, file));
-    }
-  }
-
-  // --- Step 4: Inject static mode into dist/index.html ---
-  const distIndexPath = path.join(CONFIG.distDir, "index.html");
-  let indexContent = fs.readFileSync(distIndexPath, "utf-8");
-
-  // Add a script that pre-loads site data from JSON (before app.js runs)
-  const staticModeScript = `
-    <script>
-        // Static build mode - pre-generated content loaded from JSON
-        window.__COLORVERSE_STATIC__ = true;
-        window.__COLORVERSE_DATA_URL__ = 'https://colorverse-image-proxy.daniel-bca.workers.dev/data';
-        window.__COLORVERSE_IMAGES_BASE__ = './images';
-    </script>`;
-
-  // Insert before the app.js script tag
-  indexContent = indexContent.replace(
-    '    <script src="src/modules/aiProviders.js"></script>',
-    `${staticModeScript}\n    <script src="src/modules/aiProviders.js"></script>`
-  );
-  fs.writeFileSync(distIndexPath, indexContent);
+  copyRuntimeAssets(CONFIG.distDir);
+  injectStaticSettings(CONFIG.distDir);
 
   // --- Summary ---
   console.log("\n╔══════════════════════════════════════════╗");

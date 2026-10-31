@@ -1,11 +1,11 @@
 # Architecture
 
-ColorVerse is a vanilla-JS PWA — no framework, no build step for the app. The site is a
-~5,800-line `app.js` monolith plus a set of "manager" services loaded as plain scripts,
-backed by two Cloudflare Workers that keep API keys server-side.
+ColorVerse is a vanilla-JS PWA — no framework or required app build step. The site has a
+large `src/app.js` entry point plus "manager" services loaded by the browser, backed by two
+Cloudflare Workers for server-side API access.
 
-See [README.md](./README.md) for the project overview and [DEVELOPMENT.md](./DEVELOPMENT.md)
-for the dev workflow.
+See [README.md](../README.md) for the project overview and
+[DEVELOPMENT.md](./DEVELOPMENT.md) for the dev workflow.
 
 ## System overview
 
@@ -13,7 +13,7 @@ for the dev workflow.
                 +-------------------------------------------+
                 |                Browser (client)           |
                 |                                           |
-                |  index.html  ->  app.js (routing, render) |
+                |  index.html -> src/app.js (routing, render)|
                 |  window._env config  +  src/services/*    |
                 +-----+----------------+----------------+---+
                       |                |                |
@@ -40,39 +40,38 @@ live in the workers' wrangler secrets. The browser only ever talks to the worker
 ## The service-manager pattern
 
 `src/services/*.js` files are loaded by `<script>` tags in `index.html`
-(lines ~564-572 and ~1373-1383) and each attaches a singleton to `window`:
+and each attaches a singleton to `window`:
 
-| File                        | Window global                   | Purpose                                                                                                 |
-| --------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `seoManager.js`             | `window.SEOManager`             | Meta tags, JSON-LD, sitemap generation                                                                  |
-| `analyticsManager.js`       | `window.analytics`              | Privacy-first event batching                                                                            |
-| `favoritesManager.js`       | `window.FavoritesManager`       | localStorage favorites + view                                                                           |
-| `searchManager.js`          | `window.SearchManager`          | Search index + results page (loaded as a `type="module"` script — see the comment at `index.html:1377`) |
-| `coloringTipsManager.js`    | `window.ColoringTipsManager`    | Static tips content                                                                                     |
-| `performanceMonitor.js`     | `window.PerformanceMonitor`     | Core Web Vitals collection                                                                              |
-| `imageLoader.js`            | `window.OptimizedImageLoader`   | IntersectionObserver lazy loading                                                                       |
-| `cacheManager.js`           | `window.CacheManager`           | LRU cache + IndexedDB fallback                                                                          |
-| `palettesManager.js`        | `window.PalettesManager`        | Palette browsing overlay modal + localStorage favorites                                                 |
-| `MultiProviderAIManager.js` | `window.MultiProviderAIManager` | Provider/model fallback + backoff                                                                       |
+| File                        | Window global                   | Purpose                                                          |
+| --------------------------- | ------------------------------- | ---------------------------------------------------------------- |
+| `seoManager.js`             | `window.SEOManager`             | Meta tags, JSON-LD, sitemap generation                           |
+| `analyticsManager.js`       | `window.analytics`              | Privacy-first event batching                                     |
+| `favoritesManager.js`       | `window.FavoritesManager`       | localStorage favorites + view                                    |
+| `searchManager.js`          | `window.SearchManager`          | Search index + results page (loaded as a `type="module"` script) |
+| `coloringTipsManager.js`    | `window.ColoringTipsManager`    | Static tips content                                              |
+| `performanceMonitor.js`     | `window.PerformanceMonitor`     | Core Web Vitals collection                                       |
+| `imageLoader.js`            | `window.OptimizedImageLoader`   | IntersectionObserver lazy loading                                |
+| `cacheManager.js`           | `window.CacheManager`           | LRU cache + IndexedDB fallback                                   |
+| `palettesManager.js`        | `window.PalettesManager`        | Palette browsing overlay modal + localStorage favorites          |
+| `MultiProviderAIManager.js` | `window.MultiProviderAIManager` | Provider/model fallback + backoff                                |
 
 Two subtleties:
 
 - Most of these files also end with an `export default` for Vitest. Files that are loaded
   as **classic** scripts can't contain `export` (it's a SyntaxError), so the ones that
-  need it (`searchManager.js`, and the `?v=2` module scripts at `index.html:564-572`) are
-  loaded with `type="module"` — deferred, so they still run before `app.js`'s
+  need it are loaded with `type="module"` — deferred, so they still run before `src/app.js`'s
   `DOMContentLoaded` handler.
-- `src/modules/aiProviders.js` is loaded as a classic script before `app.js` and defines
-  the cross-file globals (`callAIAPI`, `AI_PROVIDERS`, ...) that `app.js` and the
-  services rely on — ESLint declares these in `eslint.config.js:32-54`.
+- `src/modules/aiProviders.js` is loaded as a classic script before `src/app.js` and defines
+  the cross-file globals (`callAIAPI`, `AI_PROVIDERS`, ...) that `src/app.js` and the
+  services rely on — ESLint declares these in `eslint.config.js`.
+- `archive/openrouter.js` is a legacy standalone helper, not part of the browser load order.
 
-Services with unit tests live in `src/tests/unit/services/`
+Services with unit tests live in `tests/unit/services/`
 (`favoritesManager.test.ts`, `searchManager.test.ts`, `cacheManager.test.ts`).
 
 ## Routing
 
-Hash-based, dispatched by `handleRouteChange()` (`app.js:3615`, wired to `hashchange`
-at `app.js:5603`):
+Hash-based, dispatched by `handleRouteChange()` in `src/app.js`, wired to `hashchange`:
 
 - `#` / `#/` — homepage
 - `#category/<key>?page=N&sort=...` — category listing (progressive loading)
@@ -92,13 +91,12 @@ at `app.js:5603`):
 
 Flow per navigation (all inside one `try/catch/finally`):
 
-1. `trackPageView(hash)` fires at the top of the try block (`app.js:3647`) — a no-op when
+1. `trackPageView(hash)` fires at the top of the try block — a no-op when
    analytics is disabled.
 2. The matching `renderXxx()` builds an HTML string, assigned to
-   `mainContent.innerHTML` (render functions are listed in `app.js`, e.g.
-   `renderHomepage:1415`, `renderCategory:2050`, `renderItem:2313`,
-   `renderSearchPage:3474`).
-3. `updateSEO({...})` (`app.js:3396`) updates meta tags + JSON-LD via `window.SEOManager`.
+   `mainContent.innerHTML` (see `renderHomepage()`, `renderCategory()`,
+   `renderItem()`, and `renderSearchPage()` in `src/app.js`).
+3. `updateSEO({...})` updates meta tags + JSON-LD via `window.SEOManager`.
 4. `finally`: hide loading, scroll to top, `setupLazyLoading()` for images.
 
 ## Palettes overlay modal
@@ -118,14 +116,14 @@ methods and clear the hash) so old shared links don't break.
 
 ## Data flow
 
-- **Site data:** in static mode (the deployed mode, `window.__COLORVERSE_STATIC__ = true`
-  at `index.html:1369`), `generateSiteData()` fetches `site-data.json` from the
-  image-proxy worker's `/data` route (`app.js:4083`). The worker reads it from a KV
-  binding and caches the response in CF Cache API with per-request CORS
-  (`workers/image-proxy/src/index.js:36-85`).
-- **Images:** `getImageUrl()` (`app.js:1072`) builds the coloring prompt and, when
+- **Site data:** in static mode (`window.__COLORVERSE_STATIC__ = true`
+  in `index.html`), `generateSiteData()` in `src/app.js` fetches `site-data.json`
+  from the configured data URL. The image-proxy worker's `/data` route reads it
+  from a KV binding and caches the response in CF Cache API with per-request CORS
+  (see `workers/image-proxy/src/index.js`).
+- **Images:** `getImageUrl()` in `src/app.js` builds the coloring prompt and, when
   `IMAGE_PROXY_URL` is set, returns a URL through the image-proxy worker
-  (`app.js:1178-1185`). The worker appends `key=<POLLINATIONS_API_KEY>` server-side,
+  via `IMAGE_PROXY_URL`. The worker appends `key=<POLLINATIONS_API_KEY>` server-side,
   serves from CF cache (7-day TTL), and returns placeholder/error SVGs on failure.
 - **Text generation (live mode):** `callAIAPI()` in `src/modules/aiProviders.js` routes
   through `CONTENT_API_URL` (the content-api worker) when set, with model-level fallback;
@@ -160,7 +158,7 @@ Both workers live under `workers/`, share helpers in `workers/shared/`
   via `npx wrangler secret put` (see the comments in `wrangler.toml`); `ALLOWED_ORIGINS`
   is a plain var.
 - **`POST /events`** — analytics batch endpoint. Re-validates the client's batch against
-  the server-side `ALLOWED_ANALYTICS_EVENTS` allowlist (line 27), caps batch size at 100
+  the server-side `ALLOWED_ANALYTICS_EVENTS` allowlist, caps batch size at 100
   events and each prop at 512 bytes, increments counters in the `ANALYTICS_KV` namespace
   (single JSON blob; read-modify-write races are acceptable for aggregate stats), and
   optionally forwards to `ANALYTICS_SINK`.
@@ -173,13 +171,13 @@ Both workers live under `workers/`, share helpers in `workers/shared/`
 - **`GET /data`** — serves `site-data.json` from the `SITE_DATA` KV binding with CF-cache
   backing (cache key includes the URL, so `?v=N` query strings purge stale entries).
 - **Any other `GET`** (the client requests the worker root URL with a `prompt` query
-  param — see `app.js:1178-1185`) — proxies Pollinations image
+  param — see `getImageUrl()` in `src/app.js`) — proxies Pollinations image
   generation, injecting `POLLINATIONS_API_KEY`. Cache TTL is 7 days; errors return an SVG
   placeholder with the upstream status.
 
 ## Configuration
 
-Client config lives in the inline `window._env` block in `index.html` (lines 1353-1368):
+Client config lives in the inline `window._env` block in `index.html`:
 
 - `IMAGE_PROXY_URL` / `DATA_URL` — image-proxy worker endpoints (prod values are the
   deployed `daniel-bca.workers.dev` URLs)
@@ -189,7 +187,7 @@ Client config lives in the inline `window._env` block in `index.html` (lines 135
 - `ENABLE_ANALYTICS`, `ANALYTICS_ENDPOINT`, `ANALYTICS_DASHBOARD_TOKEN` — analytics,
   **off by default**
 
-Static-build flags are set just below at `index.html:1369-1370`
+Static-build flags are set in `index.html`
 (`__COLORVERSE_STATIC__`, `__COLORVERSE_DATA_URL__`).
 
 ## Analytics
@@ -197,10 +195,10 @@ Static-build flags are set just below at `index.html:1369-1370`
 Privacy-first, off by default, allowlisted on **both** sides:
 
 - Client: `_isAllowedEvent()` + `_sanitizeProps()` in `src/services/analyticsManager.js`
-  (lines 151, 168). Only `page_view` (hash path, query-stripped) carries any prop; all
+  strip disallowed props. Only `page_view` (hash path, query-stripped) carries any prop; all
   other events are count-only.
 - Server: `ALLOWED_ANALYTICS_EVENTS` + `sanitizeBatch()` in
-  `workers/content-api/src/index.js` (lines 27, 60) re-validate every batch, since the
+  `workers/content-api/src/index.js` re-validate every batch, since the
   endpoint is public.
 
 The full contract (what we do and don't collect, session IDs, batching, how to add an
@@ -209,9 +207,9 @@ event) is in [ANALYTICS.md](./ANALYTICS.md).
 ## Security
 
 - **XSS:** all generated text is untrusted. `escapeHtml()` / `escapeJsAttr()`
-  (`app.js:82-98`) wrap every interpolation of `item.title` / `item.description` into
+  in `src/app.js` wrap every interpolation of `item.title` / `item.description` into
   `innerHTML` templates and `onclick` attribute args — 50+ call sites. The
-  2026-10-04/05 escape pass (see `CHANGES.md`) covered all render functions, including the
+  2026-10-04/05 escape pass (see [Changelog](./CHANGES.md)) covered all render functions, including the
   favorites and dashboard renderers. New render code must escape too.
 - **Secrets:** server-side in worker secrets only (see [CONTRIBUTING.md](./CONTRIBUTING.md)
   for the commit-side guard rails).
@@ -220,29 +218,35 @@ event) is in [ANALYTICS.md](./ANALYTICS.md).
 
 ## Testing
 
-- **Vitest** (`vitest.config.ts`, jsdom env): `src/tests/unit/` (131 tests — what CI runs)
-  and `src/tests/integration/` (navigation, theming, image loading, API).
-- **Playwright** (`playwright.config.ts`): `src/tests/e2e/` (12 tests across
-  `page-loading.test.ts` and `live-site.test.ts`; chromium + iPhone-12 mobile projects;
-  spins up its own `serve` server on :4000).
-- Coverage: effectively 0% for `app.js` itself (it's a monolith and not importable) —
-  only the services and shared helpers are unit-tested. Adding a service with a test in
-  `src/tests/unit/services/` is the expected pattern.
+- **Vitest** (`vitest.config.ts`, jsdom env) runs unit, integration, and worker tests
+  under `tests/` and `workers/`. `npm test` and `npm run test:run` are one-shot;
+  `npm run test:watch` watches for changes.
+- **Playwright** (`playwright.config.ts`) runs local browser tests under `tests/e2e/`
+  against the static server on port 4000. Run it with `npm run test:e2e`.
+  `npm run test:e2e:live` uses `playwright.live.config.ts` for opt-in remote checks.
+- **Packaged and offline checks:** `npm run test:e2e:dist` uses
+  `playwright.dist.config.ts` against `dist/`. `npm run test:e2e:sw` uses
+  `playwright.sw.config.ts` with real service workers at root and `/colorverse/`
+  mounts; set `PLAYWRIGHT_SW_ROOT=dist` to check packaged assets. See
+  [Development](./DEVELOPMENT.md) for prerequisites.
+- Unit, integration, worker, and browser suites are
+  available as separate commands. The main `src/app.js` entry point is not directly
+  imported by the unit tests, so coverage is concentrated in services and helpers.
 
 ## Build & deploy
 
-- `build.js` (`npm run build`) generates `dist/`: generated `site-data.json`,
+- `scripts/build.js` (`npm run build`) generates `dist/`: generated `site-data.json`,
   downloaded JPGs (concurrency + backoff for Pollinations 429/402), `sitemap.xml`, and a
   copy of the app with static-mode flags injected into `dist/index.html`. Requires
-  `POLLINATIONS_API_KEY` in `.env`.
+  `POLLINATIONS_API_KEY` in `.env` for generation. Packaging existing fixture data
+  without provider calls is documented in [Development](./DEVELOPMENT.md).
 - The deployed site (GitHub Pages) runs in static mode, fetching `site-data.json` from
   the worker's `/data` route and generating images on demand through the image-proxy.
-- `service-worker.js` (cache `colorverse-v4`) provides offline support with three
-  caching strategies: **cache-first** for versioned CDN assets (Tailwind, Font Awesome,
-  Google Fonts) and local binaries (favicon, manifest, icons); **stale-while-revalidate**
-  for local code assets (`app.js`, `src/**/*.js`, `*.css`, `*.html`) so users get fresh code
-  within 2 reloads of a deploy — no manual version bumps needed; and **network-first**
-  for API responses. `offline.html` is the fallback page.
+- `service-worker.js` provides offline support: **cache-first** for recognized CDN
+  assets and local binary assets; **network-first** for local code/data and API
+  requests; **stale-while-revalidate** for remaining image requests; and network with
+  cache fallback for other requests. Fetch-handler order determines which strategy
+  applies. `offline.html` is the fallback page; cache names are defined in the worker.
 - `service-worker-register.js` listens for `controllerchange` (fired when a new SW
   activates via `skipWaiting()`) and reloads **only if the user is on the homepage**
   (`#` or `#/`). On item/category routes it skips the reload so users mid-coloring don't

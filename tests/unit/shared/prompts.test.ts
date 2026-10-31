@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { COLORING_STYLES, buildColoringPrompt, buildCatalogKey } from "../../../shared/prompts.js";
+import {
+  COLORING_STYLES,
+  buildColoringPrompt,
+  buildCatalogKey,
+} from "../../../src/shared/prompts.js";
 
 const CLASSIC_TEMPLATE =
   "high contrast black and white line art coloring page, {item}, pure outlines with no shading, no color, no grayscale, thick clean lines, simple contours only";

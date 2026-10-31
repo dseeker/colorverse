@@ -13,7 +13,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 22
+          cache: "npm"
       - run: npm ci
-      - run: npm run test:unit
+      - run: npm run lint
+      - run: npm run test:run
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run test:e2e
+      - run: npm run build:package -- --data-file tests/build/fixtures/site-data.json
+      - run: npm run test:e2e:dist
+      - run: npm run test:e2e:sw
+      - run: npm run test:e2e:sw
+        env:
+          PLAYWRIGHT_SW_ROOT: dist

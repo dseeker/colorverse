@@ -8,7 +8,7 @@ vi.stubGlobal("document", {
 
 // Import the module - it exports a singleton, so we'll test the class behavior
 // by accessing it and resetting state between tests
-import favoritesManager from "../../../services/favoritesManager.js";
+import favoritesManager from "../../../src/services/favoritesManager.js";
 
 describe("FavoritesManager", () => {
   const testItem = { key: "cat-1", name: "Cute Cat" };

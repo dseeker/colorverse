@@ -9,11 +9,6 @@ coverage/
 output/
 *.min.js
 
-# Package managers
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-
 # Logs
 *.log
 npm-debug.log*
@@ -46,8 +41,7 @@ playwright-report/
 # Test images and data
 test_image_*.jpg
 test_*.jpg
-*.png
-*.jpeg
+.screenshots/
 test-prompts.txt
 variations.txt
 
@@ -58,6 +52,7 @@ debug/*.bak
 
 .claude/
 .playwright-mcp/
+.llmhub/
 
 # Wrangler local state
 .wrangler/

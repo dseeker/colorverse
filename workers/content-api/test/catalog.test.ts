@@ -190,15 +190,15 @@ describe("GET /catalog", () => {
     vi.restoreAllMocks();
   });
 
-  it("1. KV hit + fresh: 200, Cache-Control max-age=86400, zero fetch calls", async () => {
-    const catalog = makeCatalog(Date.now() - 60 * 60 * 1000); // 1h old < 24h
+  it("1. KV hit + fresh: 200, Cache-Control max-age=604800, zero fetch calls", async () => {
+    const catalog = makeCatalog(Date.now() - 60 * 60 * 1000);
     await kv.put("catalog:default", JSON.stringify(catalog));
 
     const res = await worker.fetch(makeRequest("/catalog"), env, ctx);
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(res.headers.get("Cache-Control")).toBe("public, max-age=86400");
+    expect(res.headers.get("Cache-Control")).toBe("public, max-age=604800");
     expect(body._meta.totalItems).toBe(2);
     expect(fetchMock).not.toHaveBeenCalled();
     // Fresh hit must not touch the generation lock or schedule anything.
@@ -206,7 +206,7 @@ describe("GET /catalog", () => {
   });
 
   it("2. KV hit + stale: returns stale body immediately AND regenerates in background", async () => {
-    const staleCatalog = makeCatalog(Date.now() - 25 * 60 * 60 * 1000); // 25h old
+    const staleCatalog = makeCatalog(Date.now() - 8 * 24 * 60 * 60 * 1000);
     staleCatalog._meta.staleMarker = true;
     await kv.put("catalog:default", JSON.stringify(staleCatalog));
 
@@ -215,7 +215,7 @@ describe("GET /catalog", () => {
 
     // Stale body served (with a short max-age to force revalidation).
     expect(res.status).toBe(200);
-    expect(res.headers.get("Cache-Control")).toBe("public, max-age=60");
+    expect(res.headers.get("Cache-Control")).toBe("public, max-age=3600");
     expect(body._meta.staleMarker).toBe(true);
 
     // waitUntil was scheduled with a generation job.
@@ -346,7 +346,7 @@ describe("GET /catalog", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(res.headers.get("Cache-Control")).toBe("public, max-age=86400");
+    expect(res.headers.get("Cache-Control")).toBe("public, max-age=604800");
     expect(body._meta.legacy).toBe(true);
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://dseeker.github.io");
     // Kill switch must never generate or touch catalog:* keys.
@@ -630,7 +630,7 @@ describe("GET /catalog", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(res.headers.get("Cache-Control")).toBe("public, max-age=86400");
+    expect(res.headers.get("Cache-Control")).toBe("public, max-age=604800");
     expect(body._meta.legacy).toBe(true);
     // No generation should be scheduled.
     expect(ctx.waitUntil).not.toHaveBeenCalled();

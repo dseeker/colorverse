@@ -16,7 +16,7 @@ const BASE = self.registration ? self.registration.scope : "/";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
-  "./app.js",
+  "./src/app.js",
   "./offline.html",
   "./src/services/seoManager.js",
   "./src/services/favoritesManager.js",
@@ -104,7 +104,7 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  // Strategy 1b: Network First for local code (app.js, src/**/*.js,
+  // Strategy 1b: Network First for local code (src/**/*.js,
   // *.css, *.html). This fetches the fresh version first, serving from cache
   // only as a fallback. Users get the latest code on every reload after a deploy.
   if (isLocalCodeAsset(request)) {
@@ -147,7 +147,7 @@ function isVersionedAsset(request) {
   );
 }
 
-// Local code assets (app.js, src/**/*.js, *.css, *.html) — these change on
+// Local code assets (src/**/*.js, *.css, *.html) — these change on
 // every deploy, so we use staleWhileRevalidate to auto-update within 2 reloads.
 function isLocalCodeAsset(request) {
   const url = new URL(request.url);

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 // Mock data matching the real live-site site-data.json structure with correct item key patterns.
 // The real data uses keys like "animals_item_1", "fantasy_item_2", etc.
@@ -133,6 +133,7 @@ const mockTranslations = {
 };
 
 test.describe("Render paths end-to-end", () => {
+  test.use({ siteData: mockSiteData });
   test.beforeEach(async ({ page }) => {
     // Set i18n globals BEFORE page scripts execute via addInitScript
     await page.addInitScript(translationsJSON => {
@@ -164,28 +165,7 @@ test.describe("Render paths end-to-end", () => {
       };
     }, JSON.stringify(mockTranslations.en.translation));
 
-    // Route the ACTUAL data URL the app fetches (from __COLORVERSE_DATA_URL__ in index.html)
-    await page.route("https://colorverse-image-proxy.daniel-bca.workers.dev/data*", async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(mockSiteData),
-      });
-    });
-
-    // Also route /catalog endpoint (Worker Mode fallback)
-    await page.route(
-      "https://colorverse-content-api.daniel-bca.workers.dev/catalog*",
-      async route => {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify(mockSiteData),
-        });
-      }
-    );
-
-    // Route locale files (i18n)
+    // Render assertions use a small dictionary; asset-path tests use real locale files.
     await page.route("**/translation.json", async route => {
       await route.fulfill({
         status: 200,
@@ -193,48 +173,10 @@ test.describe("Render paths end-to-end", () => {
         body: JSON.stringify(mockTranslations.en.translation),
       });
     });
-
-    // Block images to avoid loading slow external assets
-    await page.route("**/pollinations.ai/**", async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({}),
-      });
-    });
-
-    // Block other external worker endpoints
-    await page.route(
-      "https://colorverse-image-proxy.daniel-bca.workers.dev/image*",
-      async route => {
-        await route.fulfill({
-          status: 200,
-          contentType: "image/jpeg",
-          body: Buffer.from(""),
-        });
-      }
-    );
-
-    await page.route("https://colorverse-content-api.daniel-bca.workers.dev/**", async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({}),
-      });
-    });
-
-    // Route static site-data.json too (local serve)
-    await page.route("**/site-data.json", async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(mockSiteData),
-      });
-    });
   });
 
   test("homepage renders with title, categories and item cards", async ({ page }) => {
-    await page.goto("http://localhost:4000");
+    await page.goto("/");
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000); // Extra wait for JS rendering
 
@@ -250,7 +192,7 @@ test.describe("Render paths end-to-end", () => {
   });
 
   test("category navigation renders item list", async ({ page }) => {
-    await page.goto("http://localhost:4000");
+    await page.goto("/");
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
 
@@ -270,7 +212,7 @@ test.describe("Render paths end-to-end", () => {
   });
 
   test("clicking an item shows the detail view with image", async ({ page }) => {
-    await page.goto("http://localhost:4000");
+    await page.goto("/");
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
 
@@ -305,7 +247,7 @@ test.describe("Render paths end-to-end", () => {
   });
 
   test("search functionality renders results when query is entered", async ({ page }) => {
-    await page.goto("http://localhost:4000");
+    await page.goto("/");
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
 
@@ -339,7 +281,7 @@ test.describe("Render paths end-to-end", () => {
       }
     });
 
-    await page.goto("http://localhost:4000#favorites");
+    await page.goto("/#favorites");
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(1000);
 

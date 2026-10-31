@@ -1,0 +1,32 @@
+{
+  "brand": {
+    "name": "ColorVerse",
+    "tagline": "Test package data"
+  },
+  "seasonal_gallery": {
+    "title": "Test Collection",
+    "items": {
+      "seasonal_test": {
+        "title": "Test Season",
+        "description": "Fixture seasonal image"
+      }
+    }
+  },
+  "categories": {
+    "test_category": {
+      "title": "Test Category",
+      "items": {
+        "test_item": {
+          "title": "Test Item",
+          "description": "Fixture category image"
+        }
+      }
+    }
+  },
+  "_meta": {
+    "buildDate": "2026-01-01T00:00:00.000Z",
+    "season": "test",
+    "categoryCount": 1,
+    "totalItems": 1
+  }
+}
