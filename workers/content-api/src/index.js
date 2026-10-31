@@ -41,7 +41,7 @@ import {
   getCurrentSeason,
   sleep,
 } from "../../shared/utils.js";
-import { CATEGORIES } from "../../shared/constants.js";
+import { CATEGORIES, GEMINI_TEXT_MODEL } from "../../shared/constants.js";
 import { COLORING_STYLES } from "../../../src/shared/prompts.js";
 
 const POLLINATIONS_URL = "https://gen.pollinations.ai/v1/chat/completions";
@@ -280,7 +280,7 @@ const CATALOG_MAX_FAILS = 3;
 // Text-generation model names (one per provider, used by generateCatalogTextWithFallback).
 const CATALOG_TEXT_MODEL_POLLINATIONS = "openai";
 const CATALOG_TEXT_MODEL_OPENROUTER = "openai/gpt-4.1-nano";
-const CATALOG_TEXT_MODEL_GEMINI = "gemini-2.0-flash";
+const CATALOG_TEXT_MODEL_GEMINI = GEMINI_TEXT_MODEL;
 
 /**
  * Create a wall-clock deadline tracker.
@@ -1414,7 +1414,7 @@ export default {
         if (!key) {
           return errorResponse("Gemini API key not configured", 503, request, env);
         }
-        const model = payload.model || "gemini-2.0-flash";
+        const model = payload.model || GEMINI_TEXT_MODEL;
         upstream = await callGemini(model, payload.body, key);
       } else {
         return errorResponse(`Unknown provider: ${provider}`, 400, request, env);

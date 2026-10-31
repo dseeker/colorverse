@@ -18,6 +18,13 @@ export const POLLINATIONS_CONFIG = {
   TIMEOUT: 30000,
 };
 
+// Gemini text model used by the content-api worker (catalog fallback and proxy
+// default). Keep in sync with the client list in src/modules/aiProviders.js.
+// gemini-2.0-flash was shut down 2026-06-01; per
+// https://ai.google.dev/gemini-api/docs/deprecations (checked 2026-10-31) this
+// replacement has no announced shutdown date.
+export const GEMINI_TEXT_MODEL = "gemini-3.6-flash";
+
 // Primary: CF Workers AI (in-network, no API key, ~104 neurons/image -> 96 free/day on 10k neurons)
 export const CF_AI_MODEL = "@cf/black-forest-labs/flux-2-klein-4b";
 

@@ -126,8 +126,23 @@ methods and clear the hash) so old shared links don't break.
   via `IMAGE_PROXY_URL`. The worker appends `key=<POLLINATIONS_API_KEY>` server-side,
   serves from CF cache (7-day TTL), and returns placeholder/error SVGs on failure.
 - **Text generation (live mode):** `callAIAPI()` in `src/modules/aiProviders.js` routes
-  through `CONTENT_API_URL` (the content-api worker) when set, with model-level fallback;
-  otherwise it calls providers directly.
+  through `CONTENT_API_URL` (the content-api worker) when set, otherwise it calls providers
+  directly. It tries Pollinations → OpenRouter → Gemini with model-level fallback:
+  - Configured model lists are candidates. Before first use, the public model catalogs
+    (`gen.pollinations.ai/text/models`, `openrouter.ai/api/v1/models`; GET only, no
+    prompt or credentials) are fetched and cached for 30 minutes. Unlisted or paid-only
+    Pollinations models are dropped; OpenRouter uses the `openrouter/free` router plus up
+    to three listed `:free` text models. If a catalog cannot be fetched, the configured
+    list is used unchanged. Gemini has no public catalog, so its list follows
+    <https://ai.google.dev/gemini-api/docs/deprecations>.
+  - A model answering 404/410, or 400 with "no longer available"/"invalid model", is
+    skipped for the rest of the session. 401/402/403/429 and "API key not configured"
+    skip the provider's remaining models; a provider is paused for 10 minutes after
+    three consecutive failures.
+  - Gemini requests send `model` at the top level of the proxy payload (the worker
+    reads `payload.model`); the Gemini body must not contain it.
+  - When every provider fails, `callAIAPI()` rejects with an error whose `causes`
+    lists each attempt; it never returns placeholder content.
 
 ## Cloudflare Workers
 
@@ -148,7 +163,8 @@ Both workers live under `workers/`, share helpers in `workers/shared/`
   3. **Legacy fallback**: served when failcount ≥ 3 (`CATALOG_MAX_FAILS`); returns the
      stale `site-data.json` from KV with a 1h auto-recovery window.
 - **Provider fallback**: `Pollinations` (openai model) → `OpenRouter` (`openai/gpt-4.1-nano`)
-  → `Gemini` (`gemini-2.0-flash`). All three keys are CF Worker secrets.
+  → `Gemini` (`GEMINI_TEXT_MODEL` in `workers/shared/constants.js`, also the `POST /`
+  proxy default; must match the client Gemini default). All three keys are CF Worker secrets.
 - **Locking**: `catalog:generating:{hash}` KV key with a 30s TTL (`CATALOG_GENERATION_LOCK_TTL_S`)
   prevents concurrent generation runs. Lock check is resilient to KV errors.
   Failure tracking uses `catalog:failcount:{hash}`. Rate limiting uses
@@ -251,3 +267,7 @@ event) is in [ANALYTICS.md](./ANALYTICS.md).
   activates via `skipWaiting()`) and reloads **only if the user is on the homepage**
   (`#` or `#/`). On item/category routes it skips the reload so users mid-coloring don't
   lose their place; they pick up the new code on their next homepage visit.
+  It never reloads on the **first install** (page loaded without a controller): the
+  initial `clients.claim()` also fires `controllerchange`, and reloading then aborts
+  in-flight worker fetches (WebKit logs them as access-control failures) and forces
+  the app's legacy/text-generation fallbacks.

@@ -22,22 +22,11 @@ export const AI_PROVIDERS = {
     endpoint: "/v1/chat/completions",
     getApiKey: () => getEnvVar("POLLINATIONS_API_KEY"),
     requiresAuth: false, // Works without auth but benefits from it
-    defaultModel: "qwen-coder",
-    // Models ordered by cost/quality based on testing (2026-02-09)
-    models: [
-      "qwen-coder", // Qwen3 Coder 30B - $0.22/M (primary - best cost/quality)
-      "nova-fast", // Amazon Nova Micro - $0.14/M (first fallback - cheapest)
-      "mistral", // Mistral Small 3.2 24B - $0.30/M (second fallback)
-      "openai", // GPT-4o Mini
-      "openai-fast", // GPT-4.1 Nano
-      "openai-large", // GPT-4o
-      "gemini", // Gemini 2.5 Flash
-      "llamascout", // Llama 4 Scout 17B
-      "llama-roblox", // Llama 3.1 8B
-      "phi", // Phi-4 Mini
-    ],
+    defaultModel: "openai",
+    // Free (non paid_only) aliases listed in https://gen.pollinations.ai/text/models (2026-10-31)
+    models: ["openai", "openai-fast", "gpt-oss", "deepseek", "kimi"],
     formatRequest: (messages, options = {}) => ({
-      model: options.model || "qwen-coder",
+      model: options.model || "openai",
       messages,
       response_format: options.json ? { type: "json_object" } : undefined,
       temperature: options.temperature ?? 0.5,
@@ -58,20 +47,16 @@ export const AI_PROVIDERS = {
     endpoint: "/chat/completions",
     getApiKey: () => getEnvVar("OPENROUTER_API_KEY"),
     requiresAuth: true,
-    defaultModel: "meta-llama/llama-3.3-8b-instruct:free",
-    // Free models on OpenRouter
-    models: [
-      "meta-llama/llama-3.3-8b-instruct:free",
-      "mistralai/mistral-7b-instruct:free",
-      "google/gemma-2-9b-it:free",
-      "qwen/qwen-2.5-72b-instruct:free",
-      "microsoft/phi-4:free",
-    ],
+    // Individual ":free" ids rotate and get retired (e.g. llama-3.3-8b-instruct:free
+    // now returns 404); the free router always targets a live free model.
+    defaultModel: "openrouter/free",
+    models: ["openrouter/free"],
     formatRequest: (messages, options = {}) => ({
-      model: options.model || "meta-llama/llama-3.3-8b-instruct:free",
+      model: options.model || "openrouter/free",
       messages,
+      response_format: options.json ? { type: "json_object" } : undefined,
       temperature: options.temperature ?? 0.5,
-      max_tokens: options.max_tokens || 4096,
+      max_tokens: options.max_tokens,
     }),
     parseResponse: data => ({
       content: data.choices?.[0]?.message?.content || "",
@@ -92,8 +77,10 @@ export const AI_PROVIDERS = {
     getApiKey: () => getEnvVar("GOOGLE_GEMINI_API_KEY"),
     requiresAuth: true,
     authMethod: "query", // Uses ?key= instead of Authorization header
-    defaultModel: "gemini-2.0-flash",
-    models: ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
+    // gemini-2.0-flash and gemini-1.5-* are shut down; these have no announced
+    // shutdown date per https://ai.google.dev/gemini-api/docs/deprecations (2026-10-31)
+    defaultModel: "gemini-3.6-flash",
+    models: ["gemini-3.6-flash", "gemini-3.5-flash-lite"],
     formatRequest: (messages, options = {}) => {
       // Convert OpenAI format to Gemini format
       const contents = messages
@@ -134,10 +121,23 @@ export const PROVIDER_PRIORITY = ["pollinations", "openrouter", "gemini"];
 // Error types that trigger immediate fallback
 export const FALLBACK_ERRORS = {
   RATE_LIMITED: [429],
-  QUOTA_EXCEEDED: [403],
+  QUOTA_EXCEEDED: [402, 403],
   UNAUTHORIZED: [401],
+  BAD_REQUEST: [400, 422],
+  MODEL_UNAVAILABLE: [404, 410],
   SERVER_ERROR: [500, 502, 503, 504],
 };
+
+const UNAVAILABLE_MODEL_PATTERN =
+  /no longer available|not a valid model|invalid model|unknown model|model[^.]{0,60}(?:not found|does not exist|not supported|deprecated|retired|unavailable)|no endpoints found/i;
+
+// True when the provider reports the requested model as retired or unknown.
+export function isUnavailableModelError(status, detail = "") {
+  if (FALLBACK_ERRORS.MODEL_UNAVAILABLE.includes(status)) {
+    return true;
+  }
+  return FALLBACK_ERRORS.BAD_REQUEST.includes(status) && UNAVAILABLE_MODEL_PATTERN.test(detail);
+}
 
 // Retry configuration
 export const RETRY_CONFIG = {

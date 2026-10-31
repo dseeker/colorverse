@@ -140,6 +140,45 @@ test.describe("Live site end-to-end", () => {
     await expect(page.locator("#main-content")).toContainText(/no results/i);
   });
 
+  test("search deep links and browser history preserve the active route", async ({ page }) => {
+    await page.goto(`${LIVE_URL}#search?q=flowers`, { waitUntil: "domcontentloaded" });
+    await expect(page.locator("#search-page-input")).toHaveValue("flowers", {
+      timeout: 60000,
+    });
+    await expect(page.locator("#main-content .category-card").first()).toBeVisible();
+    await page.locator('a[href="#search"]').first().click();
+    await expect(page.locator("#search-page-input")).toHaveValue("");
+    await page.goBack();
+    await expect(page.locator("#search-page-input")).toHaveValue("flowers");
+    await page.goForward();
+    await expect(page.locator("#search-page-input")).toHaveValue("");
+    await expect(page).toHaveURL(/#search$/);
+  });
+
+  test("catalog remains accessible after service-worker takeover and reload", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    page.on("console", message => {
+      if (message.type() === "error") errors.push(message.text());
+    });
+    await openHome(page);
+    await page.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator(CATEGORY_LINKS).first()).toBeVisible({ timeout: 60000 });
+    const catalog = await page.evaluate(async host => {
+      const response = await fetch(`https://${host}/catalog?style=&seed=`, {
+        headers: { "X-ColorVerse-UID": "live-regression-check" },
+      });
+      const data = await response.json();
+      return { status: response.status, categories: Object.keys(data.categories || {}).length };
+    }, CONTENT_HOST);
+    expect(catalog.status).toBe(200);
+    expect(catalog.categories).toBeGreaterThan(5);
+    expect(errors).toEqual([]);
+  });
+
   test("palette overlay opens a detail and closes without leaving the page", async ({ page }) => {
     await openHome(page);
     const url = page.url();

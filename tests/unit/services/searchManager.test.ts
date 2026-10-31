@@ -1,9 +1,85 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // Mock DOM APIs before importing
 vi.stubGlobal("document", {
   getElementById: vi.fn(() => null),
   addEventListener: vi.fn(),
+});
+
+describe("SearchManager hash routing", () => {
+  beforeEach(() => {
+    searchManager.searchInput = { value: "" };
+    searchManager.lastQuery = "";
+    vi.stubGlobal("window", {
+      location: { hash: "" },
+      history: { pushState: vi.fn(), replaceState: vi.fn() },
+      dispatchEvent: vi.fn(),
+      showToast: vi.fn(),
+    });
+    vi.spyOn(searchManager, "displayResults");
+    vi.spyOn(searchManager, "showNoResults");
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it.each(["#search", "#search?q=cat", "#category/animals", ""])(
+    "preserves destination %s on a null-state popstate",
+    hash => {
+      window.location.hash = hash;
+      searchManager.searchInput.value = "old query";
+      searchManager.handlePopState({ state: null });
+
+      expect(window.location.hash).toBe(hash);
+      expect(searchManager.searchInput.value).toBe(hash.endsWith("q=cat") ? "cat" : "");
+      expect(window.history.pushState).not.toHaveBeenCalled();
+      expect(window.history.replaceState).not.toHaveBeenCalled();
+      expect(searchManager.displayResults).not.toHaveBeenCalled();
+      expect(searchManager.showNoResults).not.toHaveBeenCalled();
+    }
+  );
+
+  it("uses the URL instead of stale search history state", () => {
+    window.location.hash = "#search?q=Window+Cat%26Dog";
+    searchManager.handlePopState({ state: { search: "stale" } });
+    expect(window.location.hash).toBe("#search?q=Window+Cat%26Dog");
+    expect(searchManager.searchInput.value).toBe("Window Cat&Dog");
+    expect(searchManager.lastQuery).toBe("window cat&dog");
+  });
+
+  it("reads malformed percent encoding without throwing", () => {
+    window.location.hash = "#search?q=cat%";
+    expect(() => searchManager.checkUrlForSearch()).not.toThrow();
+    expect(searchManager.searchInput.value).toBe("cat%");
+  });
+
+  it("routes header searches without replacing the router's form", () => {
+    searchManager.performSearch("  Window Cat  ");
+    expect(window.location.hash).toBe("#search?q=window%20cat");
+    expect(window.history.pushState).not.toHaveBeenCalled();
+    expect(searchManager.displayResults).not.toHaveBeenCalled();
+    expect(searchManager.showNoResults).not.toHaveBeenCalled();
+  });
+
+  it("notifies the router on repeated header searches without adding history", () => {
+    window.location.hash = "#search?q=cat";
+    searchManager.performSearch("cat");
+    expect(window.location.hash).toBe("#search?q=cat");
+    expect(window.dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "hashchange" })
+    );
+    expect(window.history.pushState).not.toHaveBeenCalled();
+  });
+
+  it("keeps explicit clearing limited to search routes", () => {
+    window.location.hash = "#category/search";
+    searchManager.clearSearch();
+    expect(window.location.hash).toBe("#category/search");
+    window.location.hash = "#search?q=cat";
+    searchManager.clearSearch();
+    expect(window.location.hash).toBe("");
+  });
 });
 vi.stubGlobal("window", {
   ...globalThis.window,

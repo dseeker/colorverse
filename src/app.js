@@ -1668,6 +1668,13 @@ function loadFromCache() {
       }
 
       debug.log(`Loaded valid cached data with ${categoryCount} categories`);
+      categoryLoadingState.loadedCategories = new Set(
+        (Array.isArray(parsedData.expandedCategories) ? parsedData.expandedCategories : []).filter(
+          key =>
+            parsedData.categories[key]?.items &&
+            Object.keys(parsedData.categories[key].items).length >= CATEGORY_TARGET_SIZE
+        )
+      );
       return parsedData;
     }
   } catch (error) {
@@ -4082,6 +4089,9 @@ function renderSkeletonGrid(hash) {
 function handleRouteChange() {
   showLoading(true);
   const hash = window.location.hash || "#";
+  if (window.SearchManager) {
+    window.SearchManager.checkUrlForSearch();
+  }
 
   // Cancel all pending image downloads when navigation occurs
   if (window.imageLoadQueue) {
@@ -4512,13 +4522,9 @@ function handleRouteChange() {
             }
             const nextHash = value ? `#search?q=${encodeURIComponent(value)}` : "#search";
             if (nextHash === hash) {
-              // Same route — re-render in place so the form still works
-              // when the user submits without changing the query.
-              mainContent.innerHTML = renderSearchPage(value);
-              window.scrollTo(0, 0);
-              // This path bypasses handleRouteChange's finally block, so
-              // wire up lazy image loading for the freshly rendered cards.
-              setupLazyLoading();
+              // Use the normal route lifecycle so the replacement form is
+              // wired too, even after repeated same-query submissions.
+              handleRouteChange();
             } else {
               window.location.hash = nextHash;
             }
@@ -4774,6 +4780,10 @@ const categoryLoadingState = {
   frontPageDataOnly: false,
 };
 
+// Keep each response small enough for the content worker's 30-second deadline.
+const CATEGORY_EXPANSION_SIZE = 12;
+const CATEGORY_TARGET_SIZE = 160;
+
 // Generate just the front page data (brand, seasonal, and basic category info)
 async function fetchFrontPageData() {
   const currentSeason = getCurrentSeason();
@@ -4906,6 +4916,7 @@ Output ONLY the JSON object, no explanations.`;
 
     // Mark as front page only
     categoryLoadingState.frontPageDataOnly = true;
+    categoryLoadingState.isComplete = false;
     categoryLoadingState.loadedCategories.clear();
 
     siteData = frontPageData;
@@ -4962,6 +4973,7 @@ async function loadCategoriesInBackground() {
   showToast("Loading additional categories in parallel...", "info", 2000);
 
   let loadedCount = 0;
+  const failedCategories = [];
   const totalCategories = categoryList.length;
   const CONCURRENCY_LIMIT = 2; // Conservative parallel loading (Q3-A)
 
@@ -4975,7 +4987,7 @@ async function loadCategoriesInBackground() {
       await Promise.all(
         batch.map(async categoryKey => {
           try {
-            const categoryData = await loadSingleCategory(categoryKey);
+            await loadSingleCategory(categoryKey);
             loadedCount++;
 
             const progress = Math.round((loadedCount / totalCategories) * 100);
@@ -4991,6 +5003,7 @@ async function loadCategoriesInBackground() {
               );
             }
           } catch (error) {
+            failedCategories.push(categoryKey);
             console.error(`❌ Failed to load ${categoryKey}:`, error);
           }
         })
@@ -5013,17 +5026,22 @@ async function loadCategoriesInBackground() {
   }
 
   // Mark as complete
-  categoryLoadingState.isComplete = true;
-  categoryLoadingState.frontPageDataOnly = false;
+  categoryLoadingState.isComplete = failedCategories.length === 0;
+  categoryLoadingState.frontPageDataOnly = loadedCount === 0;
 
-  // Save complete data to cache
-  saveToCache(siteData);
-
-  debug.log("Background category loading complete!");
-  showToast("All categories loaded successfully!", "success", 3000);
+  if (failedCategories.length > 0) {
+    showToast(
+      `Loaded ${loadedCount}/${totalCategories} categories. ${failedCategories.length} failed; existing pages remain available. Open a category to retry.`,
+      "warning",
+      5000
+    );
+  } else {
+    showToast("All categories loaded successfully!", "success", 3000);
+  }
+  return { loadedCount, totalCategories, failedCategories };
 }
 
-// Load a single category with full 160 items
+// Reach the full category size using bounded batches, preserving existing pages.
 async function loadSingleCategory(categoryKey) {
   // Check if already loaded or loading
   if (categoryLoadingState.loadedCategories.has(categoryKey)) {
@@ -5036,26 +5054,35 @@ async function loadSingleCategory(categoryKey) {
 
   const categoryInfo = getCategoryInfo(categoryKey);
   if (!categoryInfo) {
-    console.warn(`Unknown category: ${categoryKey}`);
-    return null;
+    throw new Error(`Unknown category: ${categoryKey}`);
   }
 
-  const prompt = `
-Generate complete category data for "${categoryKey}" in ColorVerse coloring page website.
+  const existingCategory = siteData?.categories?.[categoryKey];
+  const existingItems = existingCategory?.items || {};
+  const loadingPromise = (async () => {
+    try {
+      const mergedItems = { ...existingItems };
+      while (Object.keys(mergedItems).length < CATEGORY_TARGET_SIZE) {
+        const batchSize = Math.min(
+          CATEGORY_EXPANSION_SIZE,
+          CATEGORY_TARGET_SIZE - Object.keys(mergedItems).length
+        );
+        const existingTitles = Object.values(mergedItems).map(item => item.title);
+        const prompt = `
+Generate ${batchSize} additional coloring pages for "${categoryKey}" in ColorVerse.
 Output MUST be a valid JSON object with this EXACT structure:
 {
   "title": "${categoryInfo.title}",
   "description": "${categoryInfo.description}",
   "keywords": ${JSON.stringify(categoryInfo.keywords)},
   "items": {
-    "${categoryKey}_item_1": { "title": "Unique Creative Title 1", "description": "Detailed specific ${categoryKey} coloring page description 1" },
-    "${categoryKey}_item_2": { "title": "Unique Creative Title 2", "description": "Detailed specific ${categoryKey} coloring page description 2" },
-    // ... continue to exactly 160 ${categoryKey} items total
-    "${categoryKey}_item_160": { "title": "Unique Creative Title 160", "description": "Detailed specific ${categoryKey} coloring page description 160" }
+    "${categoryKey}_item_1": { "title": "Majestic Mountain Eagle", "description": "An eagle perched above a mountain valley, in black-and-white line art." }
   }
 }
 
-Create exactly 160 unique items for ${categoryKey}. Each item MUST have both "title" and "description" properties.
+Create exactly ${batchSize} unique items for ${categoryKey}, keyed "${categoryKey}_item_1" through "${categoryKey}_item_${batchSize}".
+Each item MUST have both "title" and "description" properties.
+Keep each description under 40 words. Do not repeat these existing titles: ${JSON.stringify(existingTitles)}.
 
 CRITICAL REQUIREMENTS FOR TITLES:
 - Each title MUST be unique, creative, and specific to the actual coloring page content
@@ -5071,22 +5098,57 @@ ${categoryInfo.specialInstructions || ""}
 
 Output ONLY the JSON object, no explanations.`;
 
-  const loadingPromise = (async () => {
-    try {
-      debug.log(`Loading category: ${categoryKey}`);
-      const categoryData = await callAIAPI(prompt);
+        debug.log(`Loading category: ${categoryKey}`);
+        const generated = await callAIAPI(prompt);
+        const items = generated?.items;
+        if (
+          !items ||
+          Array.isArray(items) ||
+          typeof items !== "object" ||
+          Object.keys(items).length !== batchSize
+        ) {
+          throw new Error(`Invalid ${categoryKey} expansion: expected ${batchSize} items`);
+        }
+        const titles = new Set(existingTitles.map(title => String(title).trim().toLowerCase()));
+        for (const item of Object.values(items)) {
+          if (
+            !item ||
+            typeof item.title !== "string" ||
+            !item.title.trim() ||
+            typeof item.description !== "string" ||
+            !item.description.trim() ||
+            titles.has(item.title.trim().toLowerCase())
+          ) {
+            throw new Error(`Invalid ${categoryKey} expansion: missing content or duplicate title`);
+          }
+          titles.add(item.title.trim().toLowerCase());
+        }
 
-      // Update the site data
-      if (siteData && siteData.categories) {
-        siteData.categories[categoryKey] = categoryData;
-        categoryLoadingState.loadedCategories.add(categoryKey);
+        let nextIndex = 1;
+        for (const item of Object.values(items)) {
+          while (mergedItems[`${categoryKey}_item_${nextIndex}`]) {
+            nextIndex++;
+          }
+          const key = `${categoryKey}_item_${nextIndex++}`;
+          mergedItems[key] = { ...item, key };
+        }
       }
-
+      const categoryData = {
+        ...categoryInfo,
+        ...existingCategory,
+        items: mergedItems,
+      };
+      delete categoryData.specialInstructions;
+      siteData.categories[categoryKey] = categoryData;
+      categoryLoadingState.loadedCategories.add(categoryKey);
+      saveToCache({
+        ...siteData,
+        expandedCategories: [...categoryLoadingState.loadedCategories],
+      });
       return categoryData;
     } catch (error) {
       console.error(`Failed to load category ${categoryKey}:`, error);
-      // Keep the basic category info as fallback
-      return siteData.categories[categoryKey];
+      throw error;
     } finally {
       categoryLoadingState.loadingPromises.delete(categoryKey);
     }
@@ -5364,21 +5426,21 @@ async function ensureCategoryLoaded(categoryKey) {
   }
 
   // If the cached site-data already has items for this category, render
-  // them immediately and upgrade to the full 160-item set in the background.
+  // them immediately and add a bounded batch of new pages in the background.
   // This keeps navigation snappy when site-data.json was pre-generated.
   const existing = siteData?.categories?.[categoryKey];
   if (existing && existing.items && Object.keys(existing.items).length > 0) {
     debug.log(
       `Using cached ${categoryKey} (${Object.keys(existing.items).length} items), upgrading in background`
     );
-    loadSingleCategory(categoryKey)
-      .then(upgraded => {
-        if (upgraded && siteData?.categories) {
-          siteData.categories[categoryKey] = upgraded;
-          categoryLoadingState.loadedCategories.add(categoryKey);
-        }
-      })
-      .catch(err => debug.log(`Background upgrade failed for ${categoryKey}:`, err.message));
+    loadSingleCategory(categoryKey).catch(err => {
+      console.error(`Background upgrade failed for ${categoryKey}:`, err);
+      showToast(
+        `Could not load additional ${categoryKey} pages. Existing pages are still available; reopen the category to retry.`,
+        "warning",
+        5000
+      );
+    });
     return existing;
   }
 
@@ -6331,6 +6393,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Generate site data (this will use cache if available)
     await generateSiteData();
+
+    if (window.SearchManager) {
+      window.SearchManager.initialize(siteData.categories);
+    }
 
     // Render the initial route
     handleRouteChange();

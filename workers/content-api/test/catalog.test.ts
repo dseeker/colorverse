@@ -12,7 +12,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import worker from "../src/index.js";
 import { stringToHash } from "../../shared/utils.js";
-import { CATEGORY_KEYS } from "../../shared/constants.js";
+import { CATEGORY_KEYS, GEMINI_TEXT_MODEL } from "../../shared/constants.js";
+import { AI_PROVIDERS as CLIENT_AI_PROVIDERS } from "../../../src/services/aiProviderConfig.js";
 
 // ---------------------------------------------------------------------------
 // Test doubles
@@ -678,5 +679,93 @@ describe("GET /catalog", () => {
 
     // No background generation should be scheduled.
     expect(ctx.waitUntil).not.toHaveBeenCalled();
+  });
+});
+
+describe("Gemini model defaults", () => {
+  const RETIRED_GEMINI_MODEL = "gemini-2.0-flash";
+
+  beforeEach(() => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("uses a non-retired Gemini model shared with the client provider config", () => {
+    expect(GEMINI_TEXT_MODEL).not.toBe(RETIRED_GEMINI_MODEL);
+    expect(GEMINI_TEXT_MODEL).toBe(CLIENT_AI_PROVIDERS.gemini.defaultModel);
+    expect(CLIENT_AI_PROVIDERS.gemini.models).toContain(GEMINI_TEXT_MODEL);
+  });
+
+  it("POST / gemini proxy defaults to the shared model when the payload omits one", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ candidates: [] }), { status: 200 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const request = new Request("https://colorverse-content-api.test/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: "gemini", body: { contents: [] } }),
+    });
+
+    const res = await worker.fetch(
+      request,
+      makeEnv({ GOOGLE_GEMINI_API_KEY: "gem-key" }),
+      makeCtx()
+    );
+
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toContain(`/models/${GEMINI_TEXT_MODEL}:generateContent`);
+    expect(url).not.toContain(RETIRED_GEMINI_MODEL);
+  });
+
+  it("catalog generation falls back to the shared Gemini model, not the retired one", async () => {
+    const geminiUrls: string[] = [];
+    const fetchMock = vi.fn(async (url, opts) => {
+      const urlString = String(url);
+      if (urlString.includes("pollinations")) {
+        return new Response(JSON.stringify({ error: "down" }), { status: 500 });
+      }
+      if (urlString.includes("generativelanguage.googleapis.com")) {
+        geminiUrls.push(urlString);
+        const prompt = JSON.parse(opts.body).contents[0].parts[0].text;
+        const seasonal = prompt.includes("seasonal coloring page items");
+        const catKey = prompt.match(/for the "([^"]+)" category/)?.[1] || "unknown";
+        const payload = seasonal
+          ? { title: "Seasonal", subtitle: "s", items: { s1: { title: "s1", description: "s1" } } }
+          : llmCategoryResponse(catKey);
+        return new Response(
+          JSON.stringify({
+            candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      throw new Error(`Unexpected fetch: ${urlString}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const kv = makeKV();
+    const ctx = makeCtx();
+    // No OPENROUTER_API_KEY: the chain goes Pollinations (500) -> Gemini.
+    const env = makeEnv({ SITE_DATA: kv, GOOGLE_GEMINI_API_KEY: "gem-key" });
+
+    const res = await worker.fetch(makeRequest("/catalog"), env, ctx);
+    expect(res.status).toBe(202);
+    await ctx.flush();
+
+    expect(geminiUrls.length).toBeGreaterThan(0);
+    for (const url of geminiUrls) {
+      expect(url).toContain(`/models/${GEMINI_TEXT_MODEL}:generateContent`);
+      expect(url).not.toContain(RETIRED_GEMINI_MODEL);
+    }
+    const cat = JSON.parse(await kv.get("catalog:default"));
+    expect(Object.keys(cat.categories)).toHaveLength(25);
   });
 });

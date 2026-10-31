@@ -12,6 +12,9 @@ const contentTypes = {
   ".txt": "text/plain",
 };
 
+// Bumped via /__sw-bump so tests can publish a byte-different worker (an update).
+let workerBuild = 0;
+
 // Both mounts serve real files: worker-owned requests cannot be mocked by page.route.
 createServer(async (request, response) => {
   try {
@@ -19,6 +22,11 @@ createServer(async (request, response) => {
     let pathname = decodeURIComponent(url.pathname);
     if (pathname.startsWith("/colorverse/")) {
       pathname = pathname.slice("/colorverse".length);
+    }
+    if (pathname === "/__sw-bump") {
+      workerBuild += 1;
+      response.writeHead(204, { "Cache-Control": "no-store" }).end();
+      return;
     }
     if (pathname === "/sw-smoke.html") {
       response.writeHead(200, { "Content-Type": "text/html" });
@@ -36,7 +44,10 @@ createServer(async (request, response) => {
     if ((await stat(file)).isDirectory()) {
       file = resolve(file, "index.html");
     }
-    const body = await readFile(file);
+    let body = await readFile(file);
+    if (pathname === "/service-worker.js" && workerBuild > 0) {
+      body = Buffer.concat([body, Buffer.from(`\n// test build ${workerBuild}\n`)]);
+    }
     response.writeHead(200, {
       "Content-Type": contentTypes[extname(file)] || "application/octet-stream",
       "Cache-Control": "no-store",

@@ -141,15 +141,7 @@ class SearchManager {
     }
 
     this.lastQuery = query.trim().toLowerCase();
-    const results = this.search(this.lastQuery);
-
-    if (results.length === 0) {
-      this.showNoResults(this.lastQuery);
-    } else {
-      this.displayResults(results, this.lastQuery);
-    }
-
-    // Update URL for SEO
+    // app.js owns rendering, including the search form and lazy image loading.
     this.updateUrl(this.lastQuery);
   }
 
@@ -442,7 +434,7 @@ class SearchManager {
     this.lastQuery = "";
 
     // Remove search param from URL
-    if (window.location.hash.includes("search")) {
+    if (/^#search(?:\?|$)/.test(window.location.hash)) {
       window.location.hash = "";
     }
   }
@@ -453,19 +445,20 @@ class SearchManager {
   updateUrl(query) {
     const newHash = `#search?q=${encodeURIComponent(query)}`;
     if (window.location.hash !== newHash) {
-      window.history.pushState({ search: query }, "", newHash);
+      // Hash navigation creates a history entry AND notifies app.js's router.
+      window.location.hash = newHash;
+    } else {
+      window.dispatchEvent(new Event("hashchange"));
     }
   }
 
   /**
    * Handle browser back/forward for search
    */
-  handlePopState(event) {
-    if (event.state && event.state.search) {
-      this.performSearch(event.state.search);
-    } else {
-      this.clearSearch();
-    }
+  handlePopState() {
+    // Native hash navigation can emit popstate with null state. Never rewrite
+    // the destination URL or create history entries while traversing history.
+    this.checkUrlForSearch();
   }
 
   /**
@@ -473,16 +466,15 @@ class SearchManager {
    */
   checkUrlForSearch() {
     const hash = window.location.hash;
-    const match = hash.match(/#search\?q=([^&]+)/);
-    if (match) {
-      const query = decodeURIComponent(match[1]);
-      if (this.searchInput) {
-        this.searchInput.value = query;
-      }
-      this.performSearch(query);
-      return true;
+    const isSearchRoute = /^#search(?:\?|$)/.test(hash);
+    const query = isSearchRoute
+      ? new URLSearchParams(hash.substring("#search".length).replace(/^\?/, "")).get("q") || ""
+      : "";
+    if (this.searchInput) {
+      this.searchInput.value = query;
     }
-    return false;
+    this.lastQuery = query.trim().toLowerCase();
+    return isSearchRoute;
   }
 
   /**

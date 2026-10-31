@@ -7,43 +7,65 @@
  *   getAvailableProviders, updateProviderStatus
  *   callOpenRouterAPI, callGeminiAPI, callAIAPI
  *   modelSuccessTracker, updateModelSuccess, getOptimizedModelOrder
+ *   resolveProviderModels, isUnavailableModelError
  *   trackApiCall, getSuggestedDelay, shouldDelayApiCall
  *
  * Runtime dependencies (defined in app.js, resolved at call time):
  *   debug, REFERRER_ID, showToast
+ *
+ * Model availability:
+ *   Configured model lists are candidates only. Before a provider is used, its
+ *   public model catalog (no credentials, no prompt data) is fetched once per
+ *   MODEL_CATALOG_TTL_MS and candidates that are not listed (or are paid-only)
+ *   are dropped. Models that a provider reports as retired/unknown (404/410, or
+ *   400 "no longer available"/"invalid model") are remembered for the session
+ *   and never requested again. Generation failures always reject with an error
+ *   describing every attempt; no placeholder content is returned.
  */
 
 // =============================================================================
 // MULTI-PROVIDER AI CONFIGURATION
 // =============================================================================
 
-// Provider configuration for multi-provider fallback
+const JSON_SYSTEM_PROMPT =
+  "You are an AI assistant that generates structured JSON data based on user requirements. Output ONLY the requested JSON object.";
+const DEFAULT_POLLINATIONS_MODEL = "openai";
+const MODEL_CATALOG_TTL_MS = 30 * 60 * 1000;
+const MODEL_CATALOG_TIMEOUT_MS = 8000;
+const MAX_DISCOVERED_MODELS = 3;
+const MODEL_FALLBACK_DELAY_MS = 2000;
+const PROVIDER_RECOVERY_MS = 10 * 60 * 1000;
+const ERROR_DETAIL_MAX_LENGTH = 300;
+
+// Provider configuration for multi-provider fallback.
+// Model ids verified against the public catalogs on 2026-10-31.
 const AI_PROVIDERS = {
   pollinations: {
     name: "Pollinations",
     baseURL: "https://gen.pollinations.ai/v1/chat/completions",
     getApiKey: () => null, // Auth handled server-side via Worker proxy
     requiresAuth: false,
-    models: [
-      "openai",
-      "openai-fast",
-      "openai-large",
-      "mistral",
-      "gemini-fast",
-      "llamascout",
-      "phi",
-    ],
+    catalog: {
+      url: "https://gen.pollinations.ai/text/models",
+      parse: json => parsePollinationsCatalog(json),
+    },
+    models: ["openai", "openai-fast", "gpt-oss", "deepseek", "kimi"],
   },
   openrouter: {
     name: "OpenRouter",
     baseURL: "https://openrouter.ai/api/v1/chat/completions",
     getApiKey: () => null, // Auth handled server-side via Worker proxy
     requiresAuth: true,
-    models: [
-      "meta-llama/llama-3.3-8b-instruct:free",
-      "mistralai/mistral-7b-instruct:free",
-      "google/gemma-2-9b-it:free",
-    ],
+    catalog: {
+      url: "https://openrouter.ai/api/v1/models",
+      parse: json => parseOpenRouterCatalog(json),
+      // Individual ":free" ids rotate and get retired, so always append the
+      // currently listed free models after the router.
+      appendDiscoveredModels: true,
+    },
+    // "openrouter/free" routes to whichever free model is currently live.
+    models: ["openrouter/free"],
+    routerModels: ["openrouter/free"],
     extraHeaders: {
       "HTTP-Referer": "https://dseeker.github.io",
       "X-Title": "ColorVerse",
@@ -54,7 +76,10 @@ const AI_PROVIDERS = {
     baseURL: "https://generativelanguage.googleapis.com/v1beta/models",
     getApiKey: () => null, // Auth handled server-side via Worker proxy
     requiresAuth: true,
-    models: ["gemini-2.0-flash", "gemini-1.5-flash"],
+    // Listing Gemini models requires an API key, so candidates come from the
+    // public deprecations page: gemini-2.0-flash and gemini-1.5-* are shut down;
+    // these have no announced shutdown date (checked 2026-10-31).
+    models: ["gemini-3.6-flash", "gemini-3.5-flash-lite"],
   },
 };
 
@@ -68,30 +93,38 @@ const providerStatusTracker = {
   gemini: { available: true, lastFailure: null, consecutiveFailures: 0 },
 };
 
-// Get available providers (filters out unavailable and those without API keys)
+function getContentApiUrl() {
+  return (typeof window !== "undefined" && window._env?.CONTENT_API_URL) || null;
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Re-enable a provider once its cool-down has elapsed
+function isProviderCoolingDown(providerName) {
+  const status = providerStatusTracker[providerName];
+  if (!status.available && status.lastFailure) {
+    if (Date.now() - status.lastFailure > PROVIDER_RECOVERY_MS) {
+      status.available = true;
+      status.consecutiveFailures = 0;
+      debug.log(`[MultiProvider] 🔄 Resetting ${providerName} availability after recovery`);
+    }
+  }
+  return !status.available;
+}
+
+// Get available providers. With the content-api proxy, credentials live in the
+// Worker, so only the cool-down applies; direct mode also needs a local key.
 function getAvailableProviders() {
-  const now = Date.now();
-  const recoveryTime = 10 * 60 * 1000; // 10 minutes
+  const usesProxy = Boolean(getContentApiUrl());
 
   return PROVIDER_PRIORITY.filter(providerName => {
     const provider = AI_PROVIDERS[providerName];
-    const status = providerStatusTracker[providerName];
-
-    // Reset unavailable status after recovery time
-    if (!status.available && status.lastFailure) {
-      if (now - status.lastFailure > recoveryTime) {
-        status.available = true;
-        status.consecutiveFailures = 0;
-        debug.log(`[MultiProvider] 🔄 Resetting ${providerName} availability after recovery`);
-      }
-    }
-
-    // Skip if provider requires auth and doesn't have API key
-    if (provider.requiresAuth && !provider.getApiKey()) {
+    if (!usesProxy && provider.requiresAuth && !provider.getApiKey()) {
       return false;
     }
-
-    return status.available;
+    return !isProviderCoolingDown(providerName);
   });
 }
 
@@ -111,249 +144,447 @@ function updateProviderStatus(providerName, success) {
   }
 }
 
-// Call OpenRouter API
+// =============================================================================
+// MODEL AVAILABILITY (public catalogs + retired-model memory)
+// =============================================================================
+
+const UNAVAILABLE_MODEL_PATTERN =
+  /no longer available|not a valid model|invalid model|unknown model|model[^.]{0,60}(?:not found|does not exist|not supported|deprecated|retired|unavailable)|no endpoints found/i;
+
+// Retired/unknown models stay excluded for the whole session.
+const unavailableModels = new Map();
+
+function modelKey(providerName, model) {
+  return `${providerName}/${model}`;
+}
+
+function isUnavailableModelError(status, detail = "") {
+  if (status === 404 || status === 410) {
+    return true;
+  }
+  return (status === 400 || status === 422) && UNAVAILABLE_MODEL_PATTERN.test(detail);
+}
+
+function markModelUnavailable(providerName, model, reason) {
+  unavailableModels.set(modelKey(providerName, model), reason);
+  console.warn(
+    `[MultiProvider] 🚫 ${providerName}/${model} is unavailable, skipping it from now on`
+  );
+}
+
+function isModelUnavailable(providerName, model) {
+  return unavailableModels.has(modelKey(providerName, model));
+}
+
+function isHealthyCatalogEntry(entry) {
+  const healthStatus = entry?.health?.status;
+  return !healthStatus || !/down|offline|unavailable|unhealthy/i.test(healthStatus);
+}
+
+// Pollinations catalog: [{ name, aliases, paid_only, output_modalities, supported_parameters, health }]
+function parsePollinationsCatalog(json) {
+  if (!Array.isArray(json)) {
+    return null;
+  }
+  const ids = new Set();
+  const freeModels = [];
+  for (const entry of json) {
+    const producesText =
+      !Array.isArray(entry?.output_modalities) || entry.output_modalities.includes("text");
+    if (!entry?.name || entry.paid_only || !producesText || !isHealthyCatalogEntry(entry)) {
+      continue;
+    }
+    ids.add(entry.name);
+    (entry.aliases || []).forEach(alias => ids.add(alias));
+    if ((entry.supported_parameters || []).includes("response_format")) {
+      freeModels.push(entry.name);
+    }
+  }
+  return { ids, freeModels };
+}
+
+// A ":free" suffix alone is not trusted: every listed price must be zero.
+function hasZeroPricing(pricing) {
+  if (!pricing || typeof pricing !== "object") {
+    return false;
+  }
+  const prices = Object.values(pricing);
+  return prices.length > 0 && prices.every(price => Number(price) === 0);
+}
+
+// OpenRouter catalog: { data: [{ id, pricing, supported_parameters, architecture }] }
+function parseOpenRouterCatalog(json) {
+  if (!Array.isArray(json?.data)) {
+    return null;
+  }
+  const ids = new Set();
+  const freeModels = [];
+  for (const entry of json.data) {
+    if (!entry?.id) {
+      continue;
+    }
+    ids.add(entry.id);
+    const outputModalities = entry.architecture?.output_modalities;
+    const producesText = !Array.isArray(outputModalities) || outputModalities.includes("text");
+    const supportsJson = (entry.supported_parameters || []).includes("response_format");
+    if (
+      entry.id.endsWith(":free") &&
+      hasZeroPricing(entry.pricing) &&
+      producesText &&
+      supportsJson
+    ) {
+      freeModels.push(entry.id);
+    }
+  }
+  return { ids, freeModels };
+}
+
+const modelCatalogCache = new Map();
+
+async function fetchJsonWithTimeout(url, timeoutMs) {
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller?.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return await response.json();
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+// Returns the parsed catalog, or null when it cannot be loaded. The catalog is
+// advisory: without it the configured candidates are used unchanged.
+function loadModelCatalog(providerName) {
+  const catalog = AI_PROVIDERS[providerName].catalog;
+  if (!catalog) {
+    return Promise.resolve(null);
+  }
+
+  const cached = modelCatalogCache.get(providerName);
+  if (cached && Date.now() - cached.fetchedAt < MODEL_CATALOG_TTL_MS) {
+    return cached.promise;
+  }
+
+  const promise = fetchJsonWithTimeout(catalog.url, MODEL_CATALOG_TIMEOUT_MS)
+    .then(json => {
+      const parsed = catalog.parse(json);
+      if (!parsed) {
+        throw new Error("unexpected catalog format");
+      }
+      return parsed;
+    })
+    .catch(error => {
+      console.warn(
+        `[MultiProvider] ⚠️ ${AI_PROVIDERS[providerName].name} model catalog unavailable (${error.message}); using configured models`
+      );
+      return null;
+    });
+
+  modelCatalogCache.set(providerName, { fetchedAt: Date.now(), promise });
+  return promise;
+}
+
+// Candidate models for a provider, in preference order, excluding models that
+// the public catalog does not list and models already found to be retired.
+async function resolveProviderModels(providerName, preferredModel = null) {
+  const provider = AI_PROVIDERS[providerName];
+  const configured = [...new Set([preferredModel, ...provider.models].filter(Boolean))];
+  const routerModels = provider.routerModels || [];
+  const catalog = await loadModelCatalog(providerName);
+
+  let candidates = configured;
+  if (catalog) {
+    candidates = configured.filter(model => routerModels.includes(model) || catalog.ids.has(model));
+    const discovered = catalog.freeModels
+      .filter(model => !candidates.includes(model))
+      .slice(0, MAX_DISCOVERED_MODELS);
+    if (provider.catalog.appendDiscoveredModels || candidates.length === 0) {
+      candidates = [...candidates, ...discovered];
+    }
+  }
+
+  return candidates.filter(model => !isModelUnavailable(providerName, model));
+}
+
+// =============================================================================
+// PROVIDER REQUESTS
+// =============================================================================
+
+function buildMessages(prompt) {
+  return [
+    { role: "system", content: JSON_SYSTEM_PROMPT },
+    { role: "user", content: prompt },
+  ];
+}
+
+function getChatCompletionContent(data) {
+  return data?.choices?.[0]?.message?.content;
+}
+
+// Payloads use the content-api proxy contract: { provider, model?, body }.
+const PROVIDER_ADAPTERS = {
+  pollinations: {
+    buildPayload: (model, prompt) => ({
+      provider: "pollinations",
+      body: {
+        model,
+        messages: buildMessages(prompt),
+        response_format: { type: "json_object" },
+        temperature: 0.5,
+        referrer: REFERRER_ID,
+      },
+    }),
+    extractContent: getChatCompletionContent,
+  },
+  openrouter: {
+    buildPayload: (model, prompt) => ({
+      provider: "openrouter",
+      body: {
+        model,
+        messages: buildMessages(prompt),
+        response_format: { type: "json_object" },
+        temperature: 0.5,
+      },
+    }),
+    extractContent: getChatCompletionContent,
+  },
+  gemini: {
+    // The Worker reads the Gemini model from the top level; the Gemini API
+    // rejects unknown body fields such as "model" with 400.
+    buildPayload: (model, prompt) => ({
+      provider: "gemini",
+      model,
+      body: {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: JSON_SYSTEM_PROMPT }] },
+        generationConfig: { temperature: 0.5, responseMimeType: "application/json" },
+      },
+    }),
+    extractContent: data =>
+      (data?.candidates?.[0]?.content?.parts || []).map(part => part?.text || "").join(""),
+  },
+};
+
+function createProviderError(providerName, model, status, detail) {
+  const label = model ? `${providerName}/${model}` : providerName;
+  const trimmedDetail = String(detail || "").slice(0, ERROR_DETAIL_MAX_LENGTH);
+  const error = new Error(
+    status ? `${label} API Error ${status}: ${trimmedDetail}` : `${label}: ${trimmedDetail}`
+  );
+  error.provider = providerName;
+  error.model = model;
+  error.status = status ?? null;
+  error.modelUnavailable = Boolean(model) && isUnavailableModelError(status, trimmedDetail);
+  return error;
+}
+
+function createAggregateError(message, errors) {
+  const summary = errors.map(error => error.message).join(" | ");
+  const error = new Error(`${message}: ${summary || "no model was attempted"}`);
+  error.causes = errors;
+  error.cause = errors[errors.length - 1];
+  return error;
+}
+
+// Rate limits, exhausted balance, auth and missing Worker secrets affect every
+// model of the provider, so remaining models are skipped.
+function isProviderBlockingError(error) {
+  const status = error?.status;
+  if ([401, 402, 403, 429].includes(status)) {
+    return true;
+  }
+  return status === 503 && /not configured/i.test(error.message);
+}
+
+function buildDirectRequest(providerName, model, payload) {
+  const provider = AI_PROVIDERS[providerName];
+
+  if (providerName === "pollinations") {
+    const apiKey = (typeof window !== "undefined" && window._env?.POLLINATIONS_API_KEY) || "";
+    return {
+      url: provider.baseURL,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: payload.body,
+    };
+  }
+
+  const apiKey = provider.getApiKey();
+  if (!apiKey) {
+    throw createProviderError(
+      providerName,
+      null,
+      null,
+      "API key not configured (no proxy URL set)"
+    );
+  }
+  if (providerName === "gemini") {
+    return {
+      url: `${provider.baseURL}/${model}:generateContent?key=${apiKey}`,
+      headers: { "Content-Type": "application/json" },
+      body: payload.body,
+    };
+  }
+  return {
+    url: provider.baseURL,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      ...provider.extraHeaders,
+    },
+    body: payload.body,
+  };
+}
+
+function parseJsonContent(content, providerName, model) {
+  const candidates = [content, content.match(/\{[\s\S]*\}/)?.[0]].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {
+      // Try the next candidate
+    }
+  }
+  throw createProviderError(providerName, model, null, "response did not contain a JSON object");
+}
+
+// Send one generation request and return the parsed JSON object, or throw.
+async function requestModel(providerName, model, prompt) {
+  const adapter = PROVIDER_ADAPTERS[providerName];
+  const payload = adapter.buildPayload(model, prompt);
+  const contentApiUrl = getContentApiUrl();
+  const request = contentApiUrl
+    ? { url: contentApiUrl, headers: { "Content-Type": "application/json" }, body: payload }
+    : buildDirectRequest(providerName, model, payload);
+
+  let response;
+  try {
+    response = await fetch(request.url, {
+      method: "POST",
+      headers: request.headers,
+      body: JSON.stringify(request.body),
+    });
+  } catch (networkError) {
+    throw createProviderError(providerName, model, null, `network error: ${networkError.message}`);
+  }
+
+  if (!response.ok) {
+    const detail = await response
+      .text()
+      .catch(readError => `(error body could not be read: ${readError.message})`);
+    throw createProviderError(providerName, model, response.status, detail);
+  }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch (parseError) {
+    throw createProviderError(
+      providerName,
+      model,
+      null,
+      `invalid response body: ${parseError.message}`
+    );
+  }
+
+  const content = adapter.extractContent(data);
+  if (typeof content !== "string") {
+    const received = content === null ? "null" : Array.isArray(content) ? "array" : typeof content;
+    throw createProviderError(
+      providerName,
+      model,
+      null,
+      `response content was ${received}, expected a JSON string`
+    );
+  }
+  if (!content.trim()) {
+    throw createProviderError(providerName, model, null, "response did not contain content");
+  }
+  return parseJsonContent(content, providerName, model);
+}
+
+function recordModelResult(providerName, model, success) {
+  if (providerName === "pollinations") {
+    updateModelSuccess(model, success);
+  }
+}
+
+// Try each available model of one provider. Resolves { data, model } or
+// rejects with an error whose `causes` lists every failed attempt.
+async function generateWithProvider(providerName, prompt, preferredModel = null) {
+  const resolvedModels = await resolveProviderModels(providerName, preferredModel);
+  const models =
+    providerName === "pollinations"
+      ? getOptimizedModelOrder(preferredModel || DEFAULT_POLLINATIONS_MODEL, resolvedModels)
+      : resolvedModels;
+  const errors = [];
+
+  for (let i = 0; i < models.length; i++) {
+    const model = models[i];
+    if (isModelUnavailable(providerName, model)) {
+      continue;
+    }
+
+    try {
+      debug.log(`[MultiProvider] 💬 Trying ${providerName}/${model} (${i + 1}/${models.length})`);
+      const data = await requestModel(providerName, model, prompt);
+      recordModelResult(providerName, model, true);
+      debug.log(`[MultiProvider] ✅ Success with ${providerName}/${model}`);
+      return { data, model };
+    } catch (error) {
+      errors.push(error);
+      recordModelResult(providerName, model, false);
+      console.warn(`[MultiProvider] ❌ ${providerName}/${model} failed:`, error.message);
+
+      if (error.modelUnavailable) {
+        markModelUnavailable(providerName, model, error.message);
+        continue;
+      }
+      if (isProviderBlockingError(error)) {
+        break;
+      }
+      if (i < models.length - 1) {
+        await sleep(MODEL_FALLBACK_DELAY_MS);
+      }
+    }
+  }
+
+  if (errors.length === 0) {
+    errors.push(createProviderError(providerName, null, null, "no available models"));
+  }
+  throw createAggregateError(`All ${AI_PROVIDERS[providerName].name} models failed`, errors);
+}
+
+// Call OpenRouter (via the content-api proxy when configured)
 async function callOpenRouterAPI(prompt) {
-  const provider = AI_PROVIDERS.openrouter;
-
-  // Route through server-side proxy if configured
-  const contentApiUrl = window._env?.CONTENT_API_URL;
-  if (contentApiUrl) {
-    const models = provider.models;
-    let lastError = null;
-    for (const model of models) {
-      try {
-        debug.log(`[MultiProvider] 💬 Trying OpenRouter/${model} via proxy`);
-        const response = await fetch(contentApiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            provider: "openrouter",
-            body: {
-              model: model,
-              messages: [
-                {
-                  role: "system",
-                  content:
-                    "You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.",
-                },
-                { role: "user", content: prompt },
-              ],
-              temperature: 0.5,
-              max_tokens: 4096,
-            },
-          }),
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`OpenRouter API Error ${response.status}: ${errorText}`);
-        }
-        const result = await response.json();
-        const content = result?.choices?.[0]?.message?.content;
-        if (!content) {
-          throw new Error("OpenRouter response empty");
-        }
-        const parsedData = JSON.parse(content);
-        debug.log(`[MultiProvider] ✅ Success with OpenRouter/${model}`);
-        return parsedData;
-      } catch (error) {
-        console.warn(`[MultiProvider] ❌ OpenRouter/${model} failed:`, error.message);
-        lastError = error;
-      }
-    }
-    throw lastError || new Error("All OpenRouter models failed");
-  }
-
-  // Dev/local fallback - no proxy configured, requires direct API key
-  throw new Error("OpenRouter API key not configured (no proxy URL set)");
+  const { data } = await generateWithProvider("openrouter", prompt);
+  return data;
 }
 
-// Call OpenRouter API (direct, dev fallback - unused when proxy is configured)
-async function _callOpenRouterAPIDirect(prompt) {
-  const provider = AI_PROVIDERS.openrouter;
-  const apiKey = provider.getApiKey();
-
-  if (!apiKey) {
-    throw new Error("OpenRouter API key not configured");
-  }
-
-  const models = provider.models;
-  let lastError = null;
-
-  for (const model of models) {
-    try {
-      debug.log(`[MultiProvider] 💬 Trying OpenRouter/${model}`);
-
-      const response = await fetch(provider.baseURL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-          ...provider.extraHeaders,
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.",
-            },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.5,
-          max_tokens: 4096,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`OpenRouter API Error ${response.status}: ${errorText}`);
-      }
-
-      const result = await response.json();
-      const content = result?.choices?.[0]?.message?.content;
-
-      if (!content) {
-        throw new Error("OpenRouter response empty");
-      }
-
-      const parsedData = JSON.parse(content);
-      debug.log(`[MultiProvider] ✅ Success with OpenRouter/${model}`);
-      return parsedData;
-    } catch (error) {
-      console.warn(`[MultiProvider] ❌ OpenRouter/${model} failed:`, error.message);
-      lastError = error;
-    }
-  }
-
-  throw lastError || new Error("All OpenRouter models failed");
-}
-
-// Call Gemini API
+// Call Gemini (via the content-api proxy when configured)
 async function callGeminiAPI(prompt) {
-  const provider = AI_PROVIDERS.gemini;
-
-  // Route through server-side proxy if configured
-  const contentApiUrl = window._env?.CONTENT_API_URL;
-  if (contentApiUrl) {
-    const models = provider.models;
-    let lastError = null;
-    for (const model of models) {
-      try {
-        debug.log(`[MultiProvider] 💬 Trying Gemini/${model} via proxy`);
-        const response = await fetch(contentApiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            provider: "gemini",
-            body: {
-              model: model,
-              contents: [{ role: "user", parts: [{ text: prompt }] }],
-              systemInstruction: {
-                parts: [
-                  {
-                    text: "You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.",
-                  },
-                ],
-              },
-              generationConfig: { temperature: 0.5, maxOutputTokens: 4096 },
-            },
-          }),
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Gemini API Error ${response.status}: ${errorText}`);
-        }
-        const result = await response.json();
-        const content = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!content) {
-          throw new Error("Gemini response empty");
-        }
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsedData = JSON.parse(jsonMatch[0]);
-          debug.log(`[MultiProvider] ✅ Success with Gemini/${model}`);
-          return parsedData;
-        }
-        throw new Error("Gemini response does not contain valid JSON");
-      } catch (error) {
-        console.warn(`[MultiProvider] ❌ Gemini/${model} failed:`, error.message);
-        lastError = error;
-      }
-    }
-    throw lastError || new Error("All Gemini models failed");
-  }
-
-  // Dev/local fallback - no proxy configured, requires direct API key
-  const apiKey = provider.getApiKey();
-
-  if (!apiKey) {
-    throw new Error("Gemini API key not configured (no proxy URL set)");
-  }
-
-  const models = provider.models;
-  let lastError = null;
-
-  for (const model of models) {
-    try {
-      debug.log(`[MultiProvider] 💬 Trying Gemini/${model}`);
-
-      const url = `${provider.baseURL}/${model}:generateContent?key=${apiKey}`;
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          systemInstruction: {
-            parts: [
-              {
-                text: "You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.",
-              },
-            ],
-          },
-          generationConfig: {
-            temperature: 0.5,
-            maxOutputTokens: 4096,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini API Error ${response.status}: ${errorText}`);
-      }
-
-      const result = await response.json();
-      const content = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (!content) {
-        throw new Error("Gemini response empty");
-      }
-
-      // Try to parse JSON from response
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsedData = JSON.parse(jsonMatch[0]);
-        debug.log(`[MultiProvider] ✅ Success with Gemini/${model}`);
-        return parsedData;
-      }
-
-      throw new Error("Gemini response does not contain valid JSON");
-    } catch (error) {
-      console.warn(`[MultiProvider] ❌ Gemini/${model} failed:`, error.message);
-      lastError = error;
-    }
-  }
-
-  throw lastError || new Error("All Gemini models failed");
+  const { data } = await generateWithProvider("gemini", prompt);
+  return data;
 }
 
 // Model success tracking
 let modelSuccessTracker = {
-  lastSuccessfulModel: "openai",
+  lastSuccessfulModel: DEFAULT_POLLINATIONS_MODEL,
   failedModels: new Set(),
   successCount: {},
   lastUpdateTime: Date.now(),
@@ -390,382 +621,73 @@ function updateModelSuccess(modelName, success) {
   }
 }
 
-// Get optimized model order based on success history
-function getOptimizedModelOrder(preferredModel = "openai") {
+// Order Pollinations candidates: last successful model, then preferred, then
+// the rest, skipping models that failed within the last 10 minutes.
+function getOptimizedModelOrder(
+  preferredModel = DEFAULT_POLLINATIONS_MODEL,
+  candidateModels = AI_PROVIDERS.pollinations.models
+) {
   resetFailedModelsIfNeeded();
 
-  // Define model fallback chain based on tier and capability
-  const allModels = [
-    "openai", // GPT-4o Mini (primary)
-    "openai-fast", // GPT-4.1 Nano (fast fallback)
-    "mistral", // Mistral Small 3.1 24B (reliable)
-    "llamascout", // Llama 4 Scout 17B (new option)
-    "llama-roblox", // Llama 3.1 8B (stable)
-    "gemma-roblox", // Gemma 2 9B (lightweight)
-    "glm", // GLM-4 9B (alternative)
-    "phi", // Phi-4 Mini (fallback)
-    "mistral-nemo-roblox", // Fast final fallback
-    "kimi", // Kimi-K2.6 (reasoning, 256k ctx) — late fallback, slower but high-quality
-  ];
-
-  // Filter out recently failed models and sort by success
-  const availableModels = allModels.filter(model => !modelSuccessTracker.failedModels.has(model));
-
-  // If last successful model is available and different from preferred, prioritize it
+  const availableModels = candidateModels.filter(
+    model => !modelSuccessTracker.failedModels.has(model)
+  );
   const lastSuccessful = modelSuccessTracker.lastSuccessfulModel;
-  if (
-    lastSuccessful &&
-    lastSuccessful !== preferredModel &&
-    availableModels.includes(lastSuccessful)
-  ) {
-    // Put last successful model first, then preferred, then others
-    const orderedModels = [lastSuccessful];
-    if (availableModels.includes(preferredModel) && preferredModel !== lastSuccessful) {
-      orderedModels.push(preferredModel);
-    }
-    // Add remaining models
-    availableModels.forEach(model => {
-      if (!orderedModels.includes(model)) {
-        orderedModels.push(model);
-      }
-    });
-    return orderedModels;
-  }
+  const orderedModels = [lastSuccessful, preferredModel].filter(model =>
+    availableModels.includes(model)
+  );
 
-  // Otherwise start with preferred model, then use success-based ordering
-  const modelsToTry =
-    preferredModel !== "openai"
-      ? [preferredModel, ...availableModels.filter(m => m !== preferredModel)]
-      : availableModels;
-
-  return modelsToTry;
+  return [...new Set([...orderedModels, ...availableModels])];
 }
 
-// Unified AI API calling function with intelligent model fallback
-async function callAIAPI(prompt, preferredModel = "openai") {
+// Unified AI API calling function with model and provider fallback.
+// Resolves with the parsed JSON object or rejects with an aggregated error.
+async function callAIAPI(prompt, preferredModel = DEFAULT_POLLINATIONS_MODEL) {
   // Check if we should delay the API call due to rate limiting
   const suggestedDelay = getSuggestedDelay();
   if (suggestedDelay > 0) {
     debug.log(`Rate limiting: waiting ${suggestedDelay}ms before API call`);
-    await new Promise(resolve => setTimeout(resolve, suggestedDelay));
+    await sleep(suggestedDelay);
   }
 
   // Track this API call
   trackApiCall();
 
-  const modelsToTry = getOptimizedModelOrder(preferredModel);
-
-  const basePayload = {
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are an AI assistant that generates structured JSON data based on user requirements. Output ONLY the requested JSON object.",
-      },
-      { role: "user", content: prompt },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.5,
-    referrer: REFERRER_ID,
-  };
-
-  // Route through server-side proxy if configured (keys stored in Worker secrets)
-  const contentApiUrl = window._env?.CONTENT_API_URL;
-  if (contentApiUrl) {
-    let lastProxyError = null;
-    for (let i = 0; i < modelsToTry.length; i++) {
-      const currentModel = modelsToTry[i];
-      try {
-        console.log(
-          `Attempting API call via proxy with model: ${currentModel} (attempt ${i + 1}/${modelsToTry.length})`
-        );
-        const response = await fetch(contentApiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            provider: "pollinations",
-            body: {
-              model: currentModel,
-              messages: basePayload.messages,
-              response_format: basePayload.response_format,
-              temperature: basePayload.temperature,
-              referrer: REFERRER_ID,
-            },
-          }),
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.warn(
-            `Proxy model ${currentModel} failed with status ${response.status}:`,
-            errorText
-          );
-          updateModelSuccess(currentModel, false);
-          lastProxyError = new Error(`API Error ${response.status}: ${errorText}`);
-          if (i < modelsToTry.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          }
-          continue;
-        }
-        const result = await response.json();
-        const generatedContent = result?.choices?.[0]?.message?.content;
-        if (!generatedContent) {
-          updateModelSuccess(currentModel, false);
-          lastProxyError = new Error("AI response did not contain expected content structure.");
-          continue;
-        }
-        try {
-          const parsedData = JSON.parse(generatedContent);
-          updateModelSuccess(currentModel, true);
-          if (i > 0 && typeof showToast === "function") {
-            showToast(`Generated content using ${currentModel} model`, "info", 3000);
-          }
-          return parsedData;
-        } catch (parseError) {
-          const jsonMatch = generatedContent.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const extractedData = JSON.parse(jsonMatch[0]);
-            updateModelSuccess(currentModel, true);
-            return extractedData;
-          }
-          updateModelSuccess(currentModel, false);
-          lastProxyError = new Error(`Could not extract valid JSON from ${currentModel} response`);
-          continue;
-        }
-      } catch (networkError) {
-        console.warn(`Network error with proxy model ${currentModel}:`, networkError.message);
-        updateModelSuccess(currentModel, false);
-        lastProxyError = networkError;
-        continue;
-      }
-    }
-    // Proxy Pollinations failed, try fallback providers via proxy
-    debug.log("[MultiProvider] 🔄 Pollinations proxy failed, trying fallback providers...");
-    updateProviderStatus("pollinations", false);
+  const errors = [];
+  for (const providerName of getAvailableProviders()) {
     try {
-      const orResult = await callOpenRouterAPI(prompt);
-      updateProviderStatus("openrouter", true);
-      if (typeof showToast === "function") {
-        showToast("Generated content using OpenRouter fallback", "info", 3000);
-      }
-      return orResult;
-    } catch (e) {
-      updateProviderStatus("openrouter", false);
-    }
-    try {
-      const gResult = await callGeminiAPI(prompt);
-      updateProviderStatus("gemini", true);
-      if (typeof showToast === "function") {
-        showToast("Generated content using Gemini fallback", "info", 3000);
-      }
-      return gResult;
-    } catch (e) {
-      updateProviderStatus("gemini", false);
-    }
-    throw lastProxyError || new Error("All AI providers failed to generate content");
-  }
-
-  // Direct API calls (dev/local or when no proxy configured)
-  const url = "https://gen.pollinations.ai/v1/chat/completions";
-
-  const headers = {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-    Authorization: `Bearer ${window._env?.POLLINATIONS_API_KEY || ""}`,
-  };
-
-  let lastError = null;
-
-  for (let i = 0; i < modelsToTry.length; i++) {
-    const currentModel = modelsToTry[i];
-
-    try {
-      console.log(
-        `Attempting API call with model: ${currentModel} (attempt ${i + 1}/${modelsToTry.length})`
+      const { data, model } = await generateWithProvider(
+        providerName,
+        prompt,
+        providerName === "pollinations" ? preferredModel : null
       );
+      updateProviderStatus(providerName, true);
 
-      const payload = {
-        ...basePayload,
-        model: currentModel,
-      };
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        const error = new Error(`API Error ${response.status}: ${errorText}`);
-
-        // Log the error details
-        console.warn(`Model ${currentModel} failed with status ${response.status}:`, errorText);
-
-        // Mark model as failed
-        updateModelSuccess(currentModel, false);
-
-        // Check if this is a temporary rate limit or content policy issue
-        if (response.status === 403 || response.status === 429) {
-          lastError = error;
-
-          // If we have more models to try, add delay before next attempt
-          if (i < modelsToTry.length - 1) {
-            debug.log(`Waiting 5 seconds before trying next model...`);
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            debug.log(`Trying next model in fallback chain...`);
-            continue;
-          }
-        }
-
-        // For other errors, add shorter delay and try next model
-        lastError = error;
-        if (i < modelsToTry.length - 1) {
-          debug.log(`Waiting 2 seconds before trying next model...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-        continue;
-      }
-
-      const result = await response.json();
-      const generatedContent = result?.choices?.[0]?.message?.content;
-
-      if (!generatedContent) {
-        const error = new Error("AI response did not contain expected content structure.");
-        console.warn(`Model ${currentModel} returned empty content`);
-        updateModelSuccess(currentModel, false);
-        lastError = error;
-        continue;
-      }
-
-      // Parse JSON response
-      try {
-        const parsedData = JSON.parse(generatedContent);
-        debug.log(`✅ Successfully generated data using model: ${currentModel}`);
-
-        // Mark model as successful
-        updateModelSuccess(currentModel, true);
-
-        // Show success toast if we had to fallback
-        if (i > 0 && typeof showToast === "function") {
-          showToast(`Generated content using ${currentModel} model`, "info", 3000);
-        }
-
-        return parsedData;
-      } catch (parseError) {
-        // Try to extract JSON from response
-        const jsonMatch = generatedContent.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          try {
-            const extractedData = JSON.parse(jsonMatch[0]);
-            debug.log(`✅ Successfully extracted JSON from ${currentModel} response`);
-
-            // Mark model as successful
-            updateModelSuccess(currentModel, true);
-
-            if (i > 0 && typeof showToast === "function") {
-              showToast(`Generated content using ${currentModel} model`, "info", 3000);
-            }
-
-            return extractedData;
-          } catch (extractError) {
-            console.warn(`Model ${currentModel} JSON extraction failed:`, extractError.message);
-            updateModelSuccess(currentModel, false);
-            lastError = new Error(`Could not extract valid JSON from ${currentModel} response`);
-
-            // Add delay before trying next model for parsing errors
-            if (i < modelsToTry.length - 1) {
-              debug.log(`Waiting 2 seconds before trying next model due to parsing error...`);
-              await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-            continue;
-          }
-        } else {
-          console.warn(`Model ${currentModel} response does not contain valid JSON`);
-          updateModelSuccess(currentModel, false);
-          lastError = new Error(`${currentModel} response does not contain valid JSON`);
-
-          // Add delay before trying next model for JSON format errors
-          if (i < modelsToTry.length - 1) {
-            debug.log(`Waiting 2 seconds before trying next model due to JSON format error...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          }
-          continue;
+      if (typeof showToast === "function") {
+        if (providerName !== PROVIDER_PRIORITY[0]) {
+          showToast(
+            `Generated content using ${AI_PROVIDERS[providerName].name} fallback`,
+            "info",
+            3000
+          );
+        } else if (model !== preferredModel) {
+          showToast(`Generated content using ${model} model`, "info", 3000);
         }
       }
-    } catch (networkError) {
-      console.warn(`Network error with model ${currentModel}:`, networkError.message);
-      updateModelSuccess(currentModel, false);
-      lastError = networkError;
-
-      // Add delay before trying next model for network errors
-      if (i < modelsToTry.length - 1) {
-        debug.log(`Waiting 3 seconds before trying next model due to network error...`);
-        await new Promise(resolve => setTimeout(resolve, 3000));
-      }
-      continue;
+      return data;
+    } catch (error) {
+      updateProviderStatus(providerName, false);
+      errors.push(...(error.causes || [error]));
+      debug.log(`[MultiProvider] 🔄 ${providerName} failed, trying next provider...`);
     }
   }
 
-  // If all models failed, throw the last error
-  console.error("All AI models failed. Last error:", lastError);
-  console.log("Current model status:", {
+  console.error("[MultiProvider] ❌ All providers exhausted", {
     lastSuccessful: modelSuccessTracker.lastSuccessfulModel,
     failedModels: Array.from(modelSuccessTracker.failedModels),
-    successCounts: modelSuccessTracker.successCount,
+    unavailableModels: Array.from(unavailableModels.keys()),
   });
-
-  // =========================================================================
-  // MULTI-PROVIDER FALLBACK: Try OpenRouter and Gemini if Pollinations fails
-  // =========================================================================
-  debug.log("[MultiProvider] 🔄 Pollinations failed, trying fallback providers...");
-  updateProviderStatus("pollinations", false);
-
-  // Try OpenRouter
-  const openRouterKey = AI_PROVIDERS.openrouter.getApiKey();
-  if (openRouterKey) {
-    try {
-      debug.log("[MultiProvider] 📡 Attempting OpenRouter fallback...");
-      const result = await callOpenRouterAPI(prompt);
-      updateProviderStatus("openrouter", true);
-
-      if (typeof showToast === "function") {
-        showToast("Generated content using OpenRouter fallback", "info", 3000);
-      }
-
-      return result;
-    } catch (openRouterError) {
-      console.warn("[MultiProvider] ❌ OpenRouter fallback failed:", openRouterError.message);
-      updateProviderStatus("openrouter", false);
-    }
-  }
-
-  // Try Gemini
-  const geminiKey = AI_PROVIDERS.gemini.getApiKey();
-  if (geminiKey) {
-    try {
-      debug.log("[MultiProvider] 📡 Attempting Gemini fallback...");
-      const result = await callGeminiAPI(prompt);
-      updateProviderStatus("gemini", true);
-
-      if (typeof showToast === "function") {
-        showToast("Generated content using Gemini fallback", "info", 3000);
-      }
-
-      return result;
-    } catch (geminiError) {
-      console.warn("[MultiProvider] ❌ Gemini fallback failed:", geminiError.message);
-      updateProviderStatus("gemini", false);
-    }
-  }
-
-  // All providers failed
-  console.error("[MultiProvider] ❌ All providers exhausted (Pollinations, OpenRouter, Gemini)");
-
-  if (typeof showToast === "function") {
-    showToast("All AI providers are currently unavailable. Please try again later.", "error", 5000);
-  }
-
-  throw lastError || new Error("All AI providers failed to generate content");
+  throw createAggregateError("All AI providers failed to generate content", errors);
 }
 
 // Get current model status for debugging
@@ -781,7 +703,7 @@ function getModelStatus() {
 // Manually reset model tracking (useful for debugging)
 function resetModelTracking() {
   modelSuccessTracker = {
-    lastSuccessfulModel: "openai",
+    lastSuccessfulModel: DEFAULT_POLLINATIONS_MODEL,
     failedModels: new Set(),
     successCount: {},
     lastUpdateTime: Date.now(),

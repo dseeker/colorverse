@@ -5,9 +5,17 @@
  * Update strategy: when a new SW takes control (controllerchange), reload
  * ONLY if the user is on the homepage (# or #/). If they're mid-coloring
  * (#item/, #category/), don't reload — they'll get the new code next session.
+ *
+ * First install is NOT an update: the page was already loaded from the network,
+ * and the new SW's clients.claim() fires controllerchange anyway. Reloading
+ * then aborts the page's in-flight cross-origin worker fetches (WebKit reports
+ * them as "access control checks" / "Load failed") and triggers app fallbacks.
  */
 
 if ("serviceWorker" in navigator) {
+  // Captured before registration: null on a first (uncontrolled) visit.
+  const hadControllerAtLoad = Boolean(navigator.serviceWorker.controller);
+
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("./service-worker.js")
@@ -41,6 +49,10 @@ if ("serviceWorker" in navigator) {
       if (hasReloaded) {
         return;
       } // Guard against double-fire
+      if (!hadControllerAtLoad) {
+        console.log("[SW] Service Worker now controls this page (first install, no reload)");
+        return;
+      }
       hasReloaded = true;
       const hash = window.location.hash || "#";
       const isHomepage = hash === "#" || hash === "#/";
