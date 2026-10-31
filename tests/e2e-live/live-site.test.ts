@@ -1,109 +1,172 @@
-import { test, expect } from "@playwright/test";
-
-// Live-site smoke tests against the deployed GitHub Pages site.
-// Verifies the Option A architecture: site-data served from the worker /data
-// route (no client-side gen.pollinations.ai text-gen calls), images flow
-// through the image-proxy worker, and core user flows work end-to-end.
+import { test, expect, type Page } from "@playwright/test";
 
 const LIVE_URL = process.env.LIVE_URL || "https://dseeker.github.io/colorverse/";
 const WORKER_HOST = "colorverse-image-proxy.daniel-bca.workers.dev";
+const CONTENT_HOST = "colorverse-content-api.daniel-bca.workers.dev";
+const CATEGORY_LINKS = 'a.category-card[href^="#category/"]';
+const ITEM_LINKS = 'a.category-card[href^="#item/"]';
+
+async function openHome(page: Page) {
+  await page.goto(LIVE_URL, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(CATEGORY_LINKS).first()).toBeVisible({ timeout: 60000 });
+}
+
+async function openItem(page: Page) {
+  await openHome(page);
+  await page.locator(CATEGORY_LINKS).first().click();
+  await expect(page.locator(ITEM_LINKS).first()).toBeVisible({ timeout: 60000 });
+  await page.locator(ITEM_LINKS).first().click();
+  await expect(page.locator("#coloring-image")).toBeVisible({ timeout: 60000 });
+}
+
+async function revealSettings(page: Page) {
+  if (!(await page.locator("#theme-dark").isVisible())) {
+    await page.locator("#mobile-menu-toggle").click();
+  }
+}
 
 test.describe("Live site end-to-end", () => {
-  test("home loads and serves site-data.json from the worker /data route", async ({ page }) => {
-    const dataRequests: string[] = [];
-    const pollinationsTextRequests: string[] = [];
+  test.setTimeout(120000);
 
+  test("home loads a worker catalog without client-side text generation", async ({ page }) => {
+    const dataResponses: number[] = [];
+    const textRequests: string[] = [];
     page.on("response", response => {
-      const url = response.url();
-      if (url.includes(`${WORKER_HOST}/data`)) {
-        dataRequests.push(`${response.status()} ${url}`);
-      }
-      if (url.includes("gen.pollinations.ai/v1/chat/completions")) {
-        pollinationsTextRequests.push(`${response.status()} ${url}`);
+      const url = new URL(response.url());
+      if (
+        (url.hostname === CONTENT_HOST && url.pathname === "/catalog") ||
+        (url.hostname === WORKER_HOST && url.pathname === "/data")
+      ) {
+        dataResponses.push(response.status());
       }
     });
-
-    await page.goto(LIVE_URL);
-    await page.waitForLoadState("networkidle");
-
-    // Page should render with ColorVerse branding
-    const title = await page.title();
-    expect(title.length).toBeGreaterThan(0);
-    const body = await page.content();
-    expect(body).toContain("ColorVerse");
-
-    // The static-data worker route must have been hit (Option A)
-    expect(dataRequests.length).toBeGreaterThan(0);
-    expect(dataRequests.every(r => r.startsWith("200"))).toBe(true);
-
-    // No client-side chat-completion calls should happen on first paint —
-    // site-data.json is served from the worker, not generated live.
-    expect(pollinationsTextRequests.length).toBe(0);
-  });
-
-  test("home shows category cards from the cached site-data", async ({ page }) => {
-    await page.goto(LIVE_URL);
-    await page.waitForLoadState("networkidle");
-
-    const cards = page.locator(".category-card");
-    await expect(cards.first()).toBeVisible({ timeout: 15000 });
-    const count = await cards.count();
-    expect(count).toBeGreaterThan(5);
-  });
-
-  test("category navigation renders item list", async ({ page }) => {
-    await page.goto(LIVE_URL);
-    await page.waitForLoadState("networkidle");
-
-    const firstCard = page.locator(".category-card").first();
-    await expect(firstCard).toBeVisible({ timeout: 15000 });
-    await firstCard.click();
-
-    // Category page renders async; wait for item cards (not the loading spinner).
-    const items = page.locator('a.category-card[href*="#item/"]');
-    await expect(items.first()).toBeVisible({ timeout: 30000 });
-    const itemCount = await items.count();
-    expect(itemCount).toBeGreaterThan(0);
-  });
-
-  test("clicking an item triggers an image load via the worker proxy", async ({ page }) => {
-    const imageRequests: string[] = [];
-
     page.on("request", request => {
-      const url = request.url();
-      if (url.includes(WORKER_HOST) && url.includes("prompt=")) {
-        imageRequests.push(url);
+      if (request.url().includes("gen.pollinations.ai/v1/chat/completions")) {
+        textRequests.push(request.url());
       }
     });
-
-    await page.goto(LIVE_URL);
-    await page.waitForLoadState("networkidle");
-
-    const card = page.locator(".category-card").first();
-    await expect(card).toBeVisible({ timeout: 15000 });
-    await card.click();
-
-    // Wait for item cards to render on the category page.
-    const item = page.locator('a.category-card[href*="#item/"]').first();
-    await expect(item).toBeVisible({ timeout: 30000 });
-    await item.click();
-
-    // Wait for the coloring image to render (worker image-proxy request)
-    const coloringImage = page.locator("#coloring-image");
-    await expect(coloringImage).toBeVisible({ timeout: 60000 });
-
-    // At least one image request should have gone through the worker
-    const tries = imageRequests.length;
-    expect(tries).toBeGreaterThan(0);
-
-    // The image element uses lazy loading: src is a 1x1 placeholder, and the
-    // real worker URL lives in data-src. Check both.
-    const dataSrc = await coloringImage.getAttribute("data-src");
-    expect(dataSrc).toBeTruthy();
-    expect(dataSrc).toContain(WORKER_HOST);
+    await openHome(page);
+    expect(await page.title()).toContain("ColorVerse");
+    expect(dataResponses).toContain(200);
+    expect(textRequests).toEqual([]);
+    expect(await page.locator(CATEGORY_LINKS).count()).toBeGreaterThan(5);
   });
 
-  test("no console errors on home load", async ({ page }) => {
+  test("category navigation renders item links", async ({ page }) => {
+    await openHome(page);
+    await page.locator(CATEGORY_LINKS).first().click();
+    await expect(page.locator(ITEM_LINKS).first()).toBeVisible({ timeout: 60000 });
+    await expect(page).toHaveURL(/#category\//);
+  });
+
+  test("item image loads actual worker bytes and exposes a download", async ({ page }) => {
+    await openItem(page);
+    const image = page.locator("#coloring-image");
+    await expect
+      .poll(
+        () =>
+          image.evaluate(
+            (img: HTMLImageElement, host) =>
+              img.complete && img.naturalWidth > 1 && img.currentSrc.includes(host),
+            WORKER_HOST
+          ),
+        { timeout: 90000 }
+      )
+      .toBe(true);
+    const download = page.locator("a[download]").first();
+    await expect(download).toHaveAttribute("href", new RegExp(WORKER_HOST));
+    const response = await page.request.get((await download.getAttribute("href"))!);
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toMatch(/image\/(jpeg|png|webp)/);
+    expect((await response.body()).byteLength).toBeGreaterThan(1024);
+  });
+
+  test("favorites persist across reload and can be removed", async ({ page }) => {
+    await openItem(page);
+    const favorite = page.locator('button[id^="favorite-toggle-"]');
+    await favorite.click();
+    await expect(favorite).toContainText(/remove/i, { timeout: 15000 });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(favorite).toContainText(/remove/i, { timeout: 60000 });
+    await favorite.click();
+    await expect(favorite).toContainText(/add/i);
+  });
+
+  test("theme and language controls persist preferences", async ({ page }) => {
+    await openHome(page);
+    await revealSettings(page);
+    await page.locator("#theme-dark").click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    await expect(page.locator(CATEGORY_LINKS).first()).toBeVisible({ timeout: 60000 });
+    await revealSettings(page);
+    await page.locator("#theme-light").click();
+    await expect(page.locator("html")).not.toHaveClass(/dark/);
+    await page.locator("#language-selector").selectOption("de");
+    await expect(page.locator("#search-input")).toHaveAttribute(
+      "placeholder",
+      "Malvorlagen durchsuchen...",
+      { timeout: 60000 }
+    );
+    await revealSettings(page);
+    await page.locator("#language-selector").selectOption("pt");
+    await expect(page.locator("#search-input")).toHaveAttribute(
+      "placeholder",
+      "Pesquisar páginas para colorir...",
+      { timeout: 60000 }
+    );
+    await revealSettings(page);
+    await page.locator("#language-selector").selectOption("en");
+    await expect(page.locator("#search-input")).toHaveAttribute(
+      "placeholder",
+      "Search coloring pages...",
+      { timeout: 60000 }
+    );
+  });
+
+  test("search finds catalog items and handles unmatched queries", async ({ page }) => {
+    await openHome(page);
+    await page.locator('a[href="#search"]').first().click();
+    await expect(page.locator("#search-page-input")).toBeVisible({ timeout: 15000 });
+    await page.locator("#search-page-input").fill("flowers");
+    await page.locator("#search-form").evaluate((form: HTMLFormElement) => form.requestSubmit());
+    await expect(page.locator("#main-content .category-card").first()).toBeVisible();
+    await expect(page).toHaveURL(/#search\?q=flowers/);
+    await page.locator('a[href="#search"]').first().click();
+    await expect(page.locator("#search-page-input")).toBeVisible({ timeout: 15000 });
+    await page.locator("#search-page-input").fill("zzzznonexistent123");
+    await page.locator("#search-form").evaluate((form: HTMLFormElement) => form.requestSubmit());
+    await expect(page.locator("#main-content")).toContainText(/no results/i);
+  });
+
+  test("palette overlay opens a detail and closes without leaving the page", async ({ page }) => {
+    await openHome(page);
+    const url = page.url();
+    await page.getByRole("button", { name: "Color Palettes", exact: true }).click();
+    await expect(page.locator("#palettes-modal")).toBeVisible();
+    await page.locator('#palettes-modal button[onclick*="openPaletteDetail"]').first().click();
+    await expect(page.locator("#palettes-content h3")).toHaveText("Sunset");
+    await expect(page.locator("#palettes-content")).toContainText("Color Swatches");
+    await page.locator("#palettes-close").click();
+    await expect(page.locator("#palettes-modal")).toHaveCount(0);
+    expect(page.url()).toBe(url);
+  });
+
+  test("share fallback opens and closes without publishing", async ({ page }) => {
+    await openItem(page);
+    // Avoid opening an OS share sheet or posting to a social account.
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+    });
+    await page.locator('button[onclick^="sharePage"]').click();
+    await expect(page.locator("#share-modal")).toBeVisible();
+    await expect(page.locator("#share-modal-copy")).toBeVisible();
+    await page.locator("#share-modal-close").click();
+    await expect(page.locator("#share-modal")).toHaveCount(0);
+  });
+
+  test("home has no runtime, HTTP, or service-worker errors", async ({ page }) => {
     const errors: string[] = [];
     const failedRequests: string[] = [];
     page.on("console", msg => {
@@ -111,51 +174,16 @@ test.describe("Live site end-to-end", () => {
     });
     page.on("pageerror", err => errors.push(err.message));
     page.on("requestfailed", req => {
-      failedRequests.push(`${req.url()} (${req.failure()?.errorText || "unknown"})`);
+      // Navigation and service-worker takeover can cancel in-flight requests.
+      if (/ERR_ABORTED|cancelled/i.test(req.failure()?.errorText || "")) return;
+      failedRequests.push(`${req.url()} (${req.failure()?.errorText})`);
     });
     page.on("response", res => {
-      if (res.status() >= 400) {
-        failedRequests.push(`${res.url()} (HTTP ${res.status()})`);
-      }
+      if (res.status() >= 400) failedRequests.push(`${res.url()} (HTTP ${res.status()})`);
     });
-
-    await page.goto(LIVE_URL);
-    await page.waitForLoadState("networkidle");
+    await openHome(page);
     await page.waitForTimeout(2000);
-
-    // Filter out pre-existing issues unrelated to this work:
-    // - service-worker.js 404: GitHub Pages serves from /colorverse/, but the
-    //   SW is registered with an absolute /service-worker.js path that lands
-    //   outside the project scope. Pre-existing. Mobile Safari logs this as
-    //   a generic "Failed to load resource: 404" without the URL, so we
-    //   correlate with nonSwFailures: if no non-SW request failed, the
-    //   generic 404 console message is the SW.
-    // - favicon, third-party cookie, deprecation noise.
-    const swPattern = /service-worker\.js|Service Worker registration failed|fetching the script/;
-    const nonSwFailures = failedRequests.filter(url => !swPattern.test(url));
-    const noNonSwFailures = nonSwFailures.length === 0;
-    const realErrors = errors.filter(e => {
-      if (e.includes("favicon") || e.includes("third-party cookie") || e.includes("Deprecation")) {
-        return false;
-      }
-      if (swPattern.test(e)) {
-        return false;
-      }
-      // Mobile Safari logs the SW 404 as a bare "Failed to load resource: 404".
-      // If no other request failed, it's the SW — tolerate it.
-      if (noNonSwFailures && e.includes("Failed to load resource") && e.includes("404")) {
-        return false;
-      }
-      return true;
-    });
-
-    if (nonSwFailures.length > 0) {
-      console.error("Unexpected failed requests:\n" + nonSwFailures.join("\n"));
-    }
-    if (realErrors.length > 0) {
-      console.error("Unexpected console errors:\n" + realErrors.join("\n"));
-    }
-    expect(nonSwFailures).toEqual([]);
-    expect(realErrors).toEqual([]);
+    expect(failedRequests).toEqual([]);
+    expect(errors).toEqual([]);
   });
 });
