@@ -6,6 +6,19 @@ const CONTENT_HOST = "colorverse-content-api.daniel-bca.workers.dev";
 const CATEGORY_LINKS = 'a.category-card[href^="#category/"]';
 const ITEM_LINKS = 'a.category-card[href^="#item/"]';
 
+async function populatedCategoryLink(page: Page) {
+  const category = await page.evaluate(() => {
+    const data = window as Window & {
+      siteData?: { categories?: Record<string, { items?: Record<string, unknown> }> };
+    };
+    return Object.entries(data.siteData?.categories || {}).find(
+      ([, value]) => Object.keys(value.items || {}).length > 0
+    )?.[0];
+  });
+  expect(category, "The deployed catalog must contain a populated category").toBeTruthy();
+  return page.locator(`a.category-card[href="#category/${category}"]`).first();
+}
+
 async function openHome(page: Page) {
   await page.goto(LIVE_URL, { waitUntil: "domcontentloaded" });
   await expect(page.locator(CATEGORY_LINKS).first()).toBeVisible({ timeout: 60000 });
@@ -13,7 +26,7 @@ async function openHome(page: Page) {
 
 async function openItem(page: Page) {
   await openHome(page);
-  await page.locator(CATEGORY_LINKS).first().click();
+  await (await populatedCategoryLink(page)).click();
   await expect(page.locator(ITEM_LINKS).first()).toBeVisible({ timeout: 60000 });
   await page.locator(ITEM_LINKS).first().click();
   await expect(page.locator("#coloring-image")).toBeVisible({ timeout: 60000 });
@@ -54,7 +67,7 @@ test.describe("Live site end-to-end", () => {
 
   test("category navigation renders item links", async ({ page }) => {
     await openHome(page);
-    await page.locator(CATEGORY_LINKS).first().click();
+    await (await populatedCategoryLink(page)).click();
     await expect(page.locator(ITEM_LINKS).first()).toBeVisible({ timeout: 60000 });
     await expect(page).toHaveURL(/#category\//);
   });

@@ -34,8 +34,9 @@ See [README.md](../README.md) for the project overview and
 ```
 
 Keys never reach the browser: `POLLINATIONS_API_KEY` (and the OpenRouter/Gemini keys)
-live in the workers' wrangler secrets. The browser only ever talks to the workers and
-(when analytics is on) the worker's `/events` route.
+live in the workers' wrangler secrets. Generation requests go through the workers;
+model discovery uses public, credential-free provider catalogs. When analytics is
+on, events go to the worker's `/events` route.
 
 ## The service-manager pattern
 
@@ -152,7 +153,7 @@ Both workers live under `workers/`, share helpers in `workers/shared/`
 
 ### `workers/content-api` (`workers/content-api/src/index.js`)
 
-- **`GET /catalog`** — Hybrid catalog generation (25 categories + 1 seasonal). Three
+- **`GET /catalog`** — Hybrid catalog generation (25 categories + 1 seasonal). Four
   strategies, each triggered by the previous one's outcome:
   1. **Parallel**: fires all 26 LLM calls via `Promise.race` against a 25s deadline
      (`CATALOG_GEN_DEADLINE_MS`). Collects partial results on timeout; writes full catalog
@@ -162,6 +163,11 @@ Both workers live under `workers/`, share helpers in `workers/shared/`
      `catalog:partial:{hash}`. Next poll continues from the last completed batch.
   3. **Legacy fallback**: served when failcount ≥ 3 (`CATALOG_MAX_FAILS`); returns the
      stale `site-data.json` from KV with a 1h auto-recovery window.
+  4. **Empty-category repair**: a fresh catalog with empty categories (a deadline-truncated
+     parallel run fills unfinished ones with `{ items: {} }`) is served with
+     `max-age=300`, and only those categories are regenerated in the background and
+     merged into KV. Attempts are limited to one per catalog key per hour
+     (`catalog:repair:{hash}`) and skipped while the generation lock is held.
 - **Provider fallback**: `Pollinations` (openai model) → `OpenRouter` (`openai/gpt-4.1-nano`)
   → `Gemini` (`GEMINI_TEXT_MODEL` in `workers/shared/constants.js`, also the `POST /`
   proxy default; must match the client Gemini default). All three keys are CF Worker secrets.

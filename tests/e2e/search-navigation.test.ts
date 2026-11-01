@@ -8,6 +8,52 @@ test.describe("Search hash navigation", () => {
     page.on("pageerror", error => pageErrors.push(error.message));
   });
 
+  test.describe("Catalog category navigation", () => {
+    test.use({
+      siteData: {
+        brand: { name: "ColorVerse", tagline: "Catalog pages" },
+        categories: {
+          empty: { title: "Empty Category", description: "Not populated", items: {} },
+          animals: {
+            title: "Animals",
+            description: "Catalog animals",
+            items: {
+              animals_item_1: { title: "Existing Puppy", description: "A puppy in line art." },
+            },
+          },
+        },
+      },
+    });
+
+    test("features populated categories and opens existing pages without text generation", async ({
+      page,
+    }) => {
+      const generationRequests: string[] = [];
+      page.on("request", request => {
+        if (request.method() === "POST" && request.url().includes("content-api")) {
+          generationRequests.push(request.url());
+        }
+      });
+      await page.goto("/");
+      const featured = page.locator("a.category-card[href^='#category/']").first();
+      await expect(featured).toHaveAttribute("href", "#category/animals");
+      await featured.click();
+      await expect(page.locator("a.category-card[href^='#item/']").first()).toContainText(
+        "Existing Puppy"
+      );
+      await page.evaluate(() => {
+        window.location.hash = "#all-categories";
+      });
+      await expect(page.locator("#main-content a[href='#category/empty']").first()).toBeVisible();
+      await page.locator("#main-content a[href='#category/empty']").first().click();
+      await expect(page.locator("#main-content [role='status']")).toHaveText(
+        "No coloring pages are available in this category yet."
+      );
+      await expect(page.locator("#main-content a[href^='#item/']")).toHaveCount(0);
+      expect(generationRequests).toEqual([]);
+    });
+  });
+
   test.afterEach(() => {
     expect(pageErrors).toEqual([]);
   });

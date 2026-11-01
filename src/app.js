@@ -1830,7 +1830,11 @@ function renderHomepage(data) {
 
   // Select featured categories if not already done
   if (featuredCategories.length === 0) {
-    const categoryKeys = Object.keys(data.categories);
+    // Catalogs may contain empty category shells. Feature pages visitors can
+    // actually open, rather than sending them into on-demand text generation.
+    const categoryKeys = Object.keys(data.categories).filter(
+      key => Object.keys(data.categories[key]?.items || {}).length > 0
+    );
     // Randomly select 4 categories but ensure they're always the same for consistency
     const shuffled = [...categoryKeys].sort(() => 0.5 - Math.random());
     featuredCategories = shuffled.slice(0, 4);
@@ -2519,6 +2523,15 @@ function renderCategory(categoryData, categoryKey, currentPage = 1, sortBy = "po
 
   const escCatTitle = escapeHtml(categoryData.title);
   const escCatDesc = escapeHtml(categoryData.description || "");
+
+  if (Object.keys(categoryData.items || {}).length === 0) {
+    return `
+      <section class="text-center py-8">
+        <h1 class="text-3xl font-bold mb-4">${escCatTitle}</h1>
+        <p role="status">No coloring pages are available in this category yet.</p>
+        <a href="#all-categories" class="inline-block mt-4 text-primary-600">Browse all categories</a>
+      </section>`;
+  }
 
   let html = `
         <nav aria-label="breadcrumb" class="flex items-center mb-6 mt-2 text-sm text-gray-600 dark:text-gray-400 py-2">
@@ -5417,6 +5430,13 @@ async function renderCategoryWithProgressiveLoading(
 
 // Public function to ensure a category is loaded
 async function ensureCategoryLoaded(categoryKey) {
+  // Worker/static catalogs are authoritative. Navigation must not start
+  // client-side generation (including for an empty category shell).
+  const existing = siteData?.categories?.[categoryKey];
+  if (WORKER_IMAGE_MODE || STATIC_MODE) {
+    return existing;
+  }
+
   if (categoryLoadingState.loadedCategories.has(categoryKey)) {
     return siteData.categories[categoryKey];
   }
@@ -5428,7 +5448,6 @@ async function ensureCategoryLoaded(categoryKey) {
   // If the cached site-data already has items for this category, render
   // them immediately and add a bounded batch of new pages in the background.
   // This keeps navigation snappy when site-data.json was pre-generated.
-  const existing = siteData?.categories?.[categoryKey];
   if (existing && existing.items && Object.keys(existing.items).length > 0) {
     debug.log(
       `Using cached ${categoryKey} (${Object.keys(existing.items).length} items), upgrading in background`

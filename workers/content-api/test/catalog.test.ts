@@ -78,8 +78,23 @@ function makeRequest(path, headers = {}) {
   });
 }
 
-/** Build a valid cached catalog payload. */
+/** Build a valid cached catalog payload with every category populated. */
 function makeCatalog(generatedAt = Date.now()) {
+  const catalog = makePartialCatalog(generatedAt);
+  for (const key of CATEGORY_KEYS) {
+    catalog.categories[key] ||= {
+      title: key,
+      description: key,
+      items: { [`${key}_item_1`]: { title: key, description: key } },
+    };
+  }
+  catalog._meta.totalItems = CATEGORY_KEYS.length + 1;
+  catalog._meta.categoryCount = CATEGORY_KEYS.length;
+  return catalog;
+}
+
+/** Catalog with only the animals category populated. */
+function makePartialCatalog(generatedAt = Date.now()) {
   return {
     brand: { name: "ColorVerse", tagline: "Personalized Coloring Pages Made Just for You" },
     seasonal_gallery: {
@@ -200,7 +215,7 @@ describe("GET /catalog", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toBe("public, max-age=604800");
-    expect(body._meta.totalItems).toBe(2);
+    expect(body._meta.totalItems).toBe(CATEGORY_KEYS.length + 1);
     expect(fetchMock).not.toHaveBeenCalled();
     // Fresh hit must not touch the generation lock or schedule anything.
     expect(ctx.waitUntil).not.toHaveBeenCalled();
@@ -767,5 +782,111 @@ describe("Gemini model defaults", () => {
     }
     const cat = JSON.parse(await kv.get("catalog:default"));
     expect(Object.keys(cat.categories)).toHaveLength(25);
+  });
+});
+
+describe("GET /catalog with empty categories", () => {
+  // Mirrors the live failure: the first categories are populated and the
+  // trailing ones were left as { items: {} } by a deadline-truncated run.
+  const EMPTY_KEYS = CATEGORY_KEYS.slice(-8);
+  let kv;
+  let env;
+  let ctx;
+  let fetchMock;
+
+  function makeTruncatedCatalog() {
+    const catalog = makeCatalog(Date.now() - 60 * 60 * 1000);
+    for (const key of EMPTY_KEYS) {
+      catalog.categories[key] = { title: key, description: key, items: {} };
+    }
+    catalog._meta.totalItems = CATEGORY_KEYS.length - EMPTY_KEYS.length + 1;
+    return catalog;
+  }
+
+  beforeEach(() => {
+    kv = makeKV();
+    env = makeEnv({ SITE_DATA: kv });
+    ctx = makeCtx();
+    fetchMock = mockFetchDefault();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("serves the incomplete catalog with a short max-age and regenerates only empty categories", async () => {
+    const truncated = makeTruncatedCatalog();
+    await kv.put("catalog:default", JSON.stringify(truncated));
+
+    const res = await worker.fetch(makeRequest("/catalog"), env, ctx);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("public, max-age=300");
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://dseeker.github.io");
+    expect(Object.keys(body.categories[EMPTY_KEYS[0]].items)).toHaveLength(0);
+    expect(ctx.waitUntil).toHaveBeenCalledTimes(1);
+
+    await ctx.flush();
+
+    const requested = fetchMock.mock.calls.map(
+      ([, opts]) =>
+        JSON.parse(opts.body)
+          .messages.find(m => m.role === "user")
+          .content.match(/for the "([^"]+)" category/)?.[1]
+    );
+    expect(requested.sort()).toEqual([...EMPTY_KEYS].sort());
+
+    const repaired = JSON.parse(await kv.get("catalog:default"));
+    for (const key of EMPTY_KEYS) {
+      expect(Object.keys(repaired.categories[key].items)).toHaveLength(1);
+    }
+    expect(repaired.categories.animals).toEqual(truncated.categories.animals);
+    expect(repaired._meta.generatedAt).toBe(truncated._meta.generatedAt);
+    expect(repaired._meta.totalItems).toBe(CATEGORY_KEYS.length + 1);
+    expect(await kv.get("catalog:generating:catalog:default")).toBeNull();
+
+    // Once repaired, the catalog is served as complete without further work.
+    const next = await worker.fetch(makeRequest("/catalog"), env, makeCtx());
+    expect(next.headers.get("Cache-Control")).toBe("public, max-age=604800");
+  });
+
+  it("bounds repair attempts with a cooldown when providers keep failing", async () => {
+    await kv.put("catalog:default", JSON.stringify(makeTruncatedCatalog()));
+    const failingFetch = vi.fn(
+      async () => new Response(JSON.stringify({ error: "down" }), { status: 500 })
+    );
+    vi.stubGlobal("fetch", failingFetch);
+
+    await worker.fetch(makeRequest("/catalog"), env, ctx);
+    await ctx.flush();
+    const callsAfterFirstRepair = failingFetch.mock.calls.length;
+    expect(callsAfterFirstRepair).toBeGreaterThanOrEqual(EMPTY_KEYS.length);
+    expect(await kv.get("catalog:repair:catalog:default")).toBe("1");
+    expect(await kv.get("catalog:generating:catalog:default")).toBeNull();
+
+    const secondCtx = makeCtx();
+    const second = await worker.fetch(makeRequest("/catalog"), env, secondCtx);
+    await secondCtx.flush();
+
+    expect(second.status).toBe(200);
+    expect(failingFetch).toHaveBeenCalledTimes(callsAfterFirstRepair);
+    const stored = JSON.parse(await kv.get("catalog:default"));
+    expect(Object.keys(stored.categories[EMPTY_KEYS[0]].items)).toHaveLength(0);
+  });
+
+  it("does not repair while a full generation holds the lock", async () => {
+    await kv.put("catalog:default", JSON.stringify(makeTruncatedCatalog()));
+    await kv.put("catalog:generating:catalog:default", "1");
+
+    await worker.fetch(makeRequest("/catalog"), env, ctx);
+    await ctx.flush();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await kv.get("catalog:repair:catalog:default")).toBeNull();
   });
 });

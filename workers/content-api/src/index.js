@@ -277,6 +277,12 @@ const CATALOG_CHAIN_BATCH_DEADLINE_MS = 25000;
 const CATALOG_PARTIAL_TTL_MS = 600000; // 10 minutes
 // After this many consecutive generation failures, serve legacy site-data.json.
 const CATALOG_MAX_FAILS = 3;
+// A fresh catalog can still contain empty categories (e.g. a parallel run that
+// hit its deadline fills unfinished categories with { items: {} }). Such a
+// catalog is served with a short max-age and only its empty categories are
+// regenerated, at most once per cooldown window per catalog key.
+const CATALOG_INCOMPLETE_MAX_AGE_S = 300;
+const CATALOG_REPAIR_COOLDOWN_S = 3600;
 // Text-generation model names (one per provider, used by generateCatalogTextWithFallback).
 const CATALOG_TEXT_MODEL_POLLINATIONS = "openai";
 const CATALOG_TEXT_MODEL_OPENROUTER = "openai/gpt-4.1-nano";
@@ -492,6 +498,20 @@ function buildSeasonalPrompt(season) {
   );
 }
 
+function catalogSystemMessageForStyle(styleKey) {
+  const style = COLORING_STYLES[styleKey];
+  return buildCatalogSystemMessage(style && style.prompt ? style.prompt : undefined);
+}
+
+function hasCatalogItems(category) {
+  const items = category && category.items;
+  return Boolean(items && typeof items === "object" && Object.keys(items).length > 0);
+}
+
+function findEmptyCategoryKeys(catalog) {
+  return Object.keys(CATEGORIES).filter(key => !hasCatalogItems(catalog?.categories?.[key]));
+}
+
 function countCatalogItems(catalog) {
   return Object.values(catalog.categories || {}).reduce(
     (sum, c) =>
@@ -544,9 +564,7 @@ async function generateCatalogText(prompt, apiKey, systemMessage) {
  * retries after recovery.
  */
 async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, deadline) {
-  const style = COLORING_STYLES[styleKey];
-  const styleSuffix = style && style.prompt ? style.prompt : undefined;
-  const systemMessage = buildCatalogSystemMessage(styleSuffix);
+  const systemMessage = catalogSystemMessageForStyle(styleKey);
 
   const categoryKeys = Object.keys(CATEGORIES);
   const totalExpected = categoryKeys.length; // 25 categories (seasonal generated separately)
@@ -754,6 +772,71 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
   return { success: true, keepLock: false };
 }
 
+/**
+ * Regenerate only the empty categories of an already-written catalog and merge
+ * the non-empty results into the latest KV copy. Bounded by a per-catalog
+ * cooldown key (set before any provider call) and the generation lock.
+ */
+async function repairCatalogCategories(kv, catalogKey, env, styleKey, seed, missingKeys) {
+  const cooldownKey = `catalog:repair:${catalogKey}`;
+  const lockKey = `catalog:generating:${catalogKey}`;
+  if ((await kv.get(cooldownKey)) !== null || (await kv.get(lockKey)) !== null) {
+    return;
+  }
+  await kv.put(cooldownKey, "1", { expirationTtl: CATALOG_REPAIR_COOLDOWN_S });
+  await kv.put(lockKey, "1", { expirationTtl: CATALOG_GENERATION_LOCK_TTL_S });
+
+  try {
+    const systemMessage = catalogSystemMessageForStyle(styleKey);
+    const results = await Promise.allSettled(
+      missingKeys.map(key =>
+        generateCatalogTextWithFallback(
+          buildCategoryPrompt(key, CATEGORIES[key], CATALOG_ITEMS_PER_CATEGORY, seed),
+          env,
+          systemMessage
+        )
+      )
+    );
+    const repaired = {};
+    results.forEach((result, i) => {
+      if (result.status === "fulfilled" && hasCatalogItems(result.value)) {
+        repaired[missingKeys[i]] = result.value;
+      } else if (result.status === "rejected") {
+        console.warn(
+          `[content-api] catalog repair ${catalogKey}/${missingKeys[i]} failed: ${result.reason?.message}`
+        );
+      }
+    });
+    if (Object.keys(repaired).length === 0) {
+      return;
+    }
+
+    // Merge into the latest copy so a concurrent full regeneration isn't clobbered.
+    const latest = JSON.parse((await kv.get(catalogKey)) || "null");
+    if (!latest || !latest.categories) {
+      return;
+    }
+    for (const [key, category] of Object.entries(repaired)) {
+      if (!hasCatalogItems(latest.categories[key])) {
+        latest.categories[key] = category;
+      }
+    }
+    latest._meta = {
+      ...latest._meta,
+      totalItems: countCatalogItems(latest),
+      categoryCount: Object.keys(latest.categories).length,
+    };
+    await kv.put(catalogKey, JSON.stringify(latest));
+    console.log(
+      `[content-api] catalog ${catalogKey} repaired ${Object.keys(repaired).length}/${missingKeys.length} empty categories`
+    );
+  } catch (err) {
+    console.warn(`[content-api] catalog repair ${catalogKey} crashed: ${err.message}`);
+  } finally {
+    await kv.delete(lockKey).catch(() => {});
+  }
+}
+
 // --- Chained generation (Strategy 2) -----------------------------------------
 
 /**
@@ -797,9 +880,7 @@ async function generateCatalogChained(kv, catalogKey, env, styleKey, seed, parti
     console.log(`[content-api] chain mode started for ${catalogKey}`);
   }
 
-  const style = COLORING_STYLES[styleKey];
-  const styleSuffix = style && style.prompt ? style.prompt : undefined;
-  const systemMessage = buildCatalogSystemMessage(styleSuffix);
+  const systemMessage = catalogSystemMessageForStyle(styleKey);
 
   // Generate next batch.
   const batchSize = Number(env.CATALOG_CHAIN_BATCH) || CATALOG_CHAIN_BATCH_SIZE;
@@ -1084,6 +1165,28 @@ async function handleCatalog(request, env, ctx) {
     const isFresh = Date.now() - generatedAt < CATALOG_TTL_MS;
 
     if (parsed && isFresh) {
+      const emptyKeys = findEmptyCategoryKeys(parsed);
+      if (emptyKeys.length > 0) {
+        const repair = repairCatalogCategories(
+          env.SITE_DATA,
+          catalogKey,
+          env,
+          styleKey,
+          seed,
+          emptyKeys
+        );
+        if (typeof ctx?.waitUntil === "function") {
+          ctx.waitUntil(repair);
+        } else {
+          repair.catch(err =>
+            console.warn(`[content-api] catalog repair (no waitUntil) failed: ${err.message}`)
+          );
+        }
+        return createJSONResponse(parsed, 200, {
+          "Cache-Control": `public, max-age=${CATALOG_INCOMPLETE_MAX_AGE_S}`,
+          ...corsMethods(request, env),
+        });
+      }
       return createJSONResponse(parsed, 200, {
         "Cache-Control": "public, max-age=604800",
         ...corsMethods(request, env),

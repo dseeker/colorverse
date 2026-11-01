@@ -37,6 +37,8 @@ function createLoader(handler?: (prompt: string) => unknown) {
     };
   });
   const sandbox = {
+    WORKER_IMAGE_MODE: false,
+    STATIC_MODE: false,
     siteData: { categories: { animals: original } },
     callAIAPI,
     saveToCache,
@@ -239,4 +241,24 @@ describe("Category expansion", () => {
     expect(callAIAPI).toHaveBeenCalledTimes(14);
     expect(saveToCache).toHaveBeenCalledTimes(1);
   });
+
+  it("returns existing pages immediately while a provider expansion remains pending", async () => {
+    const { api, original } = createLoader(() => new Promise(() => {}));
+    const existing = await api.ensureCategoryLoaded("animals");
+    expect(existing).toBe(original);
+    expect(api.categoryLoadingState.loadingPromises.has("animals")).toBe(true);
+  });
+
+  it.each(["WORKER_IMAGE_MODE", "STATIC_MODE"])(
+    "never gates catalog navigation on generation in %s",
+    async mode => {
+      const { api, sandbox, original, callAIAPI } = createLoader(() => new Promise(() => {}));
+      sandbox[mode as "WORKER_IMAGE_MODE" | "STATIC_MODE"] = true;
+      expect(await api.ensureCategoryLoaded("animals")).toBe(original);
+      original.items = {};
+      expect(await api.ensureCategoryLoaded("animals")).toBe(original);
+      expect(callAIAPI).not.toHaveBeenCalled();
+      expect(api.categoryLoadingState.loadingPromises.size).toBe(0);
+    }
+  );
 });
