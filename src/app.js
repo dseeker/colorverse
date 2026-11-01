@@ -2893,7 +2893,7 @@ function renderItem(itemData, categoryKey, itemKey) {
             <!-- Controls & Info Area -->
             <div class="lg:w-1/4 flex flex-col gap-4 actions-panel">
                 <h2 class="text-xl font-semibold pb-2 border-b" style="color: var(--text-color); border-color: var(--border-color);" id="item-actions-heading">${window.t("item.actions") || "Actions"}</h2>
-                <a href="${imageUrl}" download="${categoryKey}-${itemKey}-${downloadSlug}.jpg"
+                <a href="${imageUrl}" download="${categoryKey}-${itemKey}-${escapeHtml(currentColoringStyle || "classic")}-${downloadSlug}.jpg"
                    aria-label="Download image of ${escTitle}"
                    onclick="if (window.analytics &amp;&amp; window.analytics.track) { window.analytics.track('download'); }"
                    class="block w-full text-center bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition duration-300">

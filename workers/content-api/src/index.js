@@ -42,7 +42,6 @@ import {
   sleep,
 } from "../../shared/utils.js";
 import { CATEGORIES, GEMINI_TEXT_MODEL } from "../../shared/constants.js";
-import { COLORING_STYLES } from "../../../src/shared/prompts.js";
 
 const POLLINATIONS_URL = "https://gen.pollinations.ai/v1/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -436,17 +435,13 @@ async function generateCatalogTextWithFallback(prompt, env, systemMessage) {
   throw new Error(`All text providers exhausted: Pollinations, OpenRouter, Gemini — ${lastError}`);
 }
 
-function buildCatalogSystemMessage(styleSuffix) {
-  const base =
-    "You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.";
-  if (!styleSuffix) {
-    return base;
-  }
-  return (
-    base +
-    `\n\nSTYLE OVERRIDE: The generated item descriptions MUST be tuned to this coloring style — weave it into every item's description: ${styleSuffix}`
-  );
+// --- buildCatalogSystemMessage start ---
+// Catalog content is style-free: the coloring style is applied client-side
+// at image-request time, never baked into item titles or descriptions.
+function buildCatalogSystemMessage() {
+  return "You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.";
 }
+// --- buildCatalogSystemMessage end ---
 
 function buildCategoryPrompt(categoryKey, categoryInfo, itemCount, seed) {
   // A custom seed bakes into the prompt so generated descriptions become
@@ -496,11 +491,6 @@ function buildSeasonalPrompt(season) {
     `"items": { "seasonal_1": { "title": "...", "description": "..." }, ... ${CATALOG_SEASONAL_ITEMS} items } }. ` +
     `Titles must be creative and evocative.`
   );
-}
-
-function catalogSystemMessageForStyle(styleKey) {
-  const style = COLORING_STYLES[styleKey];
-  return buildCatalogSystemMessage(style && style.prompt ? style.prompt : undefined);
 }
 
 function hasCatalogItems(category) {
@@ -564,7 +554,7 @@ async function generateCatalogText(prompt, apiKey, systemMessage) {
  * retries after recovery.
  */
 async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, deadline) {
-  const systemMessage = catalogSystemMessageForStyle(styleKey);
+  const systemMessage = buildCatalogSystemMessage();
 
   const categoryKeys = Object.keys(CATEGORIES);
   const totalExpected = categoryKeys.length; // 25 categories (seasonal generated separately)
@@ -787,7 +777,7 @@ async function repairCatalogCategories(kv, catalogKey, env, styleKey, seed, miss
   await kv.put(lockKey, "1", { expirationTtl: CATALOG_GENERATION_LOCK_TTL_S });
 
   try {
-    const systemMessage = catalogSystemMessageForStyle(styleKey);
+    const systemMessage = buildCatalogSystemMessage();
     const results = await Promise.allSettled(
       missingKeys.map(key =>
         generateCatalogTextWithFallback(
@@ -880,7 +870,7 @@ async function generateCatalogChained(kv, catalogKey, env, styleKey, seed, parti
     console.log(`[content-api] chain mode started for ${catalogKey}`);
   }
 
-  const systemMessage = catalogSystemMessageForStyle(styleKey);
+  const systemMessage = buildCatalogSystemMessage();
 
   // Generate next batch.
   const batchSize = Number(env.CATALOG_CHAIN_BATCH) || CATALOG_CHAIN_BATCH_SIZE;
@@ -1122,11 +1112,10 @@ async function handleCatalog(request, env, ctx) {
   const styleKey = (url.searchParams.get("style") || "").slice(0, 64);
   const seed = (url.searchParams.get("seed") || "").slice(0, 64);
   const uid = clampUid(request.headers.get("X-ColorVerse-UID"));
-  const hasParams = styleKey !== "" || seed !== "";
-  // Cache key is derived ONLY from style + seed — the uid never influences it.
-  const catalogKey = hasParams
-    ? `catalog:${stringToHash(`${styleKey}|${seed}`)}`
-    : CATALOG_DEFAULT_KEY;
+  // Cache key is derived ONLY from seed — style is client-side presentation and
+  // never changes catalog content; the uid never influences it either.
+  const hasParams = seed !== "";
+  const catalogKey = hasParams ? `catalog:${stringToHash(seed)}` : CATALOG_DEFAULT_KEY;
 
   // Kill switch: serve the legacy site-data.json key instead of generating.
   if (env.DISABLE_WORKER_GEN === "true") {
