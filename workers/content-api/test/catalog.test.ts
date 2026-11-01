@@ -563,7 +563,6 @@ describe("GET /catalog", () => {
       remainingKeys: CATEGORY_KEYS.slice(5), // 20 remaining
       seasonalDone: false,
       startedAt: Date.now() - 60_000,
-      styleKey: "",
       seed: "",
     };
     await kv.put("catalog:partial:catalog:default", JSON.stringify(preSeeded), {
@@ -598,7 +597,6 @@ describe("GET /catalog", () => {
       remainingKeys: [...CATEGORY_KEYS],
       seasonalDone: false,
       startedAt: Date.now() - 660_000, // 11 minutes ago
-      styleKey: "",
       seed: "",
     };
     await kv.put("catalog:partial:catalog:default", JSON.stringify(stalePartial), {

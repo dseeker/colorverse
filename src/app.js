@@ -189,16 +189,15 @@ const hashedUid = getOrCreateUserId();
 // worker generates a fresh catalog (202 + Retry-After). Resolves with the
 // parsed catalog (same site-data.json shape) or null when the worker is
 // unreachable / exhausted, so callers can fall back to the legacy path.
-async function fetchWorkerCatalog(styleKey = "", seed = "") {
+// --- fetchWorkerCatalog start ---
+async function fetchWorkerCatalog(seed = "") {
   if (!WORKER_CONTENT_API_URL) {
     console.warn(
       "[WorkerMode] WORKER_IMAGE_MODE is on but CONTENT_API_URL is empty — falling back to legacy data route"
     );
     return null;
   }
-  const url = `${WORKER_CONTENT_API_URL}/catalog?style=${encodeURIComponent(
-    styleKey
-  )}&seed=${encodeURIComponent(seed)}`;
+  const url = `${WORKER_CONTENT_API_URL}/catalog?seed=${encodeURIComponent(seed)}`;
   const headers = { "X-ColorVerse-UID": hashedUid };
 
   let rateLimitRetries = 0;
@@ -271,6 +270,7 @@ async function fetchWorkerCatalog(styleKey = "", seed = "") {
   }
   return null;
 }
+// --- fetchWorkerCatalog end ---
 
 /**
  * Generates consistent seed for items WITH category context
@@ -4709,7 +4709,7 @@ async function generateSiteData() {
   // the legacy DATA_URL route on 503 / network error / empty CONTENT_API_URL.
   if (WORKER_IMAGE_MODE) {
     debug.log("[WorkerMode] Loading catalog from content-api /catalog route...");
-    const catalogData = await fetchWorkerCatalog(currentColoringStyle, "");
+    const catalogData = await fetchWorkerCatalog("");
     if (catalogData) {
       siteData = catalogData;
       staticImageMap = buildStaticImageMap(catalogData);
