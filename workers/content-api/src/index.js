@@ -42,7 +42,6 @@ import {
   sleep,
 } from "../../shared/utils.js";
 import { CATEGORIES, GEMINI_TEXT_MODEL } from "../../shared/constants.js";
-import { COLORING_STYLES } from "../../../src/shared/prompts.js";
 
 const POLLINATIONS_URL = "https://gen.pollinations.ai/v1/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -436,17 +435,13 @@ async function generateCatalogTextWithFallback(prompt, env, systemMessage) {
   throw new Error(`All text providers exhausted: Pollinations, OpenRouter, Gemini — ${lastError}`);
 }
 
-function buildCatalogSystemMessage(styleSuffix) {
-  const base =
-    "You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.";
-  if (!styleSuffix) {
-    return base;
-  }
-  return (
-    base +
-    `\n\nSTYLE OVERRIDE: The generated item descriptions MUST be tuned to this coloring style — weave it into every item's description: ${styleSuffix}`
-  );
+// --- buildCatalogSystemMessage start ---
+// Catalog content is style-free: the coloring style is applied client-side
+// at image-request time, never baked into item titles or descriptions.
+function buildCatalogSystemMessage() {
+  return "You are an AI assistant that generates structured JSON data. Output ONLY the requested JSON object.";
 }
+// --- buildCatalogSystemMessage end ---
 
 function buildCategoryPrompt(categoryKey, categoryInfo, itemCount, seed) {
   // A custom seed bakes into the prompt so generated descriptions become
@@ -496,11 +491,6 @@ function buildSeasonalPrompt(season) {
     `"items": { "seasonal_1": { "title": "...", "description": "..." }, ... ${CATALOG_SEASONAL_ITEMS} items } }. ` +
     `Titles must be creative and evocative.`
   );
-}
-
-function catalogSystemMessageForStyle(styleKey) {
-  const style = COLORING_STYLES[styleKey];
-  return buildCatalogSystemMessage(style && style.prompt ? style.prompt : undefined);
 }
 
 function hasCatalogItems(category) {
@@ -563,8 +553,8 @@ async function generateCatalogText(prompt, apiKey, systemMessage) {
  * 402 (balance exhausted) — caller keeps the lock so the next request
  * retries after recovery.
  */
-async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, deadline) {
-  const systemMessage = catalogSystemMessageForStyle(styleKey);
+async function generateCatalogParallel(kv, catalogKey, env, seed, deadline) {
+  const systemMessage = buildCatalogSystemMessage();
 
   const categoryKeys = Object.keys(CATEGORIES);
   const totalExpected = categoryKeys.length; // 25 categories (seasonal generated separately)
@@ -760,7 +750,6 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
       totalItems: countCatalogItems({ categories }),
       categoryCount: Object.keys(categories).length,
       season,
-      style: styleKey || "classic",
       seed: seed || null,
       generatedBy: "anonymous",
     },
@@ -777,7 +766,7 @@ async function generateCatalogParallel(kv, catalogKey, env, styleKey, seed, dead
  * the non-empty results into the latest KV copy. Bounded by a per-catalog
  * cooldown key (set before any provider call) and the generation lock.
  */
-async function repairCatalogCategories(kv, catalogKey, env, styleKey, seed, missingKeys) {
+async function repairCatalogCategories(kv, catalogKey, env, seed, missingKeys) {
   const cooldownKey = `catalog:repair:${catalogKey}`;
   const lockKey = `catalog:generating:${catalogKey}`;
   if ((await kv.get(cooldownKey)) !== null || (await kv.get(lockKey)) !== null) {
@@ -787,7 +776,7 @@ async function repairCatalogCategories(kv, catalogKey, env, styleKey, seed, miss
   await kv.put(lockKey, "1", { expirationTtl: CATALOG_GENERATION_LOCK_TTL_S });
 
   try {
-    const systemMessage = catalogSystemMessageForStyle(styleKey);
+    const systemMessage = buildCatalogSystemMessage();
     const results = await Promise.allSettled(
       missingKeys.map(key =>
         generateCatalogTextWithFallback(
@@ -849,7 +838,7 @@ async function repairCatalogCategories(kv, catalogKey, env, styleKey, seed, miss
  * When all categories + seasonal are done, writes the final catalog to
  * catalogKey, deletes the partial, and returns { success: true }.
  */
-async function generateCatalogChained(kv, catalogKey, env, styleKey, seed, partial, deadline) {
+async function generateCatalogChained(kv, catalogKey, env, seed, partial, deadline) {
   const categoryKeys = Object.keys(CATEGORIES);
   const season = getCurrentSeason();
   const seasonKey = "__seasonal__";
@@ -873,14 +862,13 @@ async function generateCatalogChained(kv, catalogKey, env, styleKey, seed, parti
       remainingKeys: [...categoryKeys],
       seasonalDone: false,
       startedAt: Date.now(),
-      styleKey,
       seed,
     };
     await kv.put(partialKey, JSON.stringify(partial), { expirationTtl: 300 });
     console.log(`[content-api] chain mode started for ${catalogKey}`);
   }
 
-  const systemMessage = catalogSystemMessageForStyle(styleKey);
+  const systemMessage = buildCatalogSystemMessage();
 
   // Generate next batch.
   const batchSize = Number(env.CATALOG_CHAIN_BATCH) || CATALOG_CHAIN_BATCH_SIZE;
@@ -947,7 +935,6 @@ async function generateCatalogChained(kv, catalogKey, env, styleKey, seed, parti
         totalItems: countCatalogItems({ categories: partial.categories }),
         categoryCount: categoryKeys.length,
         season,
-        style: styleKey || "classic",
         seed: seed || null,
         generatedBy: "anonymous",
       },
@@ -973,20 +960,11 @@ async function generateCatalogChained(kv, catalogKey, env, styleKey, seed, parti
  * @param {KVNamespace} kv
  * @param {string} catalogKey
  * @param {object} env
- * @param {string} styleKey
  * @param {string} seed
  * @param {string} uid
  * @param {boolean} [lockHeld] - the caller already holds the generation lock
  */
-async function generateCatalogBackground(
-  kv,
-  catalogKey,
-  env,
-  styleKey,
-  seed,
-  uid,
-  lockHeld = false
-) {
+async function generateCatalogBackground(kv, catalogKey, env, seed, uid, lockHeld = false) {
   const lockKey = `catalog:generating:${catalogKey}`;
   let acquired = false;
   let keepLock = false;
@@ -1029,7 +1007,7 @@ async function generateCatalogBackground(
         if (parsed && Date.now() - parsed.startedAt < CATALOG_PARTIAL_TTL_MS) {
           // Resume chain from existing partial.
           console.log(`[content-api] resuming chain for ${catalogKey}`);
-          await generateCatalogChained(kv, catalogKey, env, styleKey, seed, parsed, deadline);
+          await generateCatalogChained(kv, catalogKey, env, seed, parsed, deadline);
           return;
         }
       } catch {
@@ -1040,14 +1018,7 @@ async function generateCatalogBackground(
     }
 
     // --- Strategy 1: Parallel ---------------------------------------------
-    const parallelResult = await generateCatalogParallel(
-      kv,
-      catalogKey,
-      env,
-      styleKey,
-      seed,
-      deadline
-    );
+    const parallelResult = await generateCatalogParallel(kv, catalogKey, env, seed, deadline);
 
     if (parallelResult.success) {
       // Success — reset failcount.
@@ -1070,7 +1041,7 @@ async function generateCatalogBackground(
     // Parallel failed (deadline expired or partial write). Fall back to chain.
     if (deadline.expired()) {
       console.log(`[content-api] parallel deadline expired for ${catalogKey}; starting chain mode`);
-      await generateCatalogChained(kv, catalogKey, env, styleKey, seed, null, deadline);
+      await generateCatalogChained(kv, catalogKey, env, seed, null, deadline);
       return;
     }
 
@@ -1119,14 +1090,12 @@ async function handleCatalog(request, env, ctx) {
   }
 
   const url = new URL(request.url);
-  const styleKey = (url.searchParams.get("style") || "").slice(0, 64);
   const seed = (url.searchParams.get("seed") || "").slice(0, 64);
   const uid = clampUid(request.headers.get("X-ColorVerse-UID"));
-  const hasParams = styleKey !== "" || seed !== "";
-  // Cache key is derived ONLY from style + seed — the uid never influences it.
-  const catalogKey = hasParams
-    ? `catalog:${stringToHash(`${styleKey}|${seed}`)}`
-    : CATALOG_DEFAULT_KEY;
+  // Cache key is derived ONLY from seed — style is client-side presentation and
+  // never changes catalog content; the uid never influences it either.
+  const hasParams = seed !== "";
+  const catalogKey = hasParams ? `catalog:${stringToHash(seed)}` : CATALOG_DEFAULT_KEY;
 
   // Kill switch: serve the legacy site-data.json key instead of generating.
   if (env.DISABLE_WORKER_GEN === "true") {
@@ -1167,14 +1136,7 @@ async function handleCatalog(request, env, ctx) {
     if (parsed && isFresh) {
       const emptyKeys = findEmptyCategoryKeys(parsed);
       if (emptyKeys.length > 0) {
-        const repair = repairCatalogCategories(
-          env.SITE_DATA,
-          catalogKey,
-          env,
-          styleKey,
-          seed,
-          emptyKeys
-        );
+        const repair = repairCatalogCategories(env.SITE_DATA, catalogKey, env, seed, emptyKeys);
         if (typeof ctx?.waitUntil === "function") {
           ctx.waitUntil(repair);
         } else {
@@ -1197,7 +1159,7 @@ async function handleCatalog(request, env, ctx) {
     // background (stale-while-revalidate). The background job re-checks the
     // generation lock, so concurrent stale hits never double-generate.
     const body = parsed ? parsed : { error: "Catalog is regenerating" };
-    const regen = generateCatalogBackground(env.SITE_DATA, catalogKey, env, styleKey, seed, uid);
+    const regen = generateCatalogBackground(env.SITE_DATA, catalogKey, env, seed, uid);
     if (typeof ctx?.waitUntil === "function") {
       ctx.waitUntil(regen);
     } else {
@@ -1270,7 +1232,6 @@ async function handleCatalog(request, env, ctx) {
             env.SITE_DATA,
             catalogKey,
             env,
-            styleKey,
             seed,
             parsed,
             null // chain creates its own fresh deadline per batch
@@ -1347,7 +1308,7 @@ async function handleCatalog(request, env, ctx) {
   // 3. 202 immediately; generation runs in the background. The lock is held
   //    by this request, so the job is told not to re-claim it (but still to
   //    release it in its finally block on completion).
-  const gen = generateCatalogBackground(env.SITE_DATA, catalogKey, env, styleKey, seed, uid, true);
+  const gen = generateCatalogBackground(env.SITE_DATA, catalogKey, env, seed, uid, true);
   if (typeof ctx?.waitUntil === "function") {
     ctx.waitUntil(gen);
   } else {
@@ -1356,7 +1317,7 @@ async function handleCatalog(request, env, ctx) {
     );
   }
   console.log(
-    `[content-api] catalog ${catalogKey} generation started (style=${styleKey || "classic"}, seed=${seed || "n/a"}, uid=${uid || "n/a"})`
+    `[content-api] catalog ${catalogKey} generation started (seed=${seed || "n/a"}, uid=${uid || "n/a"})`
   );
   return createJSONResponse({ status: "generating" }, 202, {
     "Retry-After": String(CATALOG_RETRY_AFTER_S),

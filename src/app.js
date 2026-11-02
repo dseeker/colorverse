@@ -189,16 +189,15 @@ const hashedUid = getOrCreateUserId();
 // worker generates a fresh catalog (202 + Retry-After). Resolves with the
 // parsed catalog (same site-data.json shape) or null when the worker is
 // unreachable / exhausted, so callers can fall back to the legacy path.
-async function fetchWorkerCatalog(styleKey = "", seed = "") {
+// --- fetchWorkerCatalog start ---
+async function fetchWorkerCatalog(seed = "") {
   if (!WORKER_CONTENT_API_URL) {
     console.warn(
       "[WorkerMode] WORKER_IMAGE_MODE is on but CONTENT_API_URL is empty — falling back to legacy data route"
     );
     return null;
   }
-  const url = `${WORKER_CONTENT_API_URL}/catalog?style=${encodeURIComponent(
-    styleKey
-  )}&seed=${encodeURIComponent(seed)}`;
+  const url = `${WORKER_CONTENT_API_URL}/catalog?seed=${encodeURIComponent(seed)}`;
   const headers = { "X-ColorVerse-UID": hashedUid };
 
   let rateLimitRetries = 0;
@@ -271,6 +270,7 @@ async function fetchWorkerCatalog(styleKey = "", seed = "") {
   }
   return null;
 }
+// --- fetchWorkerCatalog end ---
 
 /**
  * Generates consistent seed for items WITH category context
@@ -2893,7 +2893,7 @@ function renderItem(itemData, categoryKey, itemKey) {
             <!-- Controls & Info Area -->
             <div class="lg:w-1/4 flex flex-col gap-4 actions-panel">
                 <h2 class="text-xl font-semibold pb-2 border-b" style="color: var(--text-color); border-color: var(--border-color);" id="item-actions-heading">${window.t("item.actions") || "Actions"}</h2>
-                <a href="${imageUrl}" download="${categoryKey}-${itemKey}-${downloadSlug}.jpg"
+                <a href="${imageUrl}" download="${categoryKey}-${itemKey}-${escapeHtml(currentColoringStyle || "classic")}-${downloadSlug}.jpg"
                    aria-label="Download image of ${escTitle}"
                    onclick="if (window.analytics &amp;&amp; window.analytics.track) { window.analytics.track('download'); }"
                    class="block w-full text-center bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition duration-300">
@@ -4709,7 +4709,7 @@ async function generateSiteData() {
   // the legacy DATA_URL route on 503 / network error / empty CONTENT_API_URL.
   if (WORKER_IMAGE_MODE) {
     debug.log("[WorkerMode] Loading catalog from content-api /catalog route...");
-    const catalogData = await fetchWorkerCatalog(currentColoringStyle, "");
+    const catalogData = await fetchWorkerCatalog("");
     if (catalogData) {
       siteData = catalogData;
       staticImageMap = buildStaticImageMap(catalogData);

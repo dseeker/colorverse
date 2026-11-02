@@ -296,43 +296,32 @@ describe("GET /catalog", () => {
     expect(new Set(readKeys)).toEqual(new Set(["catalog:default"]));
   });
 
-  it("5. Different style/seed produces a different catalog key", async () => {
-    const fetchCount1 = () => fetchMock.mock.calls.length;
-
-    // style=bold-simple&seed=1 → hashed key
-    const res1 = await worker.fetch(makeRequest("/catalog?style=bold-simple&seed=1"), env, ctx);
-    const res2 = await worker.fetch(makeRequest("/catalog?style=intricate&seed=2"), env, ctx);
-    const res3 = await worker.fetch(makeRequest("/catalog"), env, ctx);
+  it("5. Catalog key depends on seed only; style never changes catalog content", async () => {
+    // Style is client-side presentation: same seed → same catalog, any style.
+    const res1 = await worker.fetch(makeRequest("/catalog?style=kawaii&seed=1"), env, ctx);
+    const res2 = await worker.fetch(makeRequest("/catalog?style=geometric&seed=1"), env, ctx);
+    const res3 = await worker.fetch(makeRequest("/catalog?style=kawaii&seed=2"), env, ctx);
 
     expect(res1.status).toBe(202);
     expect(res2.status).toBe(202);
     expect(res3.status).toBe(202);
 
-    const key1 = `catalog:${stringToHash("bold-simple|1")}`;
-    const key2 = `catalog:${stringToHash("intricate|2")}`;
-    const key3 = "catalog:default";
-    expect(key1).not.toBe(key2);
+    const key1 = `catalog:${stringToHash("1")}`;
+    const key3 = `catalog:${stringToHash("2")}`;
     expect(key1).not.toBe(key3);
-    expect(key2).not.toBe(key3);
 
-    // Each param-set gets its own generation job (3 waitUntil calls) and its
-    // own lock key is held while generation runs.
-    expect(ctx.waitUntil).toHaveBeenCalledTimes(3);
+    // Same seed under two styles reuses one generation job: 2 jobs total.
+    expect(ctx.waitUntil).toHaveBeenCalledTimes(2);
     expect(await kv.get(`catalog:generating:${key1}`)).toBe("1");
-    expect(await kv.get(`catalog:generating:${key2}`)).toBe("1");
     expect(await kv.get(`catalog:generating:${key3}`)).toBe("1");
-    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(fetchCount1());
 
-    // A known style bakes its prompt suffix into the LLM SYSTEM message so
-    // generated descriptions are tuned to that style. Three background jobs
-    // interleave, so scan all calls: the styled jobs must carry STYLE
-    // OVERRIDE with their style's suffix; the default job must not.
+    // No LLM system message may carry a style override.
     const systemMessages = fetchMock.mock.calls.map(
       call => JSON.parse(call[1].body).messages[0].content
     );
-    expect(systemMessages.some(msg => msg.includes("bold thick outlines"))).toBe(true);
-    expect(systemMessages.some(msg => msg.includes("highly detailed line art"))).toBe(true);
-    expect(systemMessages.some(msg => !msg.includes("STYLE OVERRIDE"))).toBe(true);
+    expect(systemMessages.length).toBeGreaterThan(0);
+    expect(systemMessages.every(msg => !msg.includes("STYLE OVERRIDE"))).toBe(true);
+    expect(systemMessages.every(msg => !msg.includes("bold thick outlines"))).toBe(true);
   });
 
   it("6. Generation lock: second concurrent request gets 202 without triggering generation", async () => {
@@ -574,7 +563,6 @@ describe("GET /catalog", () => {
       remainingKeys: CATEGORY_KEYS.slice(5), // 20 remaining
       seasonalDone: false,
       startedAt: Date.now() - 60_000,
-      styleKey: "",
       seed: "",
     };
     await kv.put("catalog:partial:catalog:default", JSON.stringify(preSeeded), {
@@ -609,7 +597,6 @@ describe("GET /catalog", () => {
       remainingKeys: [...CATEGORY_KEYS],
       seasonalDone: false,
       startedAt: Date.now() - 660_000, // 11 minutes ago
-      styleKey: "",
       seed: "",
     };
     await kv.put("catalog:partial:catalog:default", JSON.stringify(stalePartial), {
