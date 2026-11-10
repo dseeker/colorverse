@@ -9,7 +9,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     # Skip if the required secret isn't configured — the deploy will fail anyway,
     # and failing loudly here would block CI on every worker-code push until fixed.
     if: ${{ github.actor != 'dependabot[bot]' }}
