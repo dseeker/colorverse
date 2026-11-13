@@ -18,7 +18,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run test:run
-      - run: npx playwright install --with-deps chromium webkit
+      - run: npx playwright install chromium webkit
       - run: npm run test:e2e
       - run: npm run build:package -- --data-file tests/build/fixtures/site-data.json
       - run: npm run test:e2e:dist
